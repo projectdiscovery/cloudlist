@@ -161,6 +161,13 @@ example.com
 6.6.6.6
 [INF] Found 2 hosts and 6 IPs from AWS service (prod)
 ```
+## Running cloudlist with Nuclei
+
+Scanning assets from various cloud providers with nuclei for security assessments:- 
+
+```bash
+▶ cloudlist -silent | httpx -silent | nuclei -t cves/
+```
 
 # Supported providers
 
