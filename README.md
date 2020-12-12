@@ -15,7 +15,6 @@ Cloudlist is a multi-cloud tool for getting Assets (Hostnames, IP Addresses) fro
 
 # Resources
 
-- [Resources](#resources)
 - [Features](#features)
 - [Usage](#usage)
 - [Installation Instructions](#installation-instructions)
@@ -27,6 +26,8 @@ Cloudlist is a multi-cloud tool for getting Assets (Hostnames, IP Addresses) fro
 - [Supported providers](#supported-providers)
 - [Todo](#todo)
 - [Cloudlist as a library](#cloudlist-as-a-library)
+- [Acknowledgments](#acknowledgments)
+- [License](#license)
 
 # Features
 
@@ -221,4 +222,13 @@ func main() {
 }
 ```
 
-cloudlist is made with 🖤 by the [projectdiscovery](https://projectdiscovery.io) team.
+## Acknowledgments
+
+Thank you for inspiration
+
+* [Smogcloud](https://github.com/BishopFox/smogcloud)
+* [Cloudmapper](https://github.com/duo-labs/cloudmapper)
+
+## License
+
+cloudlist is made with 🖤 by the [projectdiscovery](https://projectdiscovery.io) team and licensed under [MIT](https://github.com/projectdiscovery/proxify/blob/master/LICENSE.MD)
