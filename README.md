@@ -56,7 +56,7 @@ This will display help for the tool. Here are all the switches it supports.
 | provider | List assets of given providers | cloudlist -provider aws     |
 | host     | List hosts only                | cloudlist -host             |
 | ip       | List Ips only                  | cloudlist -ip               |
-| json     | List output in the JOSN format | cloudlist -json             |
+| json     | List output in the JSON format | cloudlist -json             |
 | output   | Store the output in file       | cloudlist -output           |
 | silent   | Display results only           | cloudlist -silent           |
 | version  | Display current version        | cloudlist -version          |
