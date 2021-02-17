@@ -10,8 +10,8 @@ assignees: ''
 **Describe the bug**
 A clear and concise description of what the bug is.
 
-**Nuclei version**
-Please share the version of the nuclei you are running with `dnsx -version` 
+**Cloudlist version**
+Please share the version of the cloudlist you are running with `cloudlist -version` 
 
 
 **Screenshot of the error or bug**

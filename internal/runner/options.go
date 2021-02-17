@@ -11,6 +11,7 @@ import (
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/gologger/levels"
 	"gopkg.in/yaml.v2"
 )
 
@@ -48,7 +49,7 @@ func ParseOptions() *Options {
 	showBanner()
 
 	if options.Version {
-		gologger.Infof("Current Version: %s\n", Version)
+		gologger.Info().Msgf("Current Version: %s\n", Version)
 		os.Exit(0)
 	}
 	checkAndCreateConfigFile(options)
@@ -59,10 +60,10 @@ func ParseOptions() *Options {
 func (options *Options) configureOutput() {
 	// If the user desires verbose output, show verbose output
 	if options.Verbose {
-		gologger.MaxLevel = gologger.Verbose
+		gologger.DefaultLogger.SetMaxLevel(levels.LevelVerbose)
 	}
 	if options.Silent {
-		gologger.MaxLevel = gologger.Silent
+		gologger.DefaultLogger.SetMaxLevel(levels.LevelSilent)
 	}
 }
 
@@ -91,7 +92,7 @@ func checkAndCreateConfigFile(options *Options) {
 		os.MkdirAll(path.Dir(options.Config), os.ModePerm)
 		if _, err := os.Stat(defaultConfigLocation); os.IsNotExist(err) {
 			if writeErr := ioutil.WriteFile(defaultConfigLocation, []byte(defaultConfigFile), os.ModePerm); writeErr != nil {
-				gologger.Warningf("Could not write default output to %s: %s\n", defaultConfigLocation, writeErr)
+				gologger.Warning().Msgf("Could not write default output to %s: %s\n", defaultConfigLocation, writeErr)
 			}
 		}
 	}
@@ -100,7 +101,7 @@ func checkAndCreateConfigFile(options *Options) {
 func userHomeDir() string {
 	usr, err := user.Current()
 	if err != nil {
-		gologger.Fatalf("Could not get user home directory: %s\n", err)
+		gologger.Fatal().Msgf("Could not get user home directory: %s\n", err)
 	}
 	return usr.HomeDir
 }
