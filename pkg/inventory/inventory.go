@@ -28,7 +28,7 @@ func New(options schema.Options) (*Inventory, error) {
 		profile, _ := block.GetMetadata("profile")
 		provider, err := nameToProvider(value, block)
 		if err != nil {
-			gologger.Warningf("Could not initialize provider %s %s: %s\n", value, profile, err)
+			gologger.Warning().Msgf("Could not initialize provider %s %s: %s\n", value, profile, err)
 			continue
 		}
 		inventory.Providers = append(inventory.Providers, provider)

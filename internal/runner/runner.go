@@ -42,7 +42,7 @@ func (r *Runner) Enumerate() {
 		// Validate and only pass the correct items to input
 		if r.options.Provider != "" {
 			if item["provider"] != r.options.Provider {
-				gologger.Verbosef("Skipping provider %s due to command line\n", "WRN", item["provider"])
+				gologger.Verbose().Msgf("Skipping provider %s due to command line\n", "WRN", item["provider"])
 				continue
 			} else {
 				finalConfig = append(finalConfig, item)
@@ -54,14 +54,14 @@ func (r *Runner) Enumerate() {
 
 	inventory, err := inventory.New(finalConfig)
 	if err != nil {
-		gologger.Fatalf("Could not create inventory: %s\n", err)
+		gologger.Fatal().Msgf("Could not create inventory: %s\n", err)
 	}
 
 	var output *os.File
 	if r.options.Output != "" {
 		outputFile, err := os.Create(r.options.Output)
 		if err != nil {
-			gologger.Fatalf("Could not create output file %s: %s\n", r.options.Output, err)
+			gologger.Fatal().Msgf("Could not create output file %s: %s\n", r.options.Output, err)
 		}
 		output = outputFile
 	}
@@ -74,10 +74,10 @@ func (r *Runner) Enumerate() {
 			}
 		}
 
-		gologger.Infof("Listing assets from %s (%s) provider\n", provider.Name(), provider.ProfileName())
+		gologger.Info().Msgf("Listing assets from %s (%s) provider\n", provider.Name(), provider.ProfileName())
 		instances, err := provider.Resources(context.Background())
 		if err != nil {
-			gologger.Warningf("Could not get resources for provider %s %s: %s\n", provider.Name(), provider.ProfileName(), err)
+			gologger.Warning().Msgf("Could not get resources for provider %s %s: %s\n", provider.Name(), provider.ProfileName(), err)
 			continue
 		}
 		var hostsCount, ipCount int
@@ -87,7 +87,7 @@ func (r *Runner) Enumerate() {
 			if r.options.JSON {
 				data, err := jsoniter.Marshal(instance)
 				if err != nil {
-					gologger.Verbosef("Could not marshal json: %s\n", "ERR", err)
+					gologger.Verbose().Msgf("Could not marshal json: %s\n", "ERR", err)
 				} else {
 					builder.Write(data)
 					builder.WriteString("\n")
@@ -102,7 +102,7 @@ func (r *Runner) Enumerate() {
 					if instance.PublicIPv4 != "" {
 						ipCount++
 					}
-					gologger.Silentf("%s", builder.String())
+					gologger.Silent().Msgf("%s", builder.String())
 					builder.Reset()
 				}
 				continue
@@ -115,7 +115,7 @@ func (r *Runner) Enumerate() {
 					builder.WriteRune('\n')
 					output.WriteString(builder.String())
 					builder.Reset()
-					gologger.Silentf("%s", instance.DNSName)
+					gologger.Silent().Msgf("%s", instance.DNSName)
 				}
 				continue
 			}
@@ -126,7 +126,7 @@ func (r *Runner) Enumerate() {
 					builder.WriteRune('\n')
 					output.WriteString(builder.String())
 					builder.Reset()
-					gologger.Silentf("%s", instance.PublicIPv4)
+					gologger.Silent().Msgf("%s", instance.PublicIPv4)
 				}
 				if instance.PrivateIpv4 != "" {
 					ipCount++
@@ -134,7 +134,7 @@ func (r *Runner) Enumerate() {
 					builder.WriteRune('\n')
 					output.WriteString(builder.String())
 					builder.Reset()
-					gologger.Silentf("%s", instance.PrivateIpv4)
+					gologger.Silent().Msgf("%s", instance.PrivateIpv4)
 				}
 				continue
 			}
@@ -145,7 +145,7 @@ func (r *Runner) Enumerate() {
 				builder.WriteRune('\n')
 				output.WriteString(builder.String())
 				builder.Reset()
-				gologger.Silentf("%s", instance.DNSName)
+				gologger.Silent().Msgf("%s", instance.DNSName)
 			}
 			if instance.PublicIPv4 != "" {
 				ipCount++
@@ -153,7 +153,7 @@ func (r *Runner) Enumerate() {
 				builder.WriteRune('\n')
 				output.WriteString(builder.String())
 				builder.Reset()
-				gologger.Silentf("%s", instance.PublicIPv4)
+				gologger.Silent().Msgf("%s", instance.PublicIPv4)
 			}
 			if instance.PrivateIpv4 != "" {
 				ipCount++
@@ -161,7 +161,7 @@ func (r *Runner) Enumerate() {
 				builder.WriteRune('\n')
 				output.WriteString(builder.String())
 				builder.Reset()
-				gologger.Silentf("%s", instance.PrivateIpv4)
+				gologger.Silent().Msgf("%s", instance.PrivateIpv4)
 			}
 		}
 		logBuilder := &strings.Builder{}
@@ -177,9 +177,9 @@ func (r *Runner) Enumerate() {
 			logBuilder.WriteString(" IP Addresses")
 		}
 		if hostsCount == 0 && ipCount == 0 {
-			gologger.Warningf("No results found for %s (%s)\n", provider.Name(), provider.ProfileName())
+			gologger.Warning().Msgf("No results found for %s (%s)\n", provider.Name(), provider.ProfileName())
 		} else {
-			gologger.Infof("Found %s for %s (%s)\n", logBuilder.String(), provider.Name(), provider.ProfileName())
+			gologger.Info().Msgf("Found %s for %s (%s)\n", logBuilder.String(), provider.Name(), provider.ProfileName())
 		}
 	}
 }
