@@ -4,30 +4,29 @@
 </h1>
 
 
-[![License](https://img.shields.io/badge/license-MIT-_red.svg)](https://opensource.org/licenses/MIT)
-[![Go Report Card](https://goreportcard.com/badge/github.com/projectdiscovery/cloudlist)](https://goreportcard.com/report/github.com/projectdiscovery/cloudlist)
-[![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/projectdiscovery/cloudlist/issues)
-[![GitHub Release](https://img.shields.io/github/release/projectdiscovery/cloudlist)](https://github.com/projectdiscovery/cloudlist/releases)
-[![Follow on Twitter](https://img.shields.io/twitter/follow/pdiscoveryio.svg?logo=twitter)](https://twitter.com/pdiscoveryio)
-[![Chat on Discord](https://img.shields.io/discord/695645237418131507.svg?logo=discord)](https://discord.gg/KECAGdH)
+<p align="center">
+<a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-_red.svg"></a>
+<a href="https://github.com/projectdiscovery/cloudlist/issues"><img src="https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat"></a>
+<a href="https://goreportcard.com/badge/github.com/projectdiscovery/cloudlist"><img src="https://goreportcard.com/badge/github.com/projectdiscovery/cloudlist"></a>
+<a href="https://github.com/projectdiscovery/cloudlist/releases"><img src="https://img.shields.io/github/release/projectdiscovery/cloudlist"></a>
+<a href="https://twitter.com/pdiscoveryio"><img src="https://img.shields.io/twitter/follow/pdiscoveryio.svg?logo=twitter"></a>
+<a href="https://discord.gg/projectdiscovery"><img src="https://img.shields.io/discord/695645237418131507.svg?logo=discord"></a>
+</p>
+
+<p align="center">
+  <a href="#features">Features</a> •
+  <a href="#installation-instructions">Installation</a> •
+  <a href="#usage">Usage</a> •
+  <a href="#configuration-file">Configuration</a> •
+  <a href="#running-cloudlist">Running cloudlist</a> •
+  <a href="#supported-providers">Supported providers</a> •
+  <a href="#cloudlist-as-a-library">Library</a> •
+  <a href="https://discord.gg/projectdiscovery">Join Discord</a>
+</p>
+
 
 Cloudlist is a multi-cloud tool for getting Assets (Hostnames, IP Addresses) from Cloud Providers. This is intended to be used by the blue team to augment Attack Surface Management efforts by maintaining a centralized list of assets across multiple clouds with very little configuration efforts.
 
-# Resources
-
-- [Features](#features)
-- [Usage](#usage)
-- [Installation Instructions](#installation-instructions)
-    - [From Source](#from-source)
-    - [From Source](#from-source-1)
-    - [From Github](#from-github)
-- [Configuration file](#configuration-file)
-- [Running cloudlist](#running-cloudlist)
-- [Supported providers](#supported-providers)
-- [Todo](#todo)
-- [Cloudlist as a library](#cloudlist-as-a-library)
-- [Acknowledgments](#acknowledgments)
-- [License](#license)
 
 # Features
 
@@ -64,31 +63,13 @@ This will display help for the tool. Here are all the switches it supports.
 
 # Installation Instructions
 
-### From Source
 
-The installation is easy. You can download the pre-built binaries for your platform from the [Releases](https://github.com/projectdiscovery/cloudlist/releases/) page. Extract them using tar, move it to your `$PATH`and you're ready to go.
-
-```sh
-Download latest binary from https://github.com/projectdiscovery/cloudlist/releases
-
-▶ tar -xvf cloudlist-linux-amd64.tar
-▶ mv cloudlist-linux-amd64 /usr/local/bin/cloudlist
-▶ cloudlist -h
-```
-
-### From Source
-
-**cloudlist** requires **go1.14+** to install successfully. Run the following command to get the repo - 
+Download the ready to use binary from [release page](https://github.com/projectdiscovery/cloudlist/releases/) or install/build using Go
 
 ```sh
-▶ GO111MODULE=on go get -v github.com/projectdiscovery/cloudlist/cmd/cloudlist
+GO111MODULE=on go get -v github.com/projectdiscovery/cloudlist/cmd/cloudlist
 ```
 
-### From Github
-
-```sh
-▶ git clone https://github.com/projectdiscovery/cloudlist.git; cd cloudlist/cmd/cloudlist; go build; cp cloudlist /usr/local/bin/; cloudlist -version
-```
 
 # Configuration file
 
@@ -181,7 +162,17 @@ Scanning assets from various cloud providers with nuclei for security assessment
 - SCW (Scaleway)
   - Instances
 
-To see how to configure providers, check [PROVIDERS.md](https://github.com/projectdiscovery/cloudlist/blob/main/PROVIDERS.md).
+# Contribution
+
+Please check [PROVIDERS.md](https://github.com/projectdiscovery/cloudlist/blob/main/PROVIDERS.md) and [DESIGN.md](https://github.com/projectdiscovery/cloudlist/blob/main/DESIGN.md) to include support for new cloud providers in Cloudlist.
+
+
+- Fork this project
+- Create your feature branch (`git checkout -b new-provider`)
+- Commit your changes (`git commit -am 'Added new cloud provider'`)
+- Push to the branch (`git push origin new-provider`)
+- Create new Pull Request
+
 
 # Todo
 
@@ -195,30 +186,30 @@ It's possible to use the library directly in your go programs. The following cod
 package main
 
 import (
-	"context"
-	"log"
+  "context"
+  "log"
 
-	"github.com/projectdiscovery/cloudlist/pkg/inventory"
-	"github.com/projectdiscovery/cloudlist/pkg/schema"
+  "github.com/projectdiscovery/cloudlist/pkg/inventory"
+  "github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
 func main() {
-	inventory, err := inventory.New(schema.Options{
-		schema.OptionBlock{"provider": "digitalocean", "digitalocean_token": "ec405badb974fd3d891c9223245f9ab5871c127fce9e632c8dc421edd46d7242"},
-	})
-	if err != nil {
-		log.Fatalf("%s\n", err)
-	}
+  inventory, err := inventory.New(schema.Options{
+    schema.OptionBlock{"provider": "digitalocean", "digitalocean_token": "ec405badb974fd3d891c9223245f9ab5871c127fce9e632c8dc421edd46d7242"},
+  })
+  if err != nil {
+    log.Fatalf("%s\n", err)
+  }
 
-	for _, provider := range inventory.Providers {
-		resources, err := provider.Resources(context.Background())
-		if err != nil {
-			log.Fatalf("%s\n", err)
-		}
-		for _, resource := range resources.Items {
-			_ = resource // Do something with the resource
-		}
-	}
+  for _, provider := range inventory.Providers {
+    resources, err := provider.Resources(context.Background())
+    if err != nil {
+      log.Fatalf("%s\n", err)
+    }
+    for _, resource := range resources.Items {
+      _ = resource // Do something with the resource
+    }
+  }
 }
 ```
 
