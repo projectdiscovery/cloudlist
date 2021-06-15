@@ -89,8 +89,11 @@ func readConfig(configFile string) (schema.Options, error) {
 // if not creates a default.
 func checkAndCreateConfigFile(options *Options) {
 	if options.Config == defaultConfigLocation {
-		os.MkdirAll(path.Dir(options.Config), os.ModePerm)
-		if _, err := os.Stat(defaultConfigLocation); os.IsNotExist(err) {
+		err := os.MkdirAll(path.Dir(options.Config), os.ModePerm)
+		if err != nil {
+			gologger.Warning().Msgf("Could not create default config file: %s\n", err)
+		}
+		if _, err = os.Stat(defaultConfigLocation); os.IsNotExist(err) {
 			if writeErr := ioutil.WriteFile(defaultConfigLocation, []byte(defaultConfigFile), os.ModePerm); writeErr != nil {
 				gologger.Warning().Msgf("Could not write default output to %s: %s\n", defaultConfigLocation, writeErr)
 			}
