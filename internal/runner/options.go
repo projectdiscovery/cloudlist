@@ -128,4 +128,17 @@ const defaultConfigFile = `# Configuration file for cloudlist enumeration agent
 #  # aws_access_key is the access key for AWS account
 #  aws_access_key: AKIAXXXXXXXXXXXXXX
 #  # aws_secret_key is the secret key for AWS account
-#  aws_secret_key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+#  aws_secret_key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+#- # provider is the name of the provider
+#  provider: azure
+#  # profile is the name of the provider profile
+#  profile: staging
+#  # client_id is the client ID of registered application of the azure account
+#  client_id: xxxxxxxxxxxxxxxxxxxxxxxxx
+#  # client_secret is the secret ID of registered application of the zure account
+#  client_secret: xxxxxxxxxxxxxxxxxxxxx
+#  # tenant_id is the tenant ID of registered application of the azure account
+#  tenant_id: xxxxxxxxxxxxxxxxxxxxxxxxx
+#  #subscription_id is the azure subscription id
+#  subscription_id: xxxxxxxxxxxxxxxxxxx`
