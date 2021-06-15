@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go v1.37.13
 	github.com/digitalocean/godo v1.58.0
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
+	github.com/heroku/heroku-go/v5 v5.3.0
 	github.com/json-iterator/go v1.1.10
 	github.com/kr/text v0.2.0 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
