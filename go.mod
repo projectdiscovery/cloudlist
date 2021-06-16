@@ -5,6 +5,7 @@ go 1.14
 require (
 	cloud.google.com/go v0.84.0 // indirect
 	github.com/aws/aws-sdk-go v1.38.62
+	github.com/cloudflare/cloudflare-go v0.17.0
 	github.com/digitalocean/godo v1.62.0
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect

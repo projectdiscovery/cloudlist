@@ -82,3 +82,21 @@ Scaleway can be integrated by using the following configuration block.
 References - 
 1. https://www.scaleway.com/en/docs/generate-api-keys/
    
+### Cloudflare 
+
+Cloudflare can be integrated by using the following configuration block.
+
+```yaml
+- # provider is the name of the provider
+  provider: cloudflare
+  # email is the email for cloudflare
+  email: user@domain.com
+  # api_key is the api_key for cloudflare
+  api_key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+`api_key` can be generated from Cloudflare API Key manager. It needs to be Global API Key due to limitation of cloudflare new API tokens.
+
+References - 
+1. https://developers.cloudflare.com/api/keys
+   
