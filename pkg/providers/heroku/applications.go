@@ -2,8 +2,6 @@ package heroku
 
 import (
 	"context"
-	"encoding/json"
-	"os"
 
 	heroku "github.com/heroku/heroku-go/v5"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
@@ -15,7 +13,7 @@ type instanceProvider struct {
 	client  *heroku.Service
 }
 
-// GetInstances returns all the instances in the store for a provider.
+// GetResource returns all the applications for the Heroku provider.
 func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := &schema.Resources{}
 
@@ -23,9 +21,22 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 	if err != nil {
 		return nil, err
 	}
-	en := json.NewEncoder(os.Stdout)
-	en.SetIndent(" ", " ")
-	en.Encode(apps)
+
+	var isPlublic bool
+
+	for _, app := range apps {
+		isPlublic = true
+		if app.InternalRouting != nil {
+			isPlublic = !(*app.InternalRouting)
+		}
+
+		list.Append(&schema.Resource{
+			DNSName:  app.WebURL,
+			Public:   isPlublic,
+			Profile:  d.profile,
+			Provider: providerName,
+		})
+	}
 
 	return list, nil
 }
