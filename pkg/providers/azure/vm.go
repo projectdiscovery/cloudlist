@@ -11,7 +11,7 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
-// vmProvider is an instance provider for aws API
+// vmProvider is an instance provider for Azure API
 type vmProvider struct {
 	profile        string
 	SubscriptionID string

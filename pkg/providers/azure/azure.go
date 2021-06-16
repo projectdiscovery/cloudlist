@@ -8,14 +8,23 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
-// Provider is a data provider for scaleway API
+const (
+	tenantID       = `tenant_id`
+	clientID       = `client_id`
+	clientSecret   = `client_secret`
+	subscriptionID = `subscription_id`
+
+	providerName = "azure"
+)
+
+// Provider is a data provider for Azure API
 type Provider struct {
 	profile        string
 	SubscriptionID string
 	Authorizer     autorest.Authorizer
 }
 
-// New creates a new provider client for scaleway API
+// New creates a new provider client for Azure API
 func New(options schema.OptionBlock) (*Provider, error) {
 	clientID, ok := options.GetMetadata(clientID)
 	if !ok {
@@ -46,8 +55,6 @@ func New(options schema.OptionBlock) (*Provider, error) {
 
 }
 
-const providerName = "azure"
-
 // Name returns the name of the provider
 func (p *Provider) Name() string {
 	return providerName
@@ -57,11 +64,6 @@ func (p *Provider) Name() string {
 func (p *Provider) ProfileName() string {
 	return p.profile
 }
-
-const tenantID = `tenant_id`
-const clientID = `client_id`
-const clientSecret = `client_secret`
-const subscriptionID = `subscription_id`
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
