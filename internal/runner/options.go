@@ -128,4 +128,11 @@ const defaultConfigFile = `# Configuration file for cloudlist enumeration agent
 #  # aws_access_key is the access key for AWS account
 #  aws_access_key: AKIAXXXXXXXXXXXXXX
 #  # aws_secret_key is the secret key for AWS account
-#  aws_secret_key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+#  aws_secret_key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+#- # provider is the name of the provider
+#  provider: linode
+#  # profile is the name of the provider profile
+#  profile: staging
+#  # linode_personal_access_token is the personal access token for linode account
+#  linode_personal_access_token: XXXXXXXXXXXXXXXXXXXXXXXX`
