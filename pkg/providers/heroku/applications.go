@@ -17,22 +17,22 @@ type instanceProvider struct {
 func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := &schema.Resources{}
 
-	apps, err := d.client.AppList(context.TODO(), &heroku.ListRange{Field: "name"})
+	apps, err := d.client.AppList(ctx, &heroku.ListRange{Field: "id", Max: 1000})
 	if err != nil {
 		return nil, err
 	}
 
-	var isPlublic bool
+	var isPublic bool
 
 	for _, app := range apps {
-		isPlublic = true
+		isPublic = true
 		if app.InternalRouting != nil {
-			isPlublic = !(*app.InternalRouting)
+			isPublic = !(*app.InternalRouting)
 		}
 
 		list.Append(&schema.Resource{
 			DNSName:  app.WebURL,
-			Public:   isPlublic,
+			Public:   isPublic,
 			Profile:  d.profile,
 			Provider: providerName,
 		})
