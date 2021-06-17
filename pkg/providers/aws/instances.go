@@ -21,7 +21,7 @@ type instanceProvider struct {
 
 // GetResource returns all the resources in the store for a provider.
 func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
-	list := &schema.Resources{}
+	list := schema.NewResources()
 
 	for _, region := range d.regions.Regions {
 		req := &ec2.DescribeInstancesInput{
@@ -45,12 +45,21 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 			for _, reservation := range resp.Reservations {
 				for _, instance := range reservation.Instances {
 					ip4 := aws.StringValue(instance.PublicIpAddress)
+					privateIp4 := aws.StringValue(instance.PrivateIpAddress)
+
+					if privateIp4 != "" {
+						list.Append(&schema.Resource{
+							Profile:     d.profile,
+							Provider:    providerName,
+							PrivateIpv4: privateIp4,
+							Public:      false,
+						})
+					}
 					list.Append(&schema.Resource{
-						Profile:     d.profile,
-						Provider:    providerName,
-						PublicIPv4:  ip4,
-						PrivateIpv4: aws.StringValue(instance.PrivateIpAddress),
-						Public:      ip4 != "",
+						Profile:    d.profile,
+						Provider:   providerName,
+						PublicIPv4: ip4,
+						Public:     true,
 					})
 				}
 			}

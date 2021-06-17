@@ -78,7 +78,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	if err != nil {
 		return nil, err
 	}
-	finalList := &schema.Resources{Items: make([]*schema.Resource, 0, len(list.Items)+len(zones.Items))}
+	finalList := schema.NewResources()
 	finalList.Merge(list)
 	finalList.Merge(zones)
 	return finalList, nil

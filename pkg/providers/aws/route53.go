@@ -20,7 +20,7 @@ type route53Provider struct {
 
 // GetResource returns all the resources in the store for a provider.
 func (d *route53Provider) GetResource(ctx context.Context) (*schema.Resources, error) {
-	list := &schema.Resources{}
+	list := schema.NewResources()
 
 	req := &route53.ListHostedZonesInput{}
 	for {
@@ -46,7 +46,7 @@ func (d *route53Provider) GetResource(ctx context.Context) (*schema.Resources, e
 // listResourceRecords lists the resource records for a hosted route53 zone.
 func (d *route53Provider) listResourceRecords(zone string) (*schema.Resources, error) {
 	req := &route53.ListResourceRecordSetsInput{HostedZoneId: aws.String(zone)}
-	list := &schema.Resources{}
+	list := schema.NewResources()
 
 	for {
 		sets, err := d.route53.ListResourceRecordSets(req)
@@ -54,7 +54,7 @@ func (d *route53Provider) listResourceRecords(zone string) (*schema.Resources, e
 			return nil, errors.Wrap(err, "could not list resource_record set")
 		}
 		for _, item := range sets.ResourceRecordSets {
-			if *item.Type != "A" {
+			if *item.Type != "A" && *item.Type != "CNAME" && *item.Type != "AAAA" {
 				continue
 			}
 			name := strings.TrimSuffix(*item.Name, ".")
@@ -64,8 +64,13 @@ func (d *route53Provider) listResourceRecords(zone string) (*schema.Resources, e
 				ip4 = aws.StringValue(item.ResourceRecords[0].Value)
 			}
 			list.Append(&schema.Resource{
+				Profile:  d.profile,
+				Public:   true,
+				DNSName:  name,
+				Provider: providerName,
+			})
+			list.Append(&schema.Resource{
 				Profile:    d.profile,
-				DNSName:    name,
 				Public:     true,
 				PublicIPv4: ip4,
 				Provider:   providerName,

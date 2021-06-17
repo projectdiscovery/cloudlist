@@ -17,7 +17,7 @@ type cloudDNSProvider struct {
 
 // GetResource returns all the resources in the store for a provider.
 func (d *cloudDNSProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
-	list := &schema.Resources{}
+	list := schema.NewResources()
 
 	for _, project := range d.projects {
 		zone := d.dns.ManagedZones.List(project)
@@ -46,10 +46,10 @@ func (d *cloudDNSProvider) GetResource(ctx context.Context) (*schema.Resources, 
 
 // parseRecordsForResourceSet parses and returns the records for a resource set
 func (d *cloudDNSProvider) parseRecordsForResourceSet(r *dns.ResourceRecordSetsListResponse) *schema.Resources {
-	list := &schema.Resources{}
+	list := schema.NewResources()
 
 	for _, resource := range r.Rrsets {
-		if resource.Type != "A" {
+		if resource.Type != "A" && resource.Type != "CNAME" && resource.Type != "AAAA" {
 			continue
 		}
 
