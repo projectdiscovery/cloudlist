@@ -37,7 +37,11 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	config.WithRegion("us-east-1")
 	config.WithCredentials(credentials.NewStaticCredentials(accessKey, accessToken, ""))
 
-	session := session.New(config)
+	session, err := session.NewSession(config)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not extablish a session")
+	}
+
 	ec2Client := ec2.New(session)
 	route53Client := route53.New(session)
 
