@@ -37,7 +37,7 @@ func (r *Runner) Enumerate() {
 			continue
 		}
 		if _, ok := item["profile"]; !ok {
-			item["profile"] = "none"
+			item["profile"] = ""
 		}
 		// Validate and only pass the correct items to input
 		if r.options.Provider != "" {
