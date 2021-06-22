@@ -42,7 +42,7 @@ func (r *Runner) Enumerate() {
 		// Validate and only pass the correct items to input
 		if r.options.Provider != "" {
 			if item["provider"] != r.options.Provider {
-				gologger.Verbose().Msgf("Skipping provider %s due to command line\n", "WRN", item["provider"])
+				gologger.Verbose().Msgf("WRN: Skipping provider %s due to command line\n", item["provider"])
 				continue
 			} else {
 				finalConfig = append(finalConfig, item)
@@ -87,12 +87,14 @@ func (r *Runner) Enumerate() {
 			if r.options.JSON {
 				data, err := jsoniter.Marshal(instance)
 				if err != nil {
-					gologger.Verbose().Msgf("Could not marshal json: %s\n", "ERR", err)
+					gologger.Verbose().Msgf("ERR: Could not marshal json: %s\n", err)
 				} else {
 					builder.Write(data)
 					builder.WriteString("\n")
-					output.Write(builder.Bytes())
-
+					_, err := output.Write(builder.Bytes())
+					if err != nil {
+						gologger.Verbose().Msgf("ERR: Could not write to buffer: %s\n", err)
+					}
 					if instance.DNSName != "" {
 						hostsCount++
 					}
@@ -113,7 +115,10 @@ func (r *Runner) Enumerate() {
 					hostsCount++
 					builder.WriteString(instance.DNSName)
 					builder.WriteRune('\n')
-					output.WriteString(builder.String())
+					_, err := output.WriteString(builder.String())
+					if err != nil {
+						gologger.Verbose().Msgf("ERR: Could not write to buffer: %s\n", err)
+					}
 					builder.Reset()
 					gologger.Silent().Msgf("%s", instance.DNSName)
 				}
@@ -124,7 +129,10 @@ func (r *Runner) Enumerate() {
 					ipCount++
 					builder.WriteString(instance.PublicIPv4)
 					builder.WriteRune('\n')
-					output.WriteString(builder.String())
+					_, err := output.WriteString(builder.String())
+					if err != nil {
+						gologger.Verbose().Msgf("ERR: Could not write to buffer: %s\n", err)
+					}
 					builder.Reset()
 					gologger.Silent().Msgf("%s", instance.PublicIPv4)
 				}
@@ -132,7 +140,10 @@ func (r *Runner) Enumerate() {
 					ipCount++
 					builder.WriteString(instance.PrivateIpv4)
 					builder.WriteRune('\n')
-					output.WriteString(builder.String())
+					_, err := output.WriteString(builder.String())
+					if err != nil {
+						gologger.Verbose().Msgf("ERR: Could not write to buffer: %s\n", err)
+					}
 					builder.Reset()
 					gologger.Silent().Msgf("%s", instance.PrivateIpv4)
 				}
@@ -143,7 +154,10 @@ func (r *Runner) Enumerate() {
 				hostsCount++
 				builder.WriteString(instance.DNSName)
 				builder.WriteRune('\n')
-				output.WriteString(builder.String())
+				_, err := output.WriteString(builder.String())
+				if err != nil {
+					gologger.Verbose().Msgf("ERR: Could not write to buffer: %s\n", err)
+				}
 				builder.Reset()
 				gologger.Silent().Msgf("%s", instance.DNSName)
 			}
@@ -151,7 +165,10 @@ func (r *Runner) Enumerate() {
 				ipCount++
 				builder.WriteString(instance.PublicIPv4)
 				builder.WriteRune('\n')
-				output.WriteString(builder.String())
+				_, err := output.WriteString(builder.String())
+				if err != nil {
+					gologger.Verbose().Msgf("ERR: Could not write to buffer: %s\n", err)
+				}
 				builder.Reset()
 				gologger.Silent().Msgf("%s", instance.PublicIPv4)
 			}
@@ -159,7 +176,10 @@ func (r *Runner) Enumerate() {
 				ipCount++
 				builder.WriteString(instance.PrivateIpv4)
 				builder.WriteRune('\n')
-				output.WriteString(builder.String())
+				_, err := output.WriteString(builder.String())
+				if err != nil {
+					gologger.Verbose().Msgf("ERR: Could not write to buffer: %s\n", err)
+				}
 				builder.Reset()
 				gologger.Silent().Msgf("%s", instance.PrivateIpv4)
 			}
