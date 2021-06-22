@@ -15,12 +15,10 @@ type instanceProvider struct {
 
 // GetResource returns all the instance resources for a provider.
 func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
-	opts := &linodego.PageOptions{
-		Page: 200,
-	}
-	opt := &linodego.ListOptions{PageOptions: opts}
 
-	instances, err := d.client.ListInstances(ctx, opt)
+	// Using autop-agination as mentioned by https://github.com/linode/linodego#auto-pagination-requests
+	// We can also use handle pagination manually if needed
+	instances, err := d.client.ListInstances(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -29,15 +27,8 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 
 	for _, inst := range instances {
 
+		// Assuming (and obseved the same) first IP in the list is the public IP
 		ip4 := inst.IPv4[0].String()
-
-		//TODO@sajad: check if whole IPv4 list is to be usd
-
-		// var ipStrList []string
-		// for _, ip := range inst.IPv4 {
-		// 	ipStrList = append(ipStrList, string(*ip))
-		// }
-		// strings.Join(ipStrList, ",")
 
 		list.Append(&schema.Resource{
 			Provider:   providerName,
