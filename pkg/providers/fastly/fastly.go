@@ -2,7 +2,6 @@ package fastly
 
 import (
 	"context"
-	"log"
 
 	"github.com/fastly/go-fastly/v3/fastly"
 	"github.com/pkg/errors"
@@ -30,7 +29,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 
 	client, err := fastly.NewClient(apiKey)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	return &Provider{client: client, profile: profile}, err
 }
