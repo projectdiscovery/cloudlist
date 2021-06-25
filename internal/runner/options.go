@@ -139,4 +139,11 @@ const defaultConfigFile = `# Configuration file for cloudlist enumeration agent
 #  # profile is the name of the provider profile
 #  profile: staging
 #  # linode_personal_access_token is the personal access token for linode account
-#  linode_personal_access_token: XXXXXXXXXXXXXXXXXXXXXXXX`
+#  linode_personal_access_token: XXXXXXXXXXXXXXXXXXXXXXXX
+
+#- # provider is the name of the provider
+#  provider: fastly
+#  # profile is the name of the provider profile
+#  profile: staging
+#  # fastly_api_key is the personal API token for fastly account
+#  fastly_api_key: XX-XXXXXXXXXXXXXXXXXXXXXX-`

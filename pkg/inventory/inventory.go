@@ -5,6 +5,7 @@ import (
 
 	"github.com/projectdiscovery/cloudlist/pkg/providers/aws"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/digitalocean"
+	"github.com/projectdiscovery/cloudlist/pkg/providers/fastly"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/gcp"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/linode"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/scaleway"
@@ -50,6 +51,8 @@ func nameToProvider(value string, block schema.OptionBlock) (schema.Provider, er
 		return scaleway.New(block)
 	case "linode":
 		return linode.New(block)
+	case "fastly":
+		return fastly.New(block)
 	default:
 		return nil, fmt.Errorf("invalid provider name found: %s", value)
 	}
