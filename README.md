@@ -170,6 +170,8 @@ cloudlist -silent | httpx -silent | nuclei -t cves/
   - Instances
 - Fastly
   - Services
+- Linode
+  - Instances
 
 # Contribution
 
