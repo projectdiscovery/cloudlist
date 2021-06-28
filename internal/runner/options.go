@@ -139,4 +139,10 @@ const defaultConfigFile = `# Configuration file for cloudlist enumeration agent
 #  # profile is the name of the provider profile
 #  profile: staging
 #  # heroku_api_token is the api key for Heroku account
-#  heroku_api_token: xxxxxxxxxxxxxxxxxxxx`
+#  heroku_api_token: xxxxxxxxxxxxxxxxxxxx
+
+#  provider: fastly
+#  # profile is the name of the provider profile
+#  profile: staging
+#  # fastly_api_key is the personal API token for fastly account
+#  fastly_api_key: XX-XXXXXXXXXXXXXXXXXXXXXX-`

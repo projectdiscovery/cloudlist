@@ -82,7 +82,6 @@ Scaleway can be integrated by using the following configuration block.
 References - 
 1. https://www.scaleway.com/en/docs/generate-api-keys/
    
-
 ### Heroku
 
 Heroku can be integrated by using the following configuration block.
@@ -113,4 +112,22 @@ Updated at:  Fri Jun 16 2021 13:26:56 GMT-0700 (PDT) (less than a minute ago)
 
 References - 
 1. https://devcenter.heroku.com/articles/platform-api-quickstart#authentication
+
+### Fastly
+
+Fastly can be integrated by using the following configuration block.
+
+```yaml
+- # provider is the name of the provider
+ provider: fastly
+ # profile is the name of the provider profile
+ profile: staging
+ # fastly_api_key is the personal API token for fastly account
+ fastly_api_key: XX-XXXXXXXXXXXXXXXXXXXXXX-
+```
+
+`fastly_api_key` can be generated from https://manage.fastly.com/account/personal/tokens
+
+References - 
+1. https://docs.fastly.com/en/guides/using-api-tokens#creating-api-tokens
    
