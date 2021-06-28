@@ -3,6 +3,7 @@ package inventory
 import (
 	"fmt"
 
+	"github.com/projectdiscovery/cloudlist/pkg/providers/alibaba"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/aws"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/digitalocean"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/fastly"
@@ -50,6 +51,8 @@ func nameToProvider(value string, block schema.OptionBlock) (schema.Provider, er
 		return scaleway.New(block)
 	case "fastly":
 		return fastly.New(block)
+	case "alibaba":
+		return alibaba.New(block)
 	default:
 		return nil, fmt.Errorf("invalid provider name found: %s", value)
 	}

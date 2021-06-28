@@ -1,0 +1,46 @@
+package alibaba
+
+import (
+	"context"
+
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
+	"github.com/projectdiscovery/cloudlist/pkg/schema"
+)
+
+// awsInstanceProvider is an instance provider for alibaba API
+type instanceProvider struct {
+	profile string
+	client  *ecs.Client
+}
+
+// GetResource returns all the resources in the store for a provider.
+func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
+	list := &schema.Resources{}
+
+	request := ecs.CreateDescribeInstancesRequest()
+
+	response, err := d.client.DescribeInstances(request)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, instance := range response.Instances.Instance {
+
+		var ipv4, privateIPv4 string
+		if len(instance.PublicIpAddress.IpAddress) > 0 {
+			ipv4 = instance.PublicIpAddress.IpAddress[0]
+		}
+		if len(instance.NetworkInterfaces.NetworkInterface) > 0 && len(instance.NetworkInterfaces.NetworkInterface[0].PrivateIpSets.PrivateIpSet) > 0 {
+			privateIPv4 = instance.NetworkInterfaces.NetworkInterface[0].PrivateIpSets.PrivateIpSet[0].PrivateIpAddress
+		}
+		list.Append(&schema.Resource{
+			Profile:     d.profile,
+			Provider:    providerName,
+			PublicIPv4:  ipv4,
+			PrivateIpv4: privateIPv4,
+			Public:      ipv4 != "",
+		})
+	}
+
+	return list, nil
+}
