@@ -7,6 +7,7 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/providers/digitalocean"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/fastly"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/gcp"
+	"github.com/projectdiscovery/cloudlist/pkg/providers/linode"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/scaleway"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/projectdiscovery/gologger"
@@ -48,6 +49,8 @@ func nameToProvider(value string, block schema.OptionBlock) (schema.Provider, er
 		return gcp.New(block)
 	case "scw":
 		return scaleway.New(block)
+	case "linode":
+		return linode.New(block)
 	case "fastly":
 		return fastly.New(block)
 	default:
