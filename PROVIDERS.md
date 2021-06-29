@@ -130,4 +130,24 @@ Fastly can be integrated by using the following configuration block.
 
 References - 
 1. https://docs.fastly.com/en/guides/using-api-tokens#creating-api-tokens
+
+
+### Linode
+
+Linode can be integrated by using the following configuration block.
+
+```yaml
+- # provider is the name of the provider
+ provider: linode
+ # profile is the name of the provider profile
+ profile: staging
+ # linode_personal_access_token is the personal access token for Linode account
+ linode_personal_access_token: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+```
+
+`linode_personal_access_token` can be created from https://cloud.linode.com/profile/tokens. Minimum scope needed is `Read Only` for `Linodes` resource.
+
+References - 
+1. https://www.linode.com/docs/guides/getting-started-with-the-linode-api/#get-an-access-token
+   
    
