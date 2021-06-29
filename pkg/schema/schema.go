@@ -35,6 +35,10 @@ func init() {
 	uniqueMap = &sync.Map{}
 }
 
+func (r *Resources) resourceType(resource string) {
+
+}
+
 func (r *Resources) appendResource(resource *Resource) {
 	if _, ok := uniqueMap.Load(resource.DNSName); !ok && resource.DNSName != "" {
 		r.Items = append(r.Items, &Resource{
