@@ -135,6 +135,13 @@ const defaultConfigFile = `# Configuration file for cloudlist enumeration agent
 #  aws_secret_key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 #- # provider is the name of the provider
+#  provider: heroku
+#  # profile is the name of the provider profile
+#  profile: staging
+#  # heroku_api_token is the api key for Heroku account
+#  heroku_api_token: xxxxxxxxxxxxxxxxxxxx
+
+#- # provider is the name of the provider
 #  provider: linode
 #  # profile is the name of the provider profile
 #  profile: staging

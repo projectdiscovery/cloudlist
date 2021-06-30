@@ -10,6 +10,7 @@ require (
 	github.com/fastly/go-fastly/v3 v3.7.0
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/heroku/heroku-go/v5 v5.3.0
 	github.com/json-iterator/go v1.1.11
 	github.com/linode/linodego v1.0.0
 	github.com/pkg/errors v0.9.1
