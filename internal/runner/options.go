@@ -10,6 +10,7 @@ import (
 	"path"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/fileutil"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/levels"
 	"gopkg.in/yaml.v2"
@@ -89,8 +90,11 @@ func readConfig(configFile string) (schema.Options, error) {
 // if not creates a default.
 func checkAndCreateConfigFile(options *Options) {
 	if options.Config == defaultConfigLocation {
-		os.MkdirAll(path.Dir(options.Config), os.ModePerm)
-		if _, err := os.Stat(defaultConfigLocation); os.IsNotExist(err) {
+		err := os.MkdirAll(path.Dir(options.Config), os.ModePerm)
+		if err != nil {
+			gologger.Warning().Msgf("Could not create default config file: %s\n", err)
+		}
+		if !fileutil.FileExists(defaultConfigLocation) {
 			if writeErr := ioutil.WriteFile(defaultConfigLocation, []byte(defaultConfigFile), os.ModePerm); writeErr != nil {
 				gologger.Warning().Msgf("Could not write default output to %s: %s\n", defaultConfigLocation, writeErr)
 			}
@@ -141,4 +145,24 @@ const defaultConfigFile = `# Configuration file for cloudlist enumeration agent
 #  # tenant_id is the tenant ID of registered application of the azure account
 #  tenant_id: xxxxxxxxxxxxxxxxxxxxxxxxx
 #  #subscription_id is the azure subscription id
-#  subscription_id: xxxxxxxxxxxxxxxxxxx`
+#  subscription_id: xxxxxxxxxxxxxxxxxxx
+
+#  provider: heroku
+#  # profile is the name of the provider profile
+#  profile: staging
+#  # heroku_api_token is the api key for Heroku account
+#  heroku_api_token: xxxxxxxxxxxxxxxxxxxx
+
+#- # provider is the name of the provider
+#  provider: linode
+#  # profile is the name of the provider profile
+#  profile: staging
+#  # linode_personal_access_token is the personal access token for linode account
+#  linode_personal_access_token: XXXXXXXXXXXXXXXXXXXXXXXX
+
+#- # provider is the name of the provider
+#  provider: fastly
+#  # profile is the name of the provider profile
+#  profile: staging
+#  # fastly_api_key is the personal API token for fastly account
+#  fastly_api_key: XX-XXXXXXXXXXXXXXXXXXXXXX-`
