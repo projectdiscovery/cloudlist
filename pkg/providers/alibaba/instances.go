@@ -7,7 +7,7 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
-// awsInstanceProvider is an instance provider for alibaba API
+// instanceProvider is an instance provider for alibaba API
 type instanceProvider struct {
 	profile string
 	client  *ecs.Client
