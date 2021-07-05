@@ -6,7 +6,7 @@ import (
 	"github.com/namecheap/go-namecheap-sdk/v2/namecheap"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
-	"github.com/projectdiscovery/naabu/v2/pkg/scan"
+	"github.com/projectdiscovery/iputil"
 )
 
 const (
@@ -34,8 +34,8 @@ func New(options schema.OptionBlock) (*Provider, error) {
 
 	profile, _ := options.GetMetadata("profile")
 
-	//using naabu to fetch users public ip
-	publicIp, err := scan.WhatsMyIP()
+	//using iputil to fetch public ip
+	publicIp, err := iputil.WhatsMyIP()
 	if err != nil {
 		return nil, err
 	}
