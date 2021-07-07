@@ -153,4 +153,13 @@ const defaultConfigFile = `# Configuration file for cloudlist enumeration agent
 #  # profile is the name of the provider profile
 #  profile: staging
 #  # fastly_api_key is the personal API token for fastly account
-#  fastly_api_key: XX-XXXXXXXXXXXXXXXXXXXXXX-`
+#  fastly_api_key: XX-XXXXXXXXXXXXXXXXXXXXXX-
+
+# - # provider is the name of the provider
+#  provider: namecheap
+#  # profile is the name of the provider profile
+#  profile: staging
+#  # namecheap_api_key is the api key for namecheap account
+#  namecheap_api_key: XXXXXXXXXXXXXXXXXXXXXXX
+#  # namecheap_user_name is the username of the namecheap account
+#  namecheap_user_name: XXXXXXX`

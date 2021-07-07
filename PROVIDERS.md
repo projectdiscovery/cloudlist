@@ -149,5 +149,30 @@ Linode can be integrated by using the following configuration block.
 
 References - 
 1. https://www.linode.com/docs/guides/getting-started-with-the-linode-api/#get-an-access-token
-   
+
+
+### Namecheap
+
+Namecheap can be integrated by using the following configuration block.
+
+```yaml
+- # provider is the name of the provider
+  provider: namecheap
+  # profile is the name of the provider profile
+  profile: staging
+  # namecheap_api_key is the api key for namecheap account
+  namecheap_api_key: xxxxxxxxxxxxxxxxxx
+  # namecheap_user_name is the username of the namecheap account
+  namecheap_user_name: XXXXXXXX
+```
+
+Namecheap API Access can be enabled by visiting https://ap.www.namecheap.com/settings/tools/apiaccess/ and then:
+- Toggle ON API Access switch
+- Add your public IP to Whitelistted IPs 
+
+
+References - 
+- https://www.namecheap.com/support/api/intro/
+    - Enabling API Access
+    - Whitelisting IP
    

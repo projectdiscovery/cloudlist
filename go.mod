@@ -13,10 +13,13 @@ require (
 	github.com/heroku/heroku-go/v5 v5.3.0
 	github.com/json-iterator/go v1.1.11
 	github.com/linode/linodego v1.0.0
+	github.com/namecheap/go-namecheap-sdk/v2 v2.0.0-20210701132211-e8fe6bd652dd
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/fileutil v0.0.0-20210601061022-8ef4fc6fbfb6
 	github.com/projectdiscovery/gologger v1.1.4
+	github.com/projectdiscovery/iputil v0.0.0-20210705072957-5a968407979b
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.7
+	golang.org/x/crypto v0.0.0-20201112155050-0c6587e931a9 // indirect
 	golang.org/x/net v0.0.0-20210614182718-04defd469f4e // indirect
 	golang.org/x/oauth2 v0.0.0-20210615190721-d04028783cf1
 	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22 // indirect
