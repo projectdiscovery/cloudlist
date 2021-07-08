@@ -155,6 +155,17 @@ const defaultConfigFile = `# Configuration file for cloudlist enumeration agent
 #  # fastly_api_key is the personal API token for fastly account
 #  fastly_api_key: XX-XXXXXXXXXXXXXXXXXXXXXX-
 
+#- # provider is the name of the provider
+#  provider: alibaba
+#  # profile is the name of the provider profile
+#  profile: staging
+#  # alibaba_region_id is the region id of the resources
+#  alibaba_region_id: ap-XXXXXXX
+#  # alibaba_access_key is the access key ID for alibaba cloud account
+#  alibaba_access_key: XXXXXXXXXXXXXXXXXXXX
+#  # alibaba_access_key_secret is the secret access key for alibaba cloud account
+#  alibaba_access_key_secret: XXXXXXXXXXXXXXXX
+
 # - # provider is the name of the provider
 #  provider: namecheap
 #  # profile is the name of the provider profile

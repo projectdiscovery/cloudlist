@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	cloud.google.com/go v0.84.0 // indirect
+	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1160
 	github.com/aws/aws-sdk-go v1.38.62
 	github.com/digitalocean/godo v1.62.0
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
@@ -25,5 +26,6 @@ require (
 	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22 // indirect
 	google.golang.org/api v0.48.0
 	google.golang.org/genproto v0.0.0-20210614182748-5b3b54cad159 // indirect
+	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 )

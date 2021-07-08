@@ -3,6 +3,7 @@ package inventory
 import (
 	"fmt"
 
+	"github.com/projectdiscovery/cloudlist/pkg/providers/alibaba"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/aws"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/digitalocean"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/fastly"
@@ -57,6 +58,8 @@ func nameToProvider(value string, block schema.OptionBlock) (schema.Provider, er
 		return linode.New(block)
 	case "fastly":
 		return fastly.New(block)
+	case "alibaba":
+		return alibaba.New(block)
 	case "namecheap":
 		return namecheap.New(block)
 	default:
