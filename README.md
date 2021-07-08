@@ -170,6 +170,8 @@ cloudlist -silent | httpx -silent | nuclei -t cves/
   - Instances
 - Fastly
   - Services
+- Heroku
+  - Applications
 - Linode
   - Instances
 - Namecheap
