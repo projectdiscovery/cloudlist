@@ -44,7 +44,7 @@ Cloudlist is a multi-cloud tool for getting Assets (Hostnames, IP Addresses) fro
 # Usage
 
 ```sh
-▶ cloudlist -h
+cloudlist -h
 ```
 
 This will display help for the tool. Here are all the switches it supports.
@@ -107,19 +107,26 @@ The default config file should be located in `$HOME/.config/cloudlist/config.yam
   profile: logs
   # gcp_service_account_key is the minified json of a google cloud service account with list permissions
   gcp_service_account_key: '{xxxxxxxxxxxxx}'
+  
+- # provider is the name of the provider
+  provider: fastly
+  # profile is the name of the provider profile
+  profile: staging
+  # fastly_api_key is the personal API token for fastly account
+  fastly_api_key: XX-XXXXXXXXXXXXXXXXXXXXXX-
 ```
 
 # Running cloudlist
 
 ```
-▶ cloudlist
+cloudlist
 ```
 
 This will list all the assets from configured providers in the configuration file. Specific providers and asset type can also be specified using available flags.
 
 ```bash
 
-▶ cloudlist -provider aws
+cloudlist -provider aws
 
    ________                _____      __ 
   / ____/ /___  __  ______/ / (_)____/ /_
@@ -147,7 +154,7 @@ example.com
 Scanning assets from various cloud providers with nuclei for security assessments:- 
 
 ```bash
-▶ cloudlist -silent | httpx -silent | nuclei -t cves/
+cloudlist -silent | httpx -silent | nuclei -t cves/
 ```
 
 # Supported providers
@@ -161,6 +168,16 @@ Scanning assets from various cloud providers with nuclei for security assessment
   - Instances
 - SCW (Scaleway)
   - Instances
+- Fastly
+  - Services
+- Linode
+  - Instances
+- Namecheap
+  - Domain List
+- Alibaba Cloud
+  - ECS Instances
+- Cloudflare
+  - DNS
 
 # Contribution
 
@@ -222,4 +239,4 @@ Thank you for inspiration
 
 ## License
 
-cloudlist is made with 🖤 by the [projectdiscovery](https://projectdiscovery.io) team and licensed under [MIT](https://github.com/projectdiscovery/proxify/blob/master/LICENSE.MD)
+cloudlist is made with 🖤 by the [projectdiscovery](https://projectdiscovery.io) team and licensed under [MIT](https://github.com/projectdiscovery/cloudlist/blob/main/LICENSE.md)
