@@ -176,3 +176,28 @@ References -
     - Enabling API Access
     - Whitelisting IP
    
+
+
+### Alibaba Cloud
+
+Alibaba Cloud can be integrated by using the following configuration block.
+
+```yaml
+- # provider is the name of the provider
+ provider: alibaba
+ # profile is the name of the provider profile
+ profile: staging
+ # alibaba_region_id is the region id of the resources
+ alibaba_region_id: ap-XXXXXXX
+ # alibaba_access_key is the access key ID for alibaba cloud account
+ alibaba_access_key: XXXXXXXXXXXXXXXXXXXX
+ # alibaba_access_key_secret is the secret access key for alibaba cloud account
+ alibaba_access_key_secret: XXXXXXXXXXXXXXXX
+```
+
+Alibaba Cloud Access Key ID and Secret can be created by visiting https://ram.console.aliyun.com/manage/ak
+
+
+References - 
+- https://www.alibabacloud.com/help/faq-detail/142101.htm
+- https://www.alibabacloud.com/help/doc-detail/53045.htm 
