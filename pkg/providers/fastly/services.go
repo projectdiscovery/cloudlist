@@ -15,7 +15,7 @@ type serviceProvider struct {
 
 // GetResource returns all the resources in the store for a provider.
 func (d *serviceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
-	list := &schema.Resources{}
+	list := schema.NewResources()
 
 	services, err := d.client.ListServices(nil)
 	if err != nil {

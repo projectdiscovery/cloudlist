@@ -15,7 +15,7 @@ type instanceProvider struct {
 
 // GetResource returns all the resources in the store for a provider.
 func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
-	list := &schema.Resources{}
+	list := schema.NewResources()
 
 	request := ecs.CreateDescribeInstancesRequest()
 

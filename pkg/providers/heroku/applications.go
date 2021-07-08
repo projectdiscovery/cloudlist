@@ -15,7 +15,7 @@ type instanceProvider struct {
 
 // GetResource returns all the applications for the Heroku provider.
 func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
-	list := &schema.Resources{}
+	list := schema.NewResources()
 
 	apps, err := d.client.AppList(ctx, &heroku.ListRange{Field: "id", Max: 1000})
 	if err != nil {
