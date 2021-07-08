@@ -15,7 +15,7 @@ type domainProvider struct {
 
 // GetResource returns all the applications for the NameCheap provider.
 func (d *domainProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
-	list := &schema.Resources{}
+	list := schema.NewResources()
 
 	page := 1
 	pageSize := 100

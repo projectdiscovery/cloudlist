@@ -16,7 +16,7 @@ type instanceProvider struct {
 // GetInstances returns all the instances in the store for a provider.
 func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	opt := &godo.ListOptions{PerPage: 200}
-	list := &schema.Resources{}
+	list := schema.NewResources()
 
 	for {
 		droplets, resp, err := d.client.Droplets.List(ctx, opt)
@@ -28,12 +28,18 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 			ip4, _ := droplet.PublicIPv4()
 			privateIP4, _ := droplet.PrivateIPv4()
 
+			if privateIP4 != "" {
+				list.Append(&schema.Resource{
+					Provider:    providerName,
+					Profile:     d.profile,
+					PrivateIpv4: privateIP4,
+				})
+			}
 			list.Append(&schema.Resource{
-				Provider:    providerName,
-				PublicIPv4:  ip4,
-				Profile:     d.profile,
-				PrivateIpv4: privateIP4,
-				Public:      ip4 != "",
+				Provider:   providerName,
+				Profile:    d.profile,
+				PublicIPv4: ip4,
+				Public:     true,
 			})
 		}
 		if resp.Links == nil || resp.Links.IsLastPage() {

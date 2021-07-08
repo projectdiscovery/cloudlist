@@ -5,6 +5,7 @@ import (
 
 	"github.com/projectdiscovery/cloudlist/pkg/providers/alibaba"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/aws"
+	"github.com/projectdiscovery/cloudlist/pkg/providers/cloudflare"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/digitalocean"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/fastly"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/gcp"
@@ -52,6 +53,8 @@ func nameToProvider(value string, block schema.OptionBlock) (schema.Provider, er
 		return gcp.New(block)
 	case "scw":
 		return scaleway.New(block)
+	case "cloudflare":
+		return cloudflare.New(block)
 	case "heroku":
 		return heroku.New(block)
 	case "linode":
