@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"sync"
+
+	"github.com/projectdiscovery/cloudlist/pkg/schema/validate"
 )
 
 // Provider is an interface implemented by any cloud service provider.
@@ -30,41 +32,55 @@ func NewResources() *Resources {
 }
 
 var uniqueMap *sync.Map
+var validator *validate.Validator
 
 func init() {
 	uniqueMap = &sync.Map{}
+
+	// Create validator
+	var err error
+	validator, err = validate.NewValidator()
+	if err != nil {
+		panic(fmt.Sprintf("Could not create validator: %s\n", err))
+	}
 }
 
-func (r *Resources) resourceType(resource string) {
-
+// appendResourceWithTypeAndMeta appends a resource with a type and metadata
+func (r *Resources) appendResourceWithTypeAndMeta(resourceType validate.ResourceType, item, profile, provider string) {
+	resource := &Resource{
+		Provider: provider,
+		Profile:  profile,
+	}
+	switch resourceType {
+	case validate.DNSName:
+		resource.Public = true
+		resource.DNSName = item
+	case validate.PublicIP:
+		resource.Public = true
+		resource.PublicIPv4 = item
+	case validate.PrivateIP:
+		resource.PrivateIpv4 = item
+	default:
+		return
+	}
+	r.Items = append(r.Items, resource)
 }
 
+// appendResource appends a resource to the resources list
 func (r *Resources) appendResource(resource *Resource) {
 	if _, ok := uniqueMap.Load(resource.DNSName); !ok && resource.DNSName != "" {
-		r.Items = append(r.Items, &Resource{
-			Public:   true,
-			Provider: resource.Provider,
-			Profile:  resource.Profile,
-			DNSName:  resource.DNSName,
-		})
+		resourceType := validator.Identify(resource.DNSName)
+		r.appendResourceWithTypeAndMeta(resourceType, resource.DNSName, resource.Profile, resource.Provider)
 		uniqueMap.Store(resource.DNSName, struct{}{})
 	}
 	if _, ok := uniqueMap.Load(resource.PublicIPv4); !ok && resource.PublicIPv4 != "" {
-		r.Items = append(r.Items, &Resource{
-			Public:     true,
-			Provider:   resource.Provider,
-			Profile:    resource.Profile,
-			PublicIPv4: resource.PublicIPv4,
-		})
+		resourceType := validator.Identify(resource.PublicIPv4)
+		r.appendResourceWithTypeAndMeta(resourceType, resource.PublicIPv4, resource.Profile, resource.Provider)
 		uniqueMap.Store(resource.PublicIPv4, struct{}{})
 	}
 	if _, ok := uniqueMap.Load(resource.PrivateIpv4); !ok && resource.PrivateIpv4 != "" {
-		r.Items = append(r.Items, &Resource{
-			Public:      false,
-			Provider:    resource.Provider,
-			Profile:     resource.Profile,
-			PrivateIpv4: resource.PrivateIpv4,
-		})
+		resourceType := validator.Identify(resource.PrivateIpv4)
+		r.appendResourceWithTypeAndMeta(resourceType, resource.PrivateIpv4, resource.Profile, resource.Provider)
 		uniqueMap.Store(resource.PrivateIpv4, struct{}{})
 	}
 }
