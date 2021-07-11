@@ -1,0 +1,14 @@
+- # provider is the name of the provider
+  provider: consul
+#  # consul_url is the url for consul server
+  consul_url: http://localhost:8500/
+#  # consul_ca_file is the path to consul CA file
+#  # consul_ca_file: <path-to-ca-file>.pem
+#  # consul_cert_file is the path to consul Certificate file
+#  # consul_cert_file: <path-to-cert-file>.pem
+#  # consul_key_file is the path to consul Certificate Key file
+#  # consul_key_file: <path-to-key-file>.pem
+#  # consul_http_token is the consul authentication token
+#  # consul_http_token: <consul-token>
+#  # consul_http_auth is the consul http auth value
+#  # consul_http_auth: <consul-http-auth-value>

@@ -12,10 +12,12 @@ require (
 	github.com/fastly/go-fastly/v3 v3.7.0
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/hashicorp/consul/api v1.9.1
+	github.com/hashicorp/nomad/api v0.0.0-20210711205811-0ef51f1383ff
 	github.com/heroku/heroku-go/v5 v5.3.0
 	github.com/json-iterator/go v1.1.11
 	github.com/linode/linodego v1.0.0
-	github.com/miekg/dns v1.1.43
+	github.com/miekg/dns v1.1.43 // indirect
 	github.com/namecheap/go-namecheap-sdk/v2 v2.0.0-20210701132211-e8fe6bd652dd
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/fileutil v0.0.0-20210601061022-8ef4fc6fbfb6
