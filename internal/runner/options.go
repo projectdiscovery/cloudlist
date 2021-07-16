@@ -110,7 +110,8 @@ func userHomeDir() string {
 	return usr.HomeDir
 }
 
-const defaultConfigFile = `# Configuration file for cloudlist enumeration agent
+const defaultConfigFile = `#  #Configuration file for cloudlist enumeration agent
+
 #- # provider is the name of the provider
 #  provider: do
 #  # profile is the name of the provider profile
@@ -146,7 +147,10 @@ const defaultConfigFile = `# Configuration file for cloudlist enumeration agent
 #  tenant_id: xxxxxxxxxxxxxxxxxxxxxxxxx
 #  #subscription_id is the azure subscription id
 #  subscription_id: xxxxxxxxxxxxxxxxxxx
+#  #use_cli_auth if set to true clouslist will use azure cli auth
+#  use_cli_auth: true
 
+#- # provider is the name of the provider
 #  provider: heroku
 #  # profile is the name of the provider profile
 #  profile: staging
