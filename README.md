@@ -172,6 +172,8 @@ cloudlist -silent | httpx -silent | nuclei -t cves/
   - Services
 - Linode
   - Instances
+_ Azure
+  - Virtual Machines
 
 # Contribution
 
