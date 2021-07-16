@@ -13,6 +13,7 @@ const (
 	clientID       = `client_id`
 	clientSecret   = `client_secret`
 	subscriptionID = `subscription_id`
+	useCliAuth     = `use_cli_auth`
 
 	providerName = "azure"
 )
@@ -42,13 +43,27 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	if !ok {
 		return nil, &schema.ErrNoSuchKey{Name: subscriptionID}
 	}
+	useCliAuth, ok := options.GetMetadata(useCliAuth)
+	if !ok {
+		return nil, &schema.ErrNoSuchKey{Name: useCliAuth}
+	}
 
 	profile, _ := options.GetMetadata("profile")
 
-	config := auth.NewClientCredentialsConfig(clientID, clientSecret, tenantID)
-	authorizer, err := config.Authorizer()
-	if err != nil {
-		return nil, err
+	var authorizer autorest.Authorizer
+	var err error
+
+	if useCliAuth == "true" {
+		authorizer, err = auth.NewAuthorizerFromCLI()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		config := auth.NewClientCredentialsConfig(clientID, clientSecret, tenantID)
+		authorizer, err = config.Authorizer()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &Provider{Authorizer: authorizer, SubscriptionID: subscriptionID, profile: profile}, nil
