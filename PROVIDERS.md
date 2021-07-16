@@ -120,6 +120,24 @@ Scaleway can be integrated by using the following configuration block.
 References - 
 1. https://www.scaleway.com/en/docs/generate-api-keys/
    
+### Cloudflare 
+
+Cloudflare can be integrated by using the following configuration block.
+
+```yaml
+- # provider is the name of the provider
+  provider: cloudflare
+  # email is the email for cloudflare
+  email: user@domain.com
+  # api_key is the api_key for cloudflare
+  api_key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+`api_key` can be generated from Cloudflare API Key manager. It needs to be Global API Key due to limitation of cloudflare new API tokens.
+
+References - 
+1. https://developers.cloudflare.com/api/keys
+   
 ### Heroku
 
 Heroku can be integrated by using the following configuration block.
@@ -187,5 +205,55 @@ Linode can be integrated by using the following configuration block.
 
 References - 
 1. https://www.linode.com/docs/guides/getting-started-with-the-linode-api/#get-an-access-token
+
+
+### Namecheap
+
+Namecheap can be integrated by using the following configuration block.
+
+```yaml
+- # provider is the name of the provider
+  provider: namecheap
+  # profile is the name of the provider profile
+  profile: staging
+  # namecheap_api_key is the api key for namecheap account
+  namecheap_api_key: xxxxxxxxxxxxxxxxxx
+  # namecheap_user_name is the username of the namecheap account
+  namecheap_user_name: XXXXXXXX
+```
+
+Namecheap API Access can be enabled by visiting https://ap.www.namecheap.com/settings/tools/apiaccess/ and then:
+- Toggle ON API Access switch
+- Add your public IP to Whitelistted IPs 
+
+
+References - 
+- https://www.namecheap.com/support/api/intro/
+    - Enabling API Access
+    - Whitelisting IP
    
-   
+
+
+### Alibaba Cloud
+
+Alibaba Cloud can be integrated by using the following configuration block.
+
+```yaml
+- # provider is the name of the provider
+ provider: alibaba
+ # profile is the name of the provider profile
+ profile: staging
+ # alibaba_region_id is the region id of the resources
+ alibaba_region_id: ap-XXXXXXX
+ # alibaba_access_key is the access key ID for alibaba cloud account
+ alibaba_access_key: XXXXXXXXXXXXXXXXXXXX
+ # alibaba_access_key_secret is the secret access key for alibaba cloud account
+ alibaba_access_key_secret: XXXXXXXXXXXXXXXX
+```
+
+Alibaba Cloud Access Key ID and Secret can be created by visiting https://ram.console.aliyun.com/manage/ak
+
+
+References - 
+- https://www.alibabacloud.com/help/faq-detail/142101.htm
+- https://www.alibabacloud.com/help/doc-detail/53045.htm 

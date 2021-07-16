@@ -170,10 +170,18 @@ cloudlist -silent | httpx -silent | nuclei -t cves/
   - Instances
 - Fastly
   - Services
+- Heroku
+  - Applications
 - Linode
   - Instances
 _ Azure
   - Virtual Machines
+- Namecheap
+  - Domain List
+- Alibaba Cloud
+  - ECS Instances
+- Cloudflare
+  - DNS
 
 # Contribution
 

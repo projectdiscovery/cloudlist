@@ -37,7 +37,7 @@ func (r *Runner) Enumerate() {
 			continue
 		}
 		if _, ok := item["profile"]; !ok {
-			item["profile"] = "none"
+			item["profile"] = ""
 		}
 		// Validate and only pass the correct items to input
 		if r.options.Provider != "" {
@@ -128,7 +128,7 @@ func (r *Runner) Enumerate() {
 					builder.Reset()
 					gologger.Silent().Msgf("%s", instance.PublicIPv4)
 				}
-				if instance.PrivateIpv4 != "" {
+				if instance.PrivateIpv4 != "" && !r.options.ExcludePrivate {
 					ipCount++
 					builder.WriteString(instance.PrivateIpv4)
 					builder.WriteRune('\n')

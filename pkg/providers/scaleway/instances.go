@@ -16,7 +16,7 @@ type instanceProvider struct {
 
 // GetInstances returns all the instances in the store for a provider.
 func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
-	list := &schema.Resources{}
+	list := schema.NewResources()
 
 	for _, zone := range scw.AllZones {
 		req := &instance.ListServersRequest{
@@ -39,12 +39,18 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 				if server.PrivateIP != nil {
 					privateIP4 = *server.PrivateIP
 				}
+				if privateIP4 != "" {
+					list.Append(&schema.Resource{
+						Provider:    providerName,
+						Profile:     d.profile,
+						PrivateIpv4: privateIP4,
+					})
+				}
 				list.Append(&schema.Resource{
-					Provider:    providerName,
-					PublicIPv4:  ip4,
-					Profile:     d.profile,
-					PrivateIpv4: privateIP4,
-					Public:      ip4 != "",
+					Provider:   providerName,
+					Profile:    d.profile,
+					PublicIPv4: ip4,
+					Public:     true,
 				})
 			}
 			if resp.TotalCount == totalResults {

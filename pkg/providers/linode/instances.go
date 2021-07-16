@@ -23,10 +23,9 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 		return nil, err
 	}
 
-	list := &schema.Resources{}
+	list := schema.NewResources()
 
 	for _, inst := range instances {
-
 		// Assuming (and obseved the same) first IP in the list is the public IP
 		ip4 := inst.IPv4[0].String()
 

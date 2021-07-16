@@ -18,15 +18,16 @@ import (
 
 // Options contains the configuration options for cloudlist.
 type Options struct {
-	JSON      bool   // JSON returns JSON output
-	Silent    bool   // Silent Display results only
-	Version   bool   // Version returns the version of the tool.
-	Verbose   bool   // Verbose prints verbose output.
-	Hosts     bool   // Hosts specifies to fetch only DNS Names
-	IPAddress bool   // IPAddress specifes to fetch only IP Addresses
-	Config    string // Config is the location of the config file.
-	Output    string // Output is the file to write found results too.
-	Provider  string // Provider specifies what providers to fetch assets for.
+	JSON           bool   // JSON returns JSON output
+	Silent         bool   // Silent Display results only
+	Version        bool   // Version returns the version of the tool.
+	Verbose        bool   // Verbose prints verbose output.
+	Hosts          bool   // Hosts specifies to fetch only DNS Names
+	IPAddress      bool   // IPAddress specifes to fetch only IP Addresses
+	Config         string // Config is the location of the config file.
+	Output         string // Output is the file to write found results too.
+	ExcludePrivate bool   // ExcludePrivate excludes private IPs from results
+	Provider       string // Provider specifies what providers to fetch assets for.
 }
 
 var defaultConfigLocation = path.Join(userHomeDir(), "/.config/cloudlist/config.yaml")
@@ -44,6 +45,7 @@ func ParseOptions() *Options {
 	flag.StringVar(&options.Config, "config", defaultConfigLocation, "Configuration file to use for enumeration")
 	flag.StringVar(&options.Output, "o", "", "File to write output to (optional)")
 	flag.StringVar(&options.Provider, "provider", "", "Provider to fetch assets from (optional)")
+	flag.BoolVar(&options.ExcludePrivate, "exclude-private", false, "Exclude private IP addresses from output")
 	flag.Parse()
 
 	options.configureOutput()
@@ -151,6 +153,13 @@ const defaultConfigFile = `#  #Configuration file for cloudlist enumeration agen
 #  use_cli_auth: true
 
 #- # provider is the name of the provider
+#  provider: cloudflare
+#  # email is the email for cloudflare
+#  email: user@domain.com
+#  # api_key is the api_key for cloudflare
+#  api_key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+#- # provider is the name of the provider
 #  provider: heroku
 #  # profile is the name of the provider profile
 #  profile: staging
@@ -169,4 +178,24 @@ const defaultConfigFile = `#  #Configuration file for cloudlist enumeration agen
 #  # profile is the name of the provider profile
 #  profile: staging
 #  # fastly_api_key is the personal API token for fastly account
-#  fastly_api_key: XX-XXXXXXXXXXXXXXXXXXXXXX-`
+#  fastly_api_key: XX-XXXXXXXXXXXXXXXXXXXXXX-
+
+#- # provider is the name of the provider
+#  provider: alibaba
+#  # profile is the name of the provider profile
+#  profile: staging
+#  # alibaba_region_id is the region id of the resources
+#  alibaba_region_id: ap-XXXXXXX
+#  # alibaba_access_key is the access key ID for alibaba cloud account
+#  alibaba_access_key: XXXXXXXXXXXXXXXXXXXX
+#  # alibaba_access_key_secret is the secret access key for alibaba cloud account
+#  alibaba_access_key_secret: XXXXXXXXXXXXXXXX
+
+# - # provider is the name of the provider
+#  provider: namecheap
+#  # profile is the name of the provider profile
+#  profile: staging
+#  # namecheap_api_key is the api key for namecheap account
+#  namecheap_api_key: XXXXXXXXXXXXXXXXXXXXXXX
+#  # namecheap_user_name is the username of the namecheap account
+#  namecheap_user_name: XXXXXXX`
