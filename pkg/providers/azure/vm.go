@@ -23,7 +23,7 @@ type vmProvider struct {
 // GetResource returns all the resources in the store for a provider.
 func (d *vmProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 
-	list := &schema.Resources{}
+	list := schema.NewResources()
 
 	groups, err := fetchResouceGroups(ctx, d)
 	if err != nil {
