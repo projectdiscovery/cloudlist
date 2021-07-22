@@ -31,11 +31,13 @@ func NewResources() *Resources {
 	return &Resources{Items: make([]*Resource, 0)}
 }
 
-var uniqueMap *sync.Map
+var appendUniqueMap *sync.Map
+var mergeUniqueMap *sync.Map
 var validator *validate.Validator
 
 func init() {
-	uniqueMap = &sync.Map{}
+	appendUniqueMap = &sync.Map{}
+	mergeUniqueMap = &sync.Map{}
 
 	// Create validator
 	var err error
@@ -67,7 +69,7 @@ func (r *Resources) appendResourceWithTypeAndMeta(resourceType validate.Resource
 }
 
 // appendResource appends a resource to the resources list
-func (r *Resources) appendResource(resource *Resource) {
+func (r *Resources) appendResource(resource *Resource, uniqueMap *sync.Map) {
 	if _, ok := uniqueMap.Load(resource.DNSName); !ok && resource.DNSName != "" {
 		resourceType := validator.Identify(resource.DNSName)
 		r.appendResourceWithTypeAndMeta(resourceType, resource.DNSName, resource.Profile, resource.Provider)
@@ -87,13 +89,13 @@ func (r *Resources) appendResource(resource *Resource) {
 
 // Append appends a single resource to the resource list
 func (r *Resources) Append(resource *Resource) {
-	r.appendResource(resource)
+	r.appendResource(resource, appendUniqueMap)
 }
 
 // Merge merges a list of resources into the main list
 func (r *Resources) Merge(resources *Resources) {
 	for _, item := range resources.Items {
-		r.appendResource(item)
+		r.appendResource(item, mergeUniqueMap)
 	}
 }
 
