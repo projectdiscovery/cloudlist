@@ -6,23 +6,26 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
-// Provider is a data provider for Terraform API
+const (
+	statePathFile = "tf_state_file"
+	providerName  = "terraform"
+)
+
+// Provider is a data provider for Terraform
 type Provider struct {
 	profile string
 	path    string
 }
 
-// New creates a new provider client for Terraform API
+// New creates a new provider client for Terraform
 func New(options schema.OptionBlock) (*Provider, error) {
-	statePathFile, ok := options.GetMetadata(statePath)
+	StatePathFile, ok := options.GetMetadata(statePathFile)
 	if !ok {
-		return nil, &schema.ErrNoSuchKey{Name: statePath}
+		return nil, &schema.ErrNoSuchKey{Name: statePathFile}
 	}
 	profile, _ := options.GetMetadata("profile")
-	return &Provider{path: statePathFile, profile: profile}, nil
+	return &Provider{path: StatePathFile, profile: profile}, nil
 }
-
-const providerName = "terraform"
 
 // Name returns the name of the provider
 func (p *Provider) Name() string {
@@ -33,8 +36,6 @@ func (p *Provider) Name() string {
 func (p *Provider) ProfileName() string {
 	return p.profile
 }
-
-const statePath = "path"
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {

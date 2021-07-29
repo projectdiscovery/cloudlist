@@ -182,4 +182,11 @@ const defaultConfigFile = `# Configuration file for cloudlist enumeration agent
 #  # namecheap_api_key is the api key for namecheap account
 #  namecheap_api_key: XXXXXXXXXXXXXXXXXXXXXXX
 #  # namecheap_user_name is the username of the namecheap account
-#  namecheap_user_name: XXXXXXX`
+#  namecheap_user_name: XXXXXXX
+
+# - # provider is the name of the provider
+#  provider: terraform
+#  # profile is the name of the provider profile
+#  profile: staging
+#  #tf_state_file is the location terraform.tfsate file 
+#  tf_state_file: Path/to/terraform.tfstate`
