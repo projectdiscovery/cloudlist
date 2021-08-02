@@ -229,6 +229,8 @@ Hashicorp Consul can be integrated by using the following configuration block.
   provider: consul
   # consul_url is the url for consul server
   consul_url: http://localhost:8500/
+  # profile is the name of the provider profile
+  profile: staging
   # consul_ca_file is the path to consul CA file
   # consul_ca_file: <path-to-ca-file>.pem
   # consul_cert_file is the path to consul Certificate file
@@ -254,7 +256,9 @@ Hashicorp Nomad can be integrated by using the following configuration block.
 - # provider is the name of the provider
   provider: nomad
   # nomad_url is the url for nomad server
-  nomad_url: http:/127.0.0.1:4646/
+  nomad_url: http://127.0.0.1:4646/
+  # profile is the name of the provider profile
+  profile: staging
   # nomad_ca_file is the path to nomad CA file
   # nomad_ca_file: <path-to-ca-file>.pem
   # nomad_cert_file is the path to nomad Certificate file
