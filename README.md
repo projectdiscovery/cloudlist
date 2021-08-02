@@ -180,6 +180,9 @@ cloudlist -silent | httpx -silent | nuclei -t cves/
   - ECS Instances
 - Cloudflare
   - DNS
+- Hashistack
+  - Nomad
+  - Consul
 
 # Contribution
 
