@@ -174,6 +174,8 @@ cloudlist -silent | httpx -silent | nuclei -t cves/
   - Applications
 - Linode
   - Instances
+_ Azure
+  - Virtual Machines
 - Namecheap
   - Domain List
 - Alibaba Cloud

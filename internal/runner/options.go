@@ -112,7 +112,8 @@ func userHomeDir() string {
 	return usr.HomeDir
 }
 
-const defaultConfigFile = `# Configuration file for cloudlist enumeration agent
+const defaultConfigFile = `#  #Configuration file for cloudlist enumeration agent
+
 #- # provider is the name of the provider
 #  provider: do
 #  # profile is the name of the provider profile
@@ -135,6 +136,21 @@ const defaultConfigFile = `# Configuration file for cloudlist enumeration agent
 #  aws_access_key: AKIAXXXXXXXXXXXXXX
 #  # aws_secret_key is the secret key for AWS account
 #  aws_secret_key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+#- # provider is the name of the provider
+#  provider: azure
+#  # profile is the name of the provider profile
+#  profile: staging
+#  # client_id is the client ID of registered application of the azure account (not requuired if using cli auth)
+#  client_id: xxxxxxxxxxxxxxxxxxxxxxxxx
+#  # client_secret is the secret ID of registered application of the zure account (not requuired if using cli auth)
+#  client_secret: xxxxxxxxxxxxxxxxxxxxx
+#  # tenant_id is the tenant ID of registered application of the azure account (not requuired if using cli auth)
+#  tenant_id: xxxxxxxxxxxxxxxxxxxxxxxxx
+#  #subscription_id is the azure subscription id
+#  subscription_id: xxxxxxxxxxxxxxxxxxx
+#  #use_cli_auth if set to true cloudlist will use azure cli auth
+#  use_cli_auth: true
 
 #- # provider is the name of the provider
 #  provider: cloudflare

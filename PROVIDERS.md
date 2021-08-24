@@ -46,6 +46,44 @@ Scopes Required -
 References - 
 1. https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_examples_iam_read-only-console.html
 2. https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
+
+
+### Microsoft Azure
+
+Microsoft Azure can be integrated by using the following configuration block.
+
+```yaml
+- # provider is the name of the provider
+ provider: azure
+ # profile is the name of the provider profile
+ profile: staging
+ # client_id is the client ID of registered application of the azure account (not requuired if using cli auth)
+ client_id: xxxxxxxxxxxxxxxxxxxxxxxxx
+ # client_secret is the secret ID of registered application of the zure account (not requuired if using cli auth)
+ client_secret: xxxxxxxxxxxxxxxxxxxxx
+ # tenant_id is the tenant ID of registered application of the azure account (not requuired if using cli auth)
+ tenant_id: xxxxxxxxxxxxxxxxxxxxxxxxx
+ #subscription_id is the azure subscription id
+ subscription_id: xxxxxxxxxxxxxxxxxxx
+ #use_cli_auth if set to true cloudlist will use azure cli auth
+ use_cli_auth: true
+```
+
+`tenant_id`, `client_id`, `client_secret` can be obtained/generated from   `All services` > `Azure Active Directory` > `App registrations`
+`subscription_id` can be retrieved from  `All services` > `Subscriptions`
+
+To use cli auth set `use_cli_auth` value to `true` and run `az login` in the terminal
+
+
+References - 
+1. https://docs.microsoft.com/en-us/cli/azure/create-an-azure-service-principal-azure-cli
+2. https://docs.microsoft.com/en-us/cli/azure/ad/sp?view=azure-cli-latest#az_ad_sp_create_for_rbac
+3. https://docs.microsoft.com/en-us/cli/azure/authenticate-azure-cli
+
+
+
+
+
    
 
 ### DigitalOcean (DO)
