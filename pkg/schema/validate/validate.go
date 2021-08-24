@@ -77,6 +77,10 @@ const (
 
 // Identify returns the resourcetype for an item
 func (v *Validator) Identify(item string) ResourceType {
+	host, port, err := net.SplitHostPort(item)
+	if err == nil && port != "" {
+		item = host
+	}
 	parsed := net.ParseIP(item)
 	if v.isDNSName(item, parsed) {
 		return DNSName
