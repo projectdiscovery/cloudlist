@@ -174,7 +174,7 @@ cloudlist -silent | httpx -silent | nuclei -t cves/
   - Applications
 - Linode
   - Instances
-_ Azure
+- Azure
   - Virtual Machines
 - Namecheap
   - Domain List
