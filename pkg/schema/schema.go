@@ -31,14 +31,11 @@ func NewResources() *Resources {
 	return &Resources{Items: make([]*Resource, 0)}
 }
 
-var appendUniqueMap *sync.Map
-var mergeUniqueMap *sync.Map
+var uniqueMap *sync.Map
 var validator *validate.Validator
 
 func init() {
-	appendUniqueMap = &sync.Map{}
-	mergeUniqueMap = &sync.Map{}
-
+	uniqueMap = &sync.Map{}
 	// Create validator
 	var err error
 	validator, err = validate.NewValidator()
@@ -89,11 +86,12 @@ func (r *Resources) appendResource(resource *Resource, uniqueMap *sync.Map) {
 
 // Append appends a single resource to the resource list
 func (r *Resources) Append(resource *Resource) {
-	r.appendResource(resource, appendUniqueMap)
+	r.appendResource(resource, uniqueMap)
 }
 
 // Merge merges a list of resources into the main list
 func (r *Resources) Merge(resources *Resources) {
+	mergeUniqueMap := &sync.Map{}
 	for _, item := range resources.Items {
 		r.appendResource(item, mergeUniqueMap)
 	}
