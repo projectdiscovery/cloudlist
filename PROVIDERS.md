@@ -219,3 +219,17 @@ Alibaba Cloud Access Key ID and Secret can be created by visiting https://ram.co
 References - 
 - https://www.alibabacloud.com/help/faq-detail/142101.htm
 - https://www.alibabacloud.com/help/doc-detail/53045.htm 
+
+
+### Terraform
+
+Terraform can be integrated by using the following configuration block.
+
+```yaml
+- # provider is the name of the provider
+ provider: terraform
+ # profile is the name of the provider profile
+ profile: staging
+ #tf_state_file is the location of terraform state file (terraform.tfsate) 
+ tf_state_file: path/to/terraform.tfstate
+```

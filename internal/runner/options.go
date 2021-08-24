@@ -188,5 +188,5 @@ const defaultConfigFile = `# Configuration file for cloudlist enumeration agent
 #  provider: terraform
 #  # profile is the name of the provider profile
 #  profile: staging
-#  #tf_state_file is the location terraform.tfsate file 
-#  tf_state_file: Path/to/terraform.tfstate`
+#  #tf_state_file is the location of terraform state file (terraform.tfsate) 
+#  tf_state_file: path/to/terraform.tfstate`
