@@ -185,6 +185,7 @@ _ Azure
 - Hashistack
   - Nomad
   - Consul
+  - Terraform
 
 # Contribution
 
