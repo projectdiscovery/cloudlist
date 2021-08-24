@@ -201,7 +201,14 @@ const defaultConfigFile = `#  #Configuration file for cloudlist enumeration agen
 #  namecheap_user_name: XXXXXXX
 
 # - # provider is the name of the provider
-#  provider: nomad
+#  provider: terraform
+#  # profile is the name of the provider profile
+#  profile: staging
+#  #tf_state_file is the location of terraform state file (terraform.tfsate) 
+#  tf_state_file: path/to/terraform.tfstate
+
+# - # provider is the name of the provider
+# provider: nomad
 #  # nomad_url is the url for nomad server
 #  nomad_url: http:/127.0.0.1:4646/
 #  # nomad_ca_file is the path to nomad CA file

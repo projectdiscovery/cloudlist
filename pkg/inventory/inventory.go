@@ -16,6 +16,7 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/providers/namecheap"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/nomad"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/scaleway"
+	"github.com/projectdiscovery/cloudlist/pkg/providers/terraform"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/projectdiscovery/gologger"
 )
@@ -70,6 +71,8 @@ func nameToProvider(value string, block schema.OptionBlock) (schema.Provider, er
 		return alibaba.New(block)
 	case "namecheap":
 		return namecheap.New(block)
+	case "terraform":
+		return terraform.New(block)
 	case "consul":
 		return consul.New(block)
 	case "nomad":
