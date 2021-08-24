@@ -182,6 +182,9 @@ _ Azure
   - ECS Instances
 - Cloudflare
   - DNS
+- Hashistack
+  - Nomad
+  - Consul
 
 # Contribution
 
