@@ -174,12 +174,18 @@ cloudlist -silent | httpx -silent | nuclei -t cves/
   - Applications
 - Linode
   - Instances
+- Azure
+  - Virtual Machines
 - Namecheap
   - Domain List
 - Alibaba Cloud
   - ECS Instances
 - Cloudflare
   - DNS
+- Hashistack
+  - Nomad
+  - Consul
+  - Terraform
 
 # Contribution
 

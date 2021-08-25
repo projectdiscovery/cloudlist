@@ -112,7 +112,8 @@ func userHomeDir() string {
 	return usr.HomeDir
 }
 
-const defaultConfigFile = `# Configuration file for cloudlist enumeration agent
+const defaultConfigFile = `#  #Configuration file for cloudlist enumeration agent
+
 #- # provider is the name of the provider
 #  provider: do
 #  # id is the name of the provider id
@@ -135,6 +136,21 @@ const defaultConfigFile = `# Configuration file for cloudlist enumeration agent
 #  aws_access_key: AKIAXXXXXXXXXXXXXX
 #  # aws_secret_key is the secret key for AWS account
 #  aws_secret_key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+#- # provider is the name of the provider
+#  provider: azure
+#  # id is the name of the provider id
+#  id: staging
+#  # client_id is the client ID of registered application of the azure account (not requuired if using cli auth)
+#  client_id: xxxxxxxxxxxxxxxxxxxxxxxxx
+#  # client_secret is the secret ID of registered application of the zure account (not requuired if using cli auth)
+#  client_secret: xxxxxxxxxxxxxxxxxxxxx
+#  # tenant_id is the tenant ID of registered application of the azure account (not requuired if using cli auth)
+#  tenant_id: xxxxxxxxxxxxxxxxxxxxxxxxx
+#  #subscription_id is the azure subscription id
+#  subscription_id: xxxxxxxxxxxxxxxxxxx
+#  #use_cli_auth if set to true cloudlist will use azure cli auth
+#  use_cli_auth: true
 
 #- # provider is the name of the provider
 #  provider: cloudflare
@@ -182,4 +198,41 @@ const defaultConfigFile = `# Configuration file for cloudlist enumeration agent
 #  # namecheap_api_key is the api key for namecheap account
 #  namecheap_api_key: XXXXXXXXXXXXXXXXXXXXXXX
 #  # namecheap_user_name is the username of the namecheap account
-#  namecheap_user_name: XXXXXXX`
+#  namecheap_user_name: XXXXXXX
+
+# - # provider is the name of the provider
+#  provider: terraform
+#  # id is the name of the provider id
+#  id: staging
+#  #tf_state_file is the location of terraform state file (terraform.tfsate) 
+#  tf_state_file: path/to/terraform.tfstate
+
+# - # provider is the name of the provider
+# provider: nomad
+#  # nomad_url is the url for nomad server
+#  nomad_url: http:/127.0.0.1:4646/
+#  # nomad_ca_file is the path to nomad CA file
+#  # nomad_ca_file: <path-to-ca-file>.pem
+#  # nomad_cert_file is the path to nomad Certificate file
+#  # nomad_cert_file: <path-to-cert-file>.pem
+#  # nomad_key_file is the path to nomad Certificate Key file
+#  # nomad_key_file: <path-to-key-file>.pem
+#  # nomad_token is the nomad authentication token
+#  # nomad_token: <nomad-token>
+#  # nomad_http_auth is the nomad http auth value
+#  # nomad_http_auth: <nomad-http-auth-value>
+
+#- # provider is the name of the provider
+#  provider: consul
+#  # consul_url is the url for consul server
+#  consul_url: http://localhost:8500/
+#  # consul_ca_file is the path to consul CA file
+#  # consul_ca_file: <path-to-ca-file>.pem
+#  # consul_cert_file is the path to consul Certificate file
+#  # consul_cert_file: <path-to-cert-file>.pem
+#  # consul_key_file is the path to consul Certificate Key file
+#  # consul_key_file: <path-to-key-file>.pem
+#  # consul_http_token is the consul authentication token
+#  # consul_http_token: <consul-token>
+#  # consul_http_auth is the consul http auth value
+#  # consul_http_auth: <consul-http-auth-value>`

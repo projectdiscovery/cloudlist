@@ -16,6 +16,9 @@ func TestValidateIdentify(t *testing.T) {
 		{"1.1.1.1", PublicIP},
 		{"192.168.1.10", PrivateIP},
 		{"185.199.110.153", PublicIP},
+		{"www.example.com:22", DNSName},
+		{"17.5.7.8:443", PublicIP},
+		{"192.168.1.10:80", PrivateIP},
 	}
 
 	validator, err := NewValidator()
