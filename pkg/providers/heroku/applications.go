@@ -9,8 +9,8 @@ import (
 
 // instanceProvider is an instance provider for Heroku API
 type instanceProvider struct {
-	profile string
-	client  *heroku.Service
+	id     string
+	client *heroku.Service
 }
 
 // GetResource returns all the applications for the Heroku provider.
@@ -33,7 +33,7 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 		list.Append(&schema.Resource{
 			DNSName:  app.WebURL,
 			Public:   isPublic,
-			Profile:  d.profile,
+			ID:       d.id,
 			Provider: providerName,
 		})
 	}

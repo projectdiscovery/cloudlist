@@ -9,8 +9,8 @@ import (
 
 // Provider is a data provider for digitalocean API
 type Provider struct {
-	profile string
-	client  *godo.Client
+	id     string
+	client *godo.Client
 }
 
 // New creates a new provider client for digitalocean API
@@ -19,8 +19,8 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	if !ok {
 		return nil, &schema.ErrNoSuchKey{Name: apiKey}
 	}
-	profile, _ := options.GetMetadata("profile")
-	return &Provider{profile: profile, client: godo.NewFromToken(token)}, nil
+	id, _ := options.GetMetadata("id")
+	return &Provider{id: id, client: godo.NewFromToken(token)}, nil
 }
 
 const providerName = "do"
@@ -30,15 +30,15 @@ func (p *Provider) Name() string {
 	return providerName
 }
 
-// ProfileName returns the name of the provider profile
-func (p *Provider) ProfileName() string {
-	return p.profile
+// ID returns the name of the provider id
+func (p *Provider) ID() string {
+	return p.id
 }
 
 const apiKey = "digitalocean_token"
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	provider := &instanceProvider{client: p.client, profile: p.profile}
+	provider := &instanceProvider{client: p.client, id: p.id}
 	return provider.GetResource(ctx)
 }

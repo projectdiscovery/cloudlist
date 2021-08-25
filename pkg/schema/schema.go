@@ -15,8 +15,8 @@ import (
 type Provider interface {
 	// Name returns the name of the provider
 	Name() string
-	// ProfileName returns the name of the provider profile
-	ProfileName() string
+	// ID returns the name of the provider id
+	ID() string
 	// Resources returns the provider for an resource deployment source.
 	Resources(ctx context.Context) (*Resources, error)
 }
@@ -46,10 +46,10 @@ func init() {
 }
 
 // appendResourceWithTypeAndMeta appends a resource with a type and metadata
-func (r *Resources) appendResourceWithTypeAndMeta(resourceType validate.ResourceType, item, profile, provider string) {
+func (r *Resources) appendResourceWithTypeAndMeta(resourceType validate.ResourceType, item, id, provider string) {
 	resource := &Resource{
 		Provider: provider,
-		Profile:  profile,
+		ID:       id,
 	}
 	switch resourceType {
 	case validate.DNSName:
@@ -70,17 +70,17 @@ func (r *Resources) appendResourceWithTypeAndMeta(resourceType validate.Resource
 func (r *Resources) appendResource(resource *Resource) {
 	if _, ok := uniqueMap.Load(resource.DNSName); !ok && resource.DNSName != "" {
 		resourceType := validator.Identify(resource.DNSName)
-		r.appendResourceWithTypeAndMeta(resourceType, resource.DNSName, resource.Profile, resource.Provider)
+		r.appendResourceWithTypeAndMeta(resourceType, resource.DNSName, resource.ID, resource.Provider)
 		uniqueMap.Store(resource.DNSName, struct{}{})
 	}
 	if _, ok := uniqueMap.Load(resource.PublicIPv4); !ok && resource.PublicIPv4 != "" {
 		resourceType := validator.Identify(resource.PublicIPv4)
-		r.appendResourceWithTypeAndMeta(resourceType, resource.PublicIPv4, resource.Profile, resource.Provider)
+		r.appendResourceWithTypeAndMeta(resourceType, resource.PublicIPv4, resource.ID, resource.Provider)
 		uniqueMap.Store(resource.PublicIPv4, struct{}{})
 	}
 	if _, ok := uniqueMap.Load(resource.PrivateIpv4); !ok && resource.PrivateIpv4 != "" {
 		resourceType := validator.Identify(resource.PrivateIpv4)
-		r.appendResourceWithTypeAndMeta(resourceType, resource.PrivateIpv4, resource.Profile, resource.Provider)
+		r.appendResourceWithTypeAndMeta(resourceType, resource.PrivateIpv4, resource.ID, resource.Provider)
 		uniqueMap.Store(resource.PrivateIpv4, struct{}{})
 	}
 }
@@ -103,8 +103,8 @@ type Resource struct {
 	Public bool `json:"public"`
 	// Provider is the name of provider for instance
 	Provider string `json:"provider"`
-	// Profile is the profile name of the resource provider
-	Profile string `json:"profile,omitempty"`
+	// ID is the id name of the resource provider
+	ID string `json:"id,omitempty"`
 	// PublicIPv4 is the public ipv4 address of the instance.
 	PublicIPv4 string `json:"public_ipv4,omitempty"`
 	// PrivateIpv4 is the private ipv4 address of the instance

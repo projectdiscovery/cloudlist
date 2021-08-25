@@ -13,7 +13,7 @@ import (
 
 // awsInstanceProvider is an instance provider for aws API
 type instanceProvider struct {
-	profile   string
+	id        string
 	ec2Client *ec2.EC2
 	session   *session.Session
 	regions   *ec2.DescribeRegionsOutput
@@ -49,14 +49,14 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 
 					if privateIp4 != "" {
 						list.Append(&schema.Resource{
-							Profile:     d.profile,
+							ID:          d.id,
 							Provider:    providerName,
 							PrivateIpv4: privateIp4,
 							Public:      false,
 						})
 					}
 					list.Append(&schema.Resource{
-						Profile:    d.profile,
+						ID:         d.id,
 						Provider:   providerName,
 						PublicIPv4: ip4,
 						Public:     true,

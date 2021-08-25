@@ -17,8 +17,8 @@ const (
 
 // Provider is a data provider for NameCheap API
 type Provider struct {
-	profile string
-	client  *namecheap.Client
+	id     string
+	client *namecheap.Client
 }
 
 // New creates a new provider client for NameCheap API
@@ -32,7 +32,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		return nil, &schema.ErrNoSuchKey{Name: userName}
 	}
 
-	profile, _ := options.GetMetadata("profile")
+	id, _ := options.GetMetadata("id")
 
 	//using iputil to fetch public ip
 	publicIp, err := iputil.WhatsMyIP()
@@ -48,7 +48,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		UseSandbox: false,
 	}
 
-	return &Provider{profile: profile, client: namecheap.NewClient(&clientOptions)}, nil
+	return &Provider{id: id, client: namecheap.NewClient(&clientOptions)}, nil
 }
 
 // Name returns the name of the provider
@@ -56,13 +56,13 @@ func (p *Provider) Name() string {
 	return providerName
 }
 
-// ProfileName returns the name of the provider profile
-func (p *Provider) ProfileName() string {
-	return p.profile
+// ID returns the name of the provider id
+func (p *Provider) ID() string {
+	return p.id
 }
 
 // Resources returns the provider for an resource
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	provider := &domainProvider{client: p.client, profile: p.profile}
+	provider := &domainProvider{client: p.client, id: p.id}
 	return provider.GetResource(ctx)
 }

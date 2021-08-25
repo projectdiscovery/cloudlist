@@ -10,8 +10,8 @@ import (
 
 // dnsProvider is a provider for cloudflare dns resources
 type dnsProvider struct {
-	profile string
-	client  *cloudflare.API
+	id     string
+	client *cloudflare.API
 }
 
 // GetResource returns all the resources in the store for a provider.
@@ -36,13 +36,13 @@ func (d *dnsProvider) GetResource(ctx context.Context) (*schema.Resources, error
 				Public:   true,
 				Provider: providerName,
 				DNSName:  record.Name,
-				Profile:  d.profile,
+				ID:       d.id,
 			})
 			list.Append(&schema.Resource{
 				Public:     true,
 				Provider:   providerName,
 				PublicIPv4: record.Content,
-				Profile:    d.profile,
+				ID:         d.id,
 			})
 		}
 	}

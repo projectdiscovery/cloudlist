@@ -16,8 +16,8 @@ const (
 
 // Provider is a data provider for linode API
 type Provider struct {
-	profile string
-	client  *linodego.Client
+	id     string
+	client *linodego.Client
 }
 
 // New creates a new provider client for linode API
@@ -26,7 +26,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	if !ok {
 		return nil, &schema.ErrNoSuchKey{Name: apiKey}
 	}
-	profile, _ := options.GetMetadata("profile")
+	id, _ := options.GetMetadata("id")
 
 	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: apiKey})
 	oc := &http.Client{
@@ -38,7 +38,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 
 	client := linodego.NewClient(oc)
 
-	return &Provider{profile: profile, client: &client}, nil
+	return &Provider{id: id, client: &client}, nil
 }
 
 // Name returns the name of the provider
@@ -46,13 +46,13 @@ func (p *Provider) Name() string {
 	return providerName
 }
 
-// ProfileName returns the name of the provider profile
-func (p *Provider) ProfileName() string {
-	return p.profile
+// ID returns the name of the provider id
+func (p *Provider) ID() string {
+	return p.id
 }
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	provider := &instanceProvider{client: p.client, profile: p.profile}
+	provider := &instanceProvider{client: p.client, id: p.id}
 	return provider.GetResource(ctx)
 }

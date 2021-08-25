@@ -115,8 +115,8 @@ func userHomeDir() string {
 const defaultConfigFile = `# Configuration file for cloudlist enumeration agent
 #- # provider is the name of the provider
 #  provider: do
-#  # profile is the name of the provider profile
-#  profile: xxxx
+#  # id is the name of the provider id
+#  id: xxxx
 #  # digitalocean_token is the API key for digitalocean cloud platform
 #  digitalocean_token: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 #
@@ -129,8 +129,8 @@ const defaultConfigFile = `# Configuration file for cloudlist enumeration agent
 #
 #- # provider is the name of the provider
 #  provider: aws
-#  # profile is the name of the provider profile
-#  profile: staging
+#  # id is the name of the provider id
+#  id: staging
 #  # aws_access_key is the access key for AWS account
 #  aws_access_key: AKIAXXXXXXXXXXXXXX
 #  # aws_secret_key is the secret key for AWS account
@@ -145,29 +145,29 @@ const defaultConfigFile = `# Configuration file for cloudlist enumeration agent
 
 #- # provider is the name of the provider
 #  provider: heroku
-#  # profile is the name of the provider profile
-#  profile: staging
+#  # id is the name of the provider id
+#  id: staging
 #  # heroku_api_token is the api key for Heroku account
 #  heroku_api_token: xxxxxxxxxxxxxxxxxxxx
 
 #- # provider is the name of the provider
 #  provider: linode
-#  # profile is the name of the provider profile
-#  profile: staging
+#  # id is the name of the provider id
+#  id: staging
 #  # linode_personal_access_token is the personal access token for linode account
 #  linode_personal_access_token: XXXXXXXXXXXXXXXXXXXXXXXX
 
 #- # provider is the name of the provider
 #  provider: fastly
-#  # profile is the name of the provider profile
-#  profile: staging
+#  # id is the name of the provider id
+#  id: staging
 #  # fastly_api_key is the personal API token for fastly account
 #  fastly_api_key: XX-XXXXXXXXXXXXXXXXXXXXXX-
 
 #- # provider is the name of the provider
 #  provider: alibaba
-#  # profile is the name of the provider profile
-#  profile: staging
+#  # id is the name of the provider id
+#  id: staging
 #  # alibaba_region_id is the region id of the resources
 #  alibaba_region_id: ap-XXXXXXX
 #  # alibaba_access_key is the access key ID for alibaba cloud account
@@ -177,8 +177,8 @@ const defaultConfigFile = `# Configuration file for cloudlist enumeration agent
 
 # - # provider is the name of the provider
 #  provider: namecheap
-#  # profile is the name of the provider profile
-#  profile: staging
+#  # id is the name of the provider id
+#  id: staging
 #  # namecheap_api_key is the api key for namecheap account
 #  namecheap_api_key: XXXXXXXXXXXXXXXXXXXXXXX
 #  # namecheap_user_name is the username of the namecheap account

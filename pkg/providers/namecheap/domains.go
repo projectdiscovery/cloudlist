@@ -9,8 +9,8 @@ import (
 
 // domainProvider is an domain provider for NameCheap API
 type domainProvider struct {
-	profile string
-	client  *namecheap.Client
+	id     string
+	client *namecheap.Client
 }
 
 // GetResource returns all the applications for the NameCheap provider.
@@ -34,7 +34,7 @@ func (d *domainProvider) GetResource(ctx context.Context) (*schema.Resources, er
 			list.Append(&schema.Resource{
 				Provider: providerName,
 				DNSName:  *domain.Name,
-				Profile:  d.profile,
+				ID:       d.id,
 			})
 		}
 		if *domainList.Paging.TotalItems <= (*domainList.Paging.PageSize * *domainList.Paging.CurrentPage) {

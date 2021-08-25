@@ -9,8 +9,8 @@ import (
 
 // Provider is a data provider for cloudflare API
 type Provider struct {
-	profile string
-	client  *cloudflare.API
+	id     string
+	client *cloudflare.API
 }
 
 // New creates a new provider client for cloudflare API
@@ -23,14 +23,14 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	if !ok {
 		return nil, &schema.ErrNoSuchKey{Name: apiEmail}
 	}
-	profile, _ := options.GetMetadata("profile")
+	id, _ := options.GetMetadata("id")
 
 	// Construct a new API object
 	api, err := cloudflare.New(accessKey, apiEmail)
 	if err != nil {
 		return nil, err
 	}
-	return &Provider{profile: profile, client: api}, nil
+	return &Provider{id: id, client: api}, nil
 }
 
 const apiAccessKey = "api_key"
@@ -42,14 +42,14 @@ func (p *Provider) Name() string {
 	return providerName
 }
 
-// ProfileName returns the name of the provider profile
-func (p *Provider) ProfileName() string {
-	return p.profile
+// ID returns the name of the provider id
+func (p *Provider) ID() string {
+	return p.id
 }
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	dnsProvider := &dnsProvider{profile: p.profile, client: p.client}
+	dnsProvider := &dnsProvider{id: p.id, client: p.client}
 	list, err := dnsProvider.GetResource(ctx)
 	if err != nil {
 		return nil, err

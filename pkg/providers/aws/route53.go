@@ -13,7 +13,7 @@ import (
 
 // route53Provider is a provider for aws Route53 API
 type route53Provider struct {
-	profile string
+	id      string
 	route53 *route53.Route53
 	session *session.Session
 }
@@ -64,13 +64,13 @@ func (d *route53Provider) listResourceRecords(zone string) (*schema.Resources, e
 				ip4 = aws.StringValue(item.ResourceRecords[0].Value)
 			}
 			list.Append(&schema.Resource{
-				Profile:  d.profile,
+				ID:       d.id,
 				Public:   true,
 				DNSName:  name,
 				Provider: providerName,
 			})
 			list.Append(&schema.Resource{
-				Profile:    d.profile,
+				ID:         d.id,
 				Public:     true,
 				PublicIPv4: ip4,
 				Provider:   providerName,

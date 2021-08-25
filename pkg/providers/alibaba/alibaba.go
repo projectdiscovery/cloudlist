@@ -16,8 +16,8 @@ const (
 
 // Provider is a data provider for alibaba API
 type Provider struct {
-	profile string
-	client  *ecs.Client
+	id     string
+	client *ecs.Client
 }
 
 // New creates a new provider client for alibaba API
@@ -35,7 +35,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		return nil, &schema.ErrNoSuchKey{Name: accessKeySecret}
 	}
 
-	profile, _ := options.GetMetadata("profile")
+	id, _ := options.GetMetadata("id")
 
 	client, err := ecs.NewClientWithAccessKey(
 		regionID,        // region ID
@@ -46,7 +46,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		return nil, err
 	}
 
-	return &Provider{client: client, profile: profile}, nil
+	return &Provider{client: client, id: id}, nil
 }
 
 // Name returns the name of the provider
@@ -54,14 +54,14 @@ func (p *Provider) Name() string {
 	return providerName
 }
 
-// ProfileName returns the name of the provider profile
-func (p *Provider) ProfileName() string {
-	return p.profile
+// ID returns the name of the provider id
+func (p *Provider) ID() string {
+	return p.id
 }
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	ecsprovider := &instanceProvider{client: p.client, profile: p.profile}
+	ecsprovider := &instanceProvider{client: p.client, id: p.id}
 	list, err := ecsprovider.GetResource(ctx)
 	if err != nil {
 		return nil, err

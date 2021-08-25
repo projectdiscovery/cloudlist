@@ -9,8 +9,8 @@ import (
 
 // instanceProvider is an instance provider for digitalocean API
 type instanceProvider struct {
-	profile string
-	client  *godo.Client
+	id     string
+	client *godo.Client
 }
 
 // GetInstances returns all the instances in the store for a provider.
@@ -31,13 +31,13 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 			if privateIP4 != "" {
 				list.Append(&schema.Resource{
 					Provider:    providerName,
-					Profile:     d.profile,
+					ID:          d.id,
 					PrivateIpv4: privateIP4,
 				})
 			}
 			list.Append(&schema.Resource{
 				Provider:   providerName,
-				Profile:    d.profile,
+				ID:         d.id,
 				PublicIPv4: ip4,
 				Public:     true,
 			})

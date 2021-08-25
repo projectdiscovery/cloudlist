@@ -9,8 +9,8 @@ import (
 
 // instanceProvider is an instance provider for alibaba API
 type instanceProvider struct {
-	profile string
-	client  *ecs.Client
+	id     string
+	client *ecs.Client
 }
 
 // GetResource returns all the resources in the store for a provider.
@@ -34,7 +34,7 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 			privateIPv4 = instance.NetworkInterfaces.NetworkInterface[0].PrivateIpSets.PrivateIpSet[0].PrivateIpAddress
 		}
 		list.Append(&schema.Resource{
-			Profile:     d.profile,
+			ID:          d.id,
 			Provider:    providerName,
 			PublicIPv4:  ipv4,
 			PrivateIpv4: privateIPv4,

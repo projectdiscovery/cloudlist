@@ -17,8 +17,8 @@ Each Provider implements the below described `schema.Provider` interface. The co
 type Provider interface {
 	// Name returns the name of the provider
 	Name() string
-	// ProfileName returns the name of the provider profile
-	ProfileName() string
+	// ID returns the name of the provider id
+	ID() string
 	// Resources returns the provider for an resource deployment source.
 	Resources(ctx context.Context) (*Resources, error)
 }
@@ -62,7 +62,7 @@ switch value {
 
 ### Resource
 
-A resource is a single unit in cloud belonging to an Organization. Some metadata is provided, like whether is the asset public facing or private, provider, profile name, as well as any IP addresses and DNS Names (Either among IP or DNS must always be provided).
+A resource is a single unit in cloud belonging to an Organization. Some metadata is provided, like whether is the asset public facing or private, provider, id name, as well as any IP addresses and DNS Names (Either among IP or DNS must always be provided).
 
 Providers return `schema.Resource` structure that contains an array of resources and provides some convenience wrappers on top of the array like `Append` and `Merge`. These can be used during the resource collection phase to minimize boilerplate.
 
@@ -73,10 +73,8 @@ type Resource struct {
 	Public bool `json:"public"`
 	// Provider is the name of provider for instance
 	Provider string `json:"provider"`
-	// Profile is the profile name of the resource provider
-	Profile string `json:"profile,omitempty"`
-	// ProfileName is the name of the key profile
-	ProfileName string `json:"profile_name,omitempty"`
+	// ID is the id the resource provider
+	ID string `json:"id,omitempty"`
 	// PublicIPv4 is the public ipv4 address of the instance.
 	PublicIPv4 string `json:"public_ipv4,omitempty"`
 	// PrivateIpv4 is the private ipv4 address of the instance
