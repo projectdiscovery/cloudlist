@@ -10,8 +10,8 @@ import (
 
 // Provider is a data provider for scaleway API
 type Provider struct {
-	profile string
-	client  *scw.Client
+	id     string
+	client *scw.Client
 }
 
 // New creates a new provider client for scaleway API
@@ -24,13 +24,13 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	if !ok {
 		return nil, &schema.ErrNoSuchKey{Name: apiAccessToken}
 	}
-	profile, _ := options.GetMetadata("profile")
+	id, _ := options.GetMetadata("id")
 
 	client, err := scw.NewClient(scw.WithAuth(accessKey, accessToken))
 	if err != nil {
 		return nil, err
 	}
-	return &Provider{client: client, profile: profile}, nil
+	return &Provider{client: client, id: id}, nil
 }
 
 const providerName = "scw"
@@ -40,9 +40,9 @@ func (p *Provider) Name() string {
 	return providerName
 }
 
-// ProfileName returns the name of the provider profile
-func (p *Provider) ProfileName() string {
-	return p.profile
+// ID returns the name of the provider id
+func (p *Provider) ID() string {
+	return p.id
 }
 
 const apiAccessKey = "scaleway_access_key"
@@ -50,6 +50,6 @@ const apiAccessToken = "scaleway_access_token"
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	provider := &instanceProvider{instanceAPI: instance.NewAPI(p.client), profile: p.profile}
+	provider := &instanceProvider{instanceAPI: instance.NewAPI(p.client), id: p.id}
 	return provider.GetResource(ctx)
 }

@@ -10,7 +10,7 @@ import (
 
 // cloudDNSProvider is a provider for aws Route53 API
 type cloudDNSProvider struct {
-	profile  string
+	id       string
 	dns      *dns.Service
 	projects []string
 }
@@ -58,7 +58,7 @@ func (d *cloudDNSProvider) parseRecordsForResourceSet(r *dns.ResourceRecordSetsL
 				DNSName:    resource.Name,
 				Public:     true,
 				PublicIPv4: data,
-				Profile:    d.profile,
+				ID:         d.id,
 				Provider:   providerName,
 			})
 		}

@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	profile        = `profile`
+	id             = `id`
 	tenantID       = `tenant_id`
 	clientID       = `client_id`
 	clientSecret   = `client_secret`
@@ -22,7 +22,7 @@ const (
 
 // Provider is a data provider for Azure API
 type Provider struct {
-	profile        string
+	id             string
 	SubscriptionID string
 	Authorizer     autorest.Authorizer
 }
@@ -36,7 +36,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 
 	UseCliAuth, _ := options.GetMetadata(useCliAuth)
 
-	Profile, _ := options.GetMetadata(profile)
+	ID, _ := options.GetMetadata(id)
 
 	var authorizer autorest.Authorizer
 	var err error
@@ -68,7 +68,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		}
 	}
 
-	return &Provider{Authorizer: authorizer, SubscriptionID: SubscriptionID, profile: Profile}, nil
+	return &Provider{Authorizer: authorizer, SubscriptionID: SubscriptionID, id: ID}, nil
 
 }
 
@@ -77,13 +77,13 @@ func (p *Provider) Name() string {
 	return providerName
 }
 
-// ProfileName returns the name of the provider profile
-func (p *Provider) ProfileName() string {
-	return p.profile
+// ID returns the name of the provider id
+func (p *Provider) ID() string {
+	return p.id
 }
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	provider := &vmProvider{Authorizer: p.Authorizer, SubscriptionID: p.SubscriptionID, profile: p.profile}
+	provider := &vmProvider{Authorizer: p.Authorizer, SubscriptionID: p.SubscriptionID, id: p.id}
 	return provider.GetResource(ctx)
 }

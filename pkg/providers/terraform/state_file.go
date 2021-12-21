@@ -12,8 +12,8 @@ import (
 
 // instanceProvider is an instance provider for terraform state file
 type instanceProvider struct {
-	path    string
-	profile string
+	path string
+	id   string
 }
 
 // GetInstances returns all the instances in the store for a provider.
@@ -42,7 +42,7 @@ func (d *instanceProvider) extractIPsFromText(text string) *schema.Resources {
 	for _, match := range matches {
 		resources.Append(&schema.Resource{
 			Provider:   providerName,
-			Profile:    d.profile,
+			ID:         d.id,
 			PublicIPv4: match[0],
 		})
 	}

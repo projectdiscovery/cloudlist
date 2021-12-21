@@ -12,8 +12,8 @@ import (
 
 // resourceProvider is an resource provider for nomad APIs
 type resourceProvider struct {
-	profile string
-	client  *api.Client
+	id     string
+	client *api.Client
 }
 
 // GetInstances returns all the instances in the store for a provider.
@@ -39,7 +39,7 @@ func (d *resourceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 		for _, node := range nodeList {
 			list.Append(&schema.Resource{
 				Provider:   providerName,
-				Profile:    d.profile,
+				ID:         d.id,
 				PublicIPv4: node.Address,
 			})
 			nodeAddressMap[node.ID] = node.Address
@@ -71,14 +71,14 @@ func (d *resourceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 					for _, port := range network.ReservedPorts {
 						list.Append(&schema.Resource{
 							Provider:   providerName,
-							Profile:    d.profile,
+							ID:         d.id,
 							PublicIPv4: net.JoinHostPort(nodeAddress, strconv.Itoa(port.Value)),
 						})
 					}
 					for _, port := range network.DynamicPorts {
 						list.Append(&schema.Resource{
 							Provider:   providerName,
-							Profile:    d.profile,
+							ID:         d.id,
 							PublicIPv4: net.JoinHostPort(nodeAddress, strconv.Itoa(port.Value)),
 						})
 					}

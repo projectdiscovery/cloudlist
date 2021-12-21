@@ -10,7 +10,7 @@ import (
 
 // instanceProvider is an instance provider for scaleway API
 type instanceProvider struct {
-	profile     string
+	id          string
 	instanceAPI *instance.API
 }
 
@@ -42,13 +42,13 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 				if privateIP4 != "" {
 					list.Append(&schema.Resource{
 						Provider:    providerName,
-						Profile:     d.profile,
+						ID:          d.id,
 						PrivateIpv4: privateIP4,
 					})
 				}
 				list.Append(&schema.Resource{
 					Provider:   providerName,
-					Profile:    d.profile,
+					ID:         d.id,
 					PublicIPv4: ip4,
 					Public:     true,
 				})

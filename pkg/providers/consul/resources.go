@@ -13,8 +13,8 @@ import (
 
 // resourceProvider is an resource provider for Consul APIs
 type resourceProvider struct {
-	profile string
-	client  *api.Client
+	id     string
+	client *api.Client
 }
 
 // GetInstances returns all the instances in the store for a provider.
@@ -35,7 +35,7 @@ func (d *resourceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 		for _, node := range nodes {
 			list.Append(&schema.Resource{
 				Provider:   providerName,
-				Profile:    d.profile,
+				ID:         d.id,
 				PublicIPv4: node.Address,
 			})
 		}
@@ -62,7 +62,7 @@ func (d *resourceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 
 				list.Append(&schema.Resource{
 					Provider:   providerName,
-					Profile:    d.profile,
+					ID:         d.id,
 					PublicIPv4: net.JoinHostPort(nodeIP, strconv.Itoa(port)),
 				})
 			}

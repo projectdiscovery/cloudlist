@@ -36,8 +36,8 @@ func (r *Runner) Enumerate() {
 		if item == nil {
 			continue
 		}
-		if _, ok := item["profile"]; !ok {
-			item["profile"] = ""
+		if _, ok := item["id"]; !ok {
+			item["id"] = ""
 		}
 		// Validate and only pass the correct items to input
 		if r.options.Provider != "" {
@@ -74,10 +74,10 @@ func (r *Runner) Enumerate() {
 			}
 		}
 
-		gologger.Info().Msgf("Listing assets from %s (%s) provider\n", provider.Name(), provider.ProfileName())
+		gologger.Info().Msgf("Listing assets from %s (%s) provider\n", provider.Name(), provider.ID())
 		instances, err := provider.Resources(context.Background())
 		if err != nil {
-			gologger.Warning().Msgf("Could not get resources for provider %s %s: %s\n", provider.Name(), provider.ProfileName(), err)
+			gologger.Warning().Msgf("Could not get resources for provider %s %s: %s\n", provider.Name(), provider.ID(), err)
 			continue
 		}
 		var hostsCount, ipCount int
@@ -177,9 +177,9 @@ func (r *Runner) Enumerate() {
 			logBuilder.WriteString(" IP Addresses")
 		}
 		if hostsCount == 0 && ipCount == 0 {
-			gologger.Warning().Msgf("No results found for %s (%s)\n", provider.Name(), provider.ProfileName())
+			gologger.Warning().Msgf("No results found for %s (%s)\n", provider.Name(), provider.ID())
 		} else {
-			gologger.Info().Msgf("Found %s for %s (%s)\n", logBuilder.String(), provider.Name(), provider.ProfileName())
+			gologger.Info().Msgf("Found %s for %s (%s)\n", logBuilder.String(), provider.Name(), provider.ID())
 		}
 	}
 }

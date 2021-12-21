@@ -13,7 +13,7 @@ import (
 // Provider is a data provider for gcp API
 type Provider struct {
 	dns      *dns.Service
-	profile  string
+	id       string
 	projects []string
 }
 
@@ -23,7 +23,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	if !ok {
 		return nil, errors.New("could not get API Key")
 	}
-	profile, _ := options.GetMetadata("profile")
+	id, _ := options.GetMetadata("id")
 
 	creds := option.WithCredentialsJSON([]byte(gcpDNSKey))
 	dnsService, err := dns.NewService(context.Background(), creds)
@@ -43,7 +43,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		}
 		return nil
 	})
-	return &Provider{dns: dnsService, projects: projects, profile: profile}, err
+	return &Provider{dns: dnsService, projects: projects, id: id}, err
 }
 
 const serviceAccountJSON = "gcp_service_account_key"
@@ -54,14 +54,14 @@ func (p *Provider) Name() string {
 	return providerName
 }
 
-// ProfileName returns the name of the provider profile
-func (p *Provider) ProfileName() string {
-	return p.profile
+// ID returns the name of the provider id
+func (p *Provider) ID() string {
+	return p.id
 }
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	cloudDNSProvider := &cloudDNSProvider{dns: p.dns, profile: p.profile, projects: p.projects}
+	cloudDNSProvider := &cloudDNSProvider{dns: p.dns, id: p.id, projects: p.projects}
 	zones, err := cloudDNSProvider.GetResource(ctx)
 	if err != nil {
 		return nil, err

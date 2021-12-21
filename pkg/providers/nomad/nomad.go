@@ -12,8 +12,8 @@ import (
 
 // Provider is a data provider for nomad resources
 type Provider struct {
-	profile string
-	client  *api.Client
+	id     string
+	client *api.Client
 }
 
 // New creates a new provider client for nomad resources API
@@ -69,8 +69,8 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create nomad api client")
 	}
-	profile, _ := options.GetMetadata("profile")
-	return &Provider{profile: profile, client: conn}, nil
+	id, _ := options.GetMetadata("id")
+	return &Provider{id: id, client: conn}, nil
 }
 
 const providerName = "nomad"
@@ -80,9 +80,9 @@ func (p *Provider) Name() string {
 	return providerName
 }
 
-// ProfileName returns the name of the provider profile
-func (p *Provider) ProfileName() string {
-	return p.profile
+// ID returns the name of the provider id
+func (p *Provider) ID() string {
+	return p.id
 }
 
 const (
@@ -96,6 +96,6 @@ const (
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	provider := &resourceProvider{client: p.client, profile: p.profile}
+	provider := &resourceProvider{client: p.client, id: p.id}
 	return provider.GetResource(ctx)
 }

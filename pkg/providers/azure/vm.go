@@ -15,7 +15,7 @@ import (
 
 // vmProvider is an instance provider for Azure API
 type vmProvider struct {
-	profile        string
+	id             string
 	SubscriptionID string
 	Authorizer     autorest.Authorizer
 }
@@ -65,7 +65,7 @@ func (d *vmProvider) GetResource(ctx context.Context) (*schema.Resources, error)
 					list.Append(&schema.Resource{
 						Provider:    providerName,
 						PublicIPv4:  *publicIP.IPAddress,
-						Profile:     d.profile,
+						ID:          d.id,
 						PrivateIpv4: privateIP,
 					})
 				}

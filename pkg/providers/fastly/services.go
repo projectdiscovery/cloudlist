@@ -9,8 +9,8 @@ import (
 
 //
 type serviceProvider struct {
-	client  *fastly.Client
-	profile string
+	client *fastly.Client
+	id     string
 }
 
 // GetResource returns all the resources in the store for a provider.
@@ -32,7 +32,7 @@ func (d *serviceProvider) GetResource(ctx context.Context) (*schema.Resources, e
 			list.Append(&schema.Resource{
 				Provider: providerName,
 				DNSName:  domain.Name,
-				Profile:  d.profile,
+				ID:       d.id,
 			})
 		}
 	}

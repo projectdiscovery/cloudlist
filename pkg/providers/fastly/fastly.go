@@ -15,8 +15,8 @@ const (
 
 // Provider is a data provider for fastly API
 type Provider struct {
-	client  *fastly.Client
-	profile string
+	client *fastly.Client
+	id     string
 }
 
 // New creates a new provider client for fastly API
@@ -25,13 +25,13 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	if !ok {
 		return nil, errors.New("could not get API Key")
 	}
-	profile, _ := options.GetMetadata("profile")
+	id, _ := options.GetMetadata("id")
 
 	client, err := fastly.NewClient(apiKey)
 	if err != nil {
 		return nil, err
 	}
-	return &Provider{client: client, profile: profile}, err
+	return &Provider{client: client, id: id}, err
 }
 
 // Name returns the name of the provider
@@ -39,14 +39,14 @@ func (p *Provider) Name() string {
 	return providerName
 }
 
-// ProfileName returns the name of the provider profile
-func (p *Provider) ProfileName() string {
-	return p.profile
+// ID returns the name of the provider id
+func (p *Provider) ID() string {
+	return p.id
 }
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	serviceProvider := &serviceProvider{client: p.client, profile: p.profile}
+	serviceProvider := &serviceProvider{client: p.client, id: p.id}
 	services, err := serviceProvider.GetResource(ctx)
 	if err != nil {
 		return nil, err

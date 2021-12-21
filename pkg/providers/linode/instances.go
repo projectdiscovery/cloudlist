@@ -9,8 +9,8 @@ import (
 
 // instanceProvider is an instance provider for linode API
 type instanceProvider struct {
-	profile string
-	client  *linodego.Client
+	id     string
+	client *linodego.Client
 }
 
 // GetResource returns all the instance resources for a provider.
@@ -32,7 +32,7 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 		list.Append(&schema.Resource{
 			Provider:   providerName,
 			PublicIPv4: ip4,
-			Profile:    d.profile,
+			ID:         d.id,
 			Public:     ip4 != "",
 		})
 	}

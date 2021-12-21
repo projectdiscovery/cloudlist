@@ -80,8 +80,8 @@ The default config file should be located in `$HOME/.config/cloudlist/config.yam
 # Configuration file for cloudlist enumeration agent
 - # provider is the name of the provider (Digitalocean)
   provider: do
-  # profile is the name of the provider profile
-  profile: xxxx
+  # id is the name of the provider id
+  id: xxxx
   # digitalocean_token is the API key for digitalocean cloud platform
   digitalocean_token: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
@@ -94,8 +94,8 @@ The default config file should be located in `$HOME/.config/cloudlist/config.yam
 
 - # provider is the name of the provider (Amazon Web Services)
   provider: aws
-  # profile is the name of the provider profile
-  profile: staging
+  # id is the name of the provider id
+  id: staging
   # aws_access_key is the access key for AWS account
   aws_access_key: AKIAXXXXXXXXXXXXXX
   # aws_secret_key is the secret key for AWS account
@@ -105,15 +105,15 @@ The default config file should be located in `$HOME/.config/cloudlist/config.yam
 
 - # provider is the name of the provider (Google Cloud Platform)
   provider: gcp
-  # profile is the name of the provider profile
-  profile: logs
+  # id is the name of the provider id
+  id: logs
   # gcp_service_account_key is the minified json of a google cloud service account with list permissions
   gcp_service_account_key: '{xxxxxxxxxxxxx}'
   
 - # provider is the name of the provider
   provider: fastly
-  # profile is the name of the provider profile
-  profile: staging
+  # id is the name of the provider id
+  id: staging
   # fastly_api_key is the personal API token for fastly account
   fastly_api_key: XX-XXXXXXXXXXXXXXXXXXXXXX-
 ```
