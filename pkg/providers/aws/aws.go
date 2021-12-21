@@ -31,11 +31,12 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	if !ok {
 		return nil, &schema.ErrNoSuchKey{Name: apiSecretKey}
 	}
-	id, _ := options.GetMetadata("id")
 
+	token, _ := options.GetMetadata(sessionToken)
+	id, _ := options.GetMetadata("id")
 	config := aws.NewConfig()
 	config.WithRegion("us-east-1")
-	config.WithCredentials(credentials.NewStaticCredentials(accessKey, accessToken, ""))
+	config.WithCredentials(credentials.NewStaticCredentials(accessKey, accessToken, token))
 
 	session, err := session.NewSession(config)
 	if err != nil {
@@ -54,6 +55,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 
 const apiAccessKey = "aws_access_key"
 const apiSecretKey = "aws_secret_key"
+const sessionToken = "aws_session_token"
 const providerName = "aws"
 
 // Name returns the name of the provider

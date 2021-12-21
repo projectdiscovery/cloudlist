@@ -13,6 +13,8 @@ Amazon Web Services can be integrated by using the following configuration block
   aws_access_key: AKIAXXXXXXXXXXXXXX
   # aws_secret_key is the secret key for AWS account
   aws_secret_key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  # aws_session_token session token for temporary security credentials retrieved via STS (optional)
+  aws_session_token: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 `aws_access_key` and `aws_secret_key` can be generated in the IAM console. We recommend creating a new IAM user with `Read Only` permissions and providing the access token for the user.
@@ -24,6 +26,7 @@ Scopes Required -
 References - 
 1. https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_examples_iam_read-only-console.html
 2. https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
+3. https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_request.html
    
 ### Google Cloud Platform (GCP)
 
