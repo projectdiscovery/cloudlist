@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -21,7 +22,13 @@ type Runner struct {
 
 // New creates a new runner instance based on configuration options
 func New(options *Options) (*Runner, error) {
-	config, err := readConfig(options.Config)
+
+	if options.ProviderConfig == "" {
+		options.ProviderConfig = defaultProviderConfigLocation
+		gologger.Print().Msgf("Using default provider config: %s\n", options.ProviderConfig)
+	}
+
+	config, err := readProviderConfig(options.ProviderConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -40,13 +47,11 @@ func (r *Runner) Enumerate() {
 			item["id"] = ""
 		}
 		// Validate and only pass the correct items to input
-		if r.options.Provider != "" {
-			if item["provider"] != r.options.Provider {
-				gologger.Verbose().Msgf("WRN: Skipping provider %s due to command line\n", item["provider"])
+		if len(r.options.Provider) != 0 {
+			if !Contains(r.options.Provider, item["provider"]) {
 				continue
-			} else {
-				finalConfig = append(finalConfig, item)
 			}
+			finalConfig = append(finalConfig, item)
 		} else {
 			finalConfig = append(finalConfig, item)
 		}
@@ -68,8 +73,8 @@ func (r *Runner) Enumerate() {
 
 	builder := &bytes.Buffer{}
 	for _, provider := range inventory.Providers {
-		if r.options.Provider != "" {
-			if provider.Name() != r.options.Provider {
+		if len(r.options.Provider) != 0 {
+			if !Contains(r.options.Provider, provider.Name()) {
 				continue
 			}
 		}
@@ -182,4 +187,13 @@ func (r *Runner) Enumerate() {
 			gologger.Info().Msgf("Found %s for %s (%s)\n", logBuilder.String(), provider.Name(), provider.ID())
 		}
 	}
+}
+
+func Contains(s []string, e string) bool {
+	for _, a := range s {
+		if reflect.DeepEqual(a, e) {
+			return true
+		}
+	}
+	return false
 }
