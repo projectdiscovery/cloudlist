@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"os"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -191,7 +190,7 @@ func (r *Runner) Enumerate() {
 
 func Contains(s []string, e string) bool {
 	for _, a := range s {
-		if reflect.DeepEqual(a, e) {
+		if strings.EqualFold(a, e) {
 			return true
 		}
 	}

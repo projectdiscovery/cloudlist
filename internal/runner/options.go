@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/user"
-	"path"
+	"path/filepath"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/projectdiscovery/fileutil"
@@ -32,8 +32,8 @@ type Options struct {
 }
 
 var (
-	defaultConfigLocation         = path.Join(userHomeDir(), "/.config/cloudlist/config.yaml")
-	defaultProviderConfigLocation = path.Join(userHomeDir(), "/.config/cloudlist/provider-config.yaml")
+	defaultConfigLocation         = filepath.Join(userHomeDir(), ".config/cloudlist/config.yaml")
+	defaultProviderConfigLocation = filepath.Join(userHomeDir(), ".config/cloudlist/provider-config.yaml")
 )
 
 // ParseOptions parses the command line flags provided by a user
@@ -100,7 +100,7 @@ func readProviderConfig(configFile string) (schema.Options, error) {
 // if not creates a default.
 func checkAndCreateProviderConfigFile(options *Options) {
 	if options.ProviderConfig == "" {
-		err := os.MkdirAll(path.Dir(options.ProviderConfig), os.ModePerm)
+		err := os.MkdirAll(filepath.Dir(options.ProviderConfig), os.ModePerm)
 		if err != nil {
 			gologger.Warning().Msgf("Could not create default config file: %s\n", err)
 		}
