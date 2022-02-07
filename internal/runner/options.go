@@ -62,17 +62,17 @@ func ParseOptions() *Options {
 		flagSet.StringVarP(&options.ProviderConfig, "provider-config", "pc", defaultProviderConfigLocation, "provider configuration file path"),
 	)
 	createGroup(flagSet, "filter", "Filters",
-		flagSet.NormalizedStringSliceVarP(&options.Provider, "provider", "p", []string{}, "provider to fetch assets from"),
-		flagSet.NormalizedStringSliceVar(&options.Id, "id", []string{}, "id to fetch assets from"),
-		flagSet.BoolVar(&options.Hosts, "host", false, "display only hostnames in cli output"),
-		flagSet.BoolVar(&options.IPAddress, "ip", false, "display only ips in cli output"),
+		flagSet.NormalizedStringSliceVarP(&options.Provider, "provider", "p", []string{}, "display results for given providers (comma-separated)"),
+		flagSet.NormalizedStringSliceVar(&options.Id, "id", []string{}, "display results for given ids (comma-separated)"),
+		flagSet.BoolVar(&options.Hosts, "host", false, "display only hostnames in results"),
+		flagSet.BoolVar(&options.IPAddress, "ip", false, "display only ips in results"),
 		flagSet.BoolVarP(&options.ExcludePrivate, "exclude-private", "ep", false, "exclude private ips in cli output"),
 	)
 	createGroup(flagSet, "output", "Output",
 		flagSet.StringVarP(&options.Output, "output", "o", "", "output file to write results"),
 		flagSet.BoolVar(&options.JSON, "json", false, "write output in json format"),
 		flagSet.BoolVar(&options.Version, "version", false, "display version of cloudlist"),
-		flagSet.BoolVar(&options.Verbose, "v", false, "display derbose output"),
+		flagSet.BoolVar(&options.Verbose, "v", false, "display verbose output"),
 		flagSet.BoolVar(&options.Silent, "silent", false, "display only results in output"),
 	)
 
