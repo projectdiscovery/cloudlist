@@ -28,6 +28,7 @@ type Options struct {
 	Output         string                        // Output is the file to write found results too.
 	ExcludePrivate bool                          // ExcludePrivate excludes private IPs from results
 	Provider       goflags.NormalizedStringSlice // Provider specifies what providers to fetch assets for.
+	Id             goflags.NormalizedStringSlice // Id specifies what id's to fetch assets for.
 	ProviderConfig string                        // ProviderConfig is the location of the provider config file.
 }
 
@@ -38,6 +39,19 @@ var (
 
 // ParseOptions parses the command line flags provided by a user
 func ParseOptions() *Options {
+	showBanner()
+
+	// Migrate config to provider config
+	if fileutil.FileExists(defaultConfigLocation) && !fileutil.FileExists(defaultProviderConfigLocation) {
+		if _, err := readProviderConfig(defaultConfigLocation); err == nil {
+			gologger.Info().Msg("Detected old config.yaml file, trying to rename it to provider-config.yaml\n")
+			if err := os.Rename(defaultConfigLocation, defaultProviderConfigLocation); err != nil {
+				gologger.Fatal().Msgf("Could not rename existing config (config.yaml) to provider config (provider-config.yaml): %s\n", err)
+			} else {
+				gologger.Info().Msg("Renamed config.yaml to provider-config.yaml successfully\n")
+			}
+		}
+	}
 
 	options := &Options{}
 	flagSet := goflags.NewFlagSet()
@@ -51,13 +65,13 @@ func ParseOptions() *Options {
 	flagSet.StringVar(&options.Config, "config", defaultConfigLocation, "Configuration file to use for enumeration")
 	flagSet.StringVar(&options.Output, "o", "", "File to write output to (optional)")
 	flagSet.NormalizedStringSliceVar(&options.Provider, "provider", []string{}, "Provider to fetch assets from (optional)")
+	flagSet.NormalizedStringSliceVar(&options.Id, "id", []string{}, "Id to fetch assets from (optional)")
 	flagSet.StringVarP(&options.ProviderConfig, "provider-config", "pc", "", "provider config path (default: $HOME/.config/cloudlist/provider-config.yaml)")
 	flagSet.BoolVar(&options.ExcludePrivate, "exclude-private", false, "Exclude private IP addresses from output")
 
 	_ = flagSet.Parse()
 
 	options.configureOutput()
-	showBanner()
 
 	if options.Version {
 		gologger.Info().Msgf("Current Version: %s\n", Version)

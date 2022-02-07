@@ -46,8 +46,11 @@ func (r *Runner) Enumerate() {
 			item["id"] = ""
 		}
 		// Validate and only pass the correct items to input
-		if len(r.options.Provider) != 0 {
-			if !Contains(r.options.Provider, item["provider"]) {
+		if len(r.options.Provider) != 0 || len(r.options.Id) != 0 {
+			if len(r.options.Provider) != 0 && !Contains(r.options.Provider, item["provider"]) {
+				continue
+			}
+			if len(r.options.Id) != 0 && !Contains(r.options.Id, item["id"]) {
 				continue
 			}
 			finalConfig = append(finalConfig, item)
@@ -72,11 +75,6 @@ func (r *Runner) Enumerate() {
 
 	builder := &bytes.Buffer{}
 	for _, provider := range inventory.Providers {
-		if len(r.options.Provider) != 0 {
-			if !Contains(r.options.Provider, provider.Name()) {
-				continue
-			}
-		}
 
 		gologger.Info().Msgf("Listing assets from %s (%s) provider\n", provider.Name(), provider.ID())
 		instances, err := provider.Resources(context.Background())
