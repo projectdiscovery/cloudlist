@@ -2,15 +2,15 @@ package runner
 
 import (
 	"errors"
-	"flag"
 	"io"
 	"io/ioutil"
 	"os"
 	"os/user"
-	"path"
+	"path/filepath"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/projectdiscovery/fileutil"
+	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/levels"
 	"gopkg.in/yaml.v2"
@@ -18,44 +18,73 @@ import (
 
 // Options contains the configuration options for cloudlist.
 type Options struct {
-	JSON           bool   // JSON returns JSON output
-	Silent         bool   // Silent Display results only
-	Version        bool   // Version returns the version of the tool.
-	Verbose        bool   // Verbose prints verbose output.
-	Hosts          bool   // Hosts specifies to fetch only DNS Names
-	IPAddress      bool   // IPAddress specifes to fetch only IP Addresses
-	Config         string // Config is the location of the config file.
-	Output         string // Output is the file to write found results too.
-	ExcludePrivate bool   // ExcludePrivate excludes private IPs from results
-	Provider       string // Provider specifies what providers to fetch assets for.
+	JSON           bool                          // JSON returns JSON output
+	Silent         bool                          // Silent Display results only
+	Version        bool                          // Version returns the version of the tool.
+	Verbose        bool                          // Verbose prints verbose output.
+	Hosts          bool                          // Hosts specifies to fetch only DNS Names
+	IPAddress      bool                          // IPAddress specifes to fetch only IP Addresses
+	Config         string                        // Config is the location of the config file.
+	Output         string                        // Output is the file to write found results too.
+	ExcludePrivate bool                          // ExcludePrivate excludes private IPs from results
+	Provider       goflags.NormalizedStringSlice // Provider specifies what providers to fetch assets for.
+	Id             goflags.NormalizedStringSlice // Id specifies what id's to fetch assets for.
+	ProviderConfig string                        // ProviderConfig is the location of the provider config file.
 }
 
-var defaultConfigLocation = path.Join(userHomeDir(), "/.config/cloudlist/config.yaml")
+var (
+	defaultConfigLocation         = filepath.Join(userHomeDir(), ".config/cloudlist/config.yaml")
+	defaultProviderConfigLocation = filepath.Join(userHomeDir(), ".config/cloudlist/provider-config.yaml")
+)
 
 // ParseOptions parses the command line flags provided by a user
 func ParseOptions() *Options {
-	options := &Options{}
+	showBanner()
 
-	flag.BoolVar(&options.JSON, "json", false, "Show json output")
-	flag.BoolVar(&options.Silent, "silent", false, "Show only results in output")
-	flag.BoolVar(&options.Version, "version", false, "Show version of cloudlist")
-	flag.BoolVar(&options.Verbose, "v", false, "Show Verbose output")
-	flag.BoolVar(&options.Hosts, "host", false, "Show only hosts in output")
-	flag.BoolVar(&options.IPAddress, "ip", false, "Show only IP addresses in output")
-	flag.StringVar(&options.Config, "config", defaultConfigLocation, "Configuration file to use for enumeration")
-	flag.StringVar(&options.Output, "o", "", "File to write output to (optional)")
-	flag.StringVar(&options.Provider, "provider", "", "Provider to fetch assets from (optional)")
-	flag.BoolVar(&options.ExcludePrivate, "exclude-private", false, "Exclude private IP addresses from output")
-	flag.Parse()
+	// Migrate config to provider config
+	if fileutil.FileExists(defaultConfigLocation) && !fileutil.FileExists(defaultProviderConfigLocation) {
+		if _, err := readProviderConfig(defaultConfigLocation); err == nil {
+			gologger.Info().Msg("Detected old config.yaml file, trying to rename it to provider-config.yaml\n")
+			if err := os.Rename(defaultConfigLocation, defaultProviderConfigLocation); err != nil {
+				gologger.Fatal().Msgf("Could not rename existing config (config.yaml) to provider config (provider-config.yaml): %s\n", err)
+			} else {
+				gologger.Info().Msg("Renamed config.yaml to provider-config.yaml successfully\n")
+			}
+		}
+	}
+
+	options := &Options{}
+	flagSet := goflags.NewFlagSet()
+	flagSet.SetDescription(`Cloudlist is a tool for listing Assets from multiple cloud providers.`)
+
+	createGroup(flagSet, "config", "Configuration",
+		flagSet.StringVar(&options.Config, "config", defaultConfigLocation, "cloudlist flag configuration file path"),
+		flagSet.StringVarP(&options.ProviderConfig, "provider-config", "pc", defaultProviderConfigLocation, "provider configuration file path"),
+	)
+	createGroup(flagSet, "filter", "Filters",
+		flagSet.NormalizedStringSliceVarP(&options.Provider, "provider", "p", []string{}, "provider to fetch assets from"),
+		flagSet.NormalizedStringSliceVar(&options.Id, "id", []string{}, "id to fetch assets from"),
+		flagSet.BoolVar(&options.Hosts, "host", false, "display only hostnames in cli output"),
+		flagSet.BoolVar(&options.IPAddress, "ip", false, "display only ips in cli output"),
+		flagSet.BoolVarP(&options.ExcludePrivate, "exclude-private", "ep", false, "exclude private ips in cli output"),
+	)
+	createGroup(flagSet, "output", "Output",
+		flagSet.StringVarP(&options.Output, "output", "o", "", "output file to write results"),
+		flagSet.BoolVar(&options.JSON, "json", false, "write output in json format"),
+		flagSet.BoolVar(&options.Version, "version", false, "display version of cloudlist"),
+		flagSet.BoolVar(&options.Verbose, "v", false, "display derbose output"),
+		flagSet.BoolVar(&options.Silent, "silent", false, "display only results in output"),
+	)
+
+	_ = flagSet.Parse()
 
 	options.configureOutput()
-	showBanner()
 
 	if options.Version {
 		gologger.Info().Msgf("Current Version: %s\n", Version)
 		os.Exit(0)
 	}
-	checkAndCreateConfigFile(options)
+	checkAndCreateProviderConfigFile(options)
 	return options
 }
 
@@ -70,8 +99,8 @@ func (options *Options) configureOutput() {
 	}
 }
 
-// readConfig reads the config file from the options
-func readConfig(configFile string) (schema.Options, error) {
+// readProviderConfig reads the provider config file from the options
+func readProviderConfig(configFile string) (schema.Options, error) {
 	file, err := os.Open(configFile)
 	if err != nil {
 		return nil, err
@@ -81,24 +110,24 @@ func readConfig(configFile string) (schema.Options, error) {
 	config := schema.Options{}
 	if err := yaml.NewDecoder(file).Decode(&config); err != nil {
 		if err == io.EOF {
-			return nil, errors.New("invalid configuration file provided")
+			return nil, errors.New("invalid provider configuration file provided")
 		}
 		return nil, err
 	}
 	return config, nil
 }
 
-// checkAndCreateConfigFile checks if a config file exists,
+// checkAndCreateProviderConfigFile checks if a provider config file exists,
 // if not creates a default.
-func checkAndCreateConfigFile(options *Options) {
-	if options.Config == defaultConfigLocation {
-		err := os.MkdirAll(path.Dir(options.Config), os.ModePerm)
+func checkAndCreateProviderConfigFile(options *Options) {
+	if options.ProviderConfig == "" {
+		err := os.MkdirAll(filepath.Dir(options.ProviderConfig), os.ModePerm)
 		if err != nil {
 			gologger.Warning().Msgf("Could not create default config file: %s\n", err)
 		}
-		if !fileutil.FileExists(defaultConfigLocation) {
-			if writeErr := ioutil.WriteFile(defaultConfigLocation, []byte(defaultConfigFile), os.ModePerm); writeErr != nil {
-				gologger.Warning().Msgf("Could not write default output to %s: %s\n", defaultConfigLocation, writeErr)
+		if !fileutil.FileExists(defaultProviderConfigLocation) {
+			if writeErr := ioutil.WriteFile(defaultProviderConfigLocation, []byte(defaultProviderConfigFile), os.ModePerm); writeErr != nil {
+				gologger.Warning().Msgf("Could not write default output to %s: %s\n", defaultProviderConfigLocation, writeErr)
 			}
 		}
 	}
@@ -112,7 +141,14 @@ func userHomeDir() string {
 	return usr.HomeDir
 }
 
-const defaultConfigFile = `#  #Configuration file for cloudlist enumeration agent
+func createGroup(flagSet *goflags.FlagSet, groupName, description string, flags ...*goflags.FlagData) {
+	flagSet.SetGroup(groupName, description)
+	for _, currentFlag := range flags {
+		currentFlag.Group(groupName)
+	}
+}
+
+const defaultProviderConfigFile = `#  #Provider configuration file for cloudlist enumeration agent
 
 #- # provider is the name of the provider
 #  provider: do
