@@ -58,8 +58,8 @@ func ParseOptions() *Options {
 	flagSet.SetDescription(`Cloudlist is a tool for listing Assets from multiple cloud providers.`)
 
 	createGroup(flagSet, "config", "Configuration",
-		flagSet.StringVar(&options.Config, "config", defaultConfigLocation, "cloudlist flag configuration file path"),
-		flagSet.StringVarP(&options.ProviderConfig, "provider-config", "pc", defaultProviderConfigLocation, "provider configuration file path"),
+		flagSet.StringVar(&options.Config, "config", defaultConfigLocation, "cloudlist flag config file"),
+		flagSet.StringVarP(&options.ProviderConfig, "provider-config", "pc", defaultProviderConfigLocation, "provider config file"),
 	)
 	createGroup(flagSet, "filter", "Filters",
 		flagSet.NormalizedStringSliceVarP(&options.Provider, "provider", "p", []string{}, "display results for given providers (comma-separated)"),
