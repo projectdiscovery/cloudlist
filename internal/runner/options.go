@@ -55,19 +55,26 @@ func ParseOptions() *Options {
 
 	options := &Options{}
 	flagSet := goflags.NewFlagSet()
+	flagSet.SetDescription(`Cloudlist is a tool for listing Assets from multiple cloud providers.`)
 
-	flagSet.BoolVar(&options.JSON, "json", false, "Show json output")
-	flagSet.BoolVar(&options.Silent, "silent", false, "Show only results in output")
-	flagSet.BoolVar(&options.Version, "version", false, "Show version of cloudlist")
-	flagSet.BoolVar(&options.Verbose, "v", false, "Show Verbose output")
-	flagSet.BoolVar(&options.Hosts, "host", false, "Show only hosts in output")
-	flagSet.BoolVar(&options.IPAddress, "ip", false, "Show only IP addresses in output")
-	flagSet.StringVar(&options.Config, "config", defaultConfigLocation, "Configuration file to use for enumeration")
-	flagSet.StringVar(&options.Output, "o", "", "File to write output to (optional)")
-	flagSet.NormalizedStringSliceVar(&options.Provider, "provider", []string{}, "Provider to fetch assets from (optional)")
-	flagSet.NormalizedStringSliceVar(&options.Id, "id", []string{}, "Id to fetch assets from (optional)")
-	flagSet.StringVarP(&options.ProviderConfig, "provider-config", "pc", "", "provider config path (default: $HOME/.config/cloudlist/provider-config.yaml)")
-	flagSet.BoolVar(&options.ExcludePrivate, "exclude-private", false, "Exclude private IP addresses from output")
+	createGroup(flagSet, "config", "Configuration",
+		flagSet.StringVar(&options.Config, "config", defaultConfigLocation, "cloudlist flag configuration file path"),
+		flagSet.StringVarP(&options.ProviderConfig, "provider-config", "pc", defaultProviderConfigLocation, "provider configuration file path"),
+	)
+	createGroup(flagSet, "filter", "Filters",
+		flagSet.NormalizedStringSliceVarP(&options.Provider, "provider", "p", []string{}, "provider to fetch assets from"),
+		flagSet.NormalizedStringSliceVar(&options.Id, "id", []string{}, "id to fetch assets from"),
+		flagSet.BoolVar(&options.Hosts, "host", false, "display only hostnames in cli output"),
+		flagSet.BoolVar(&options.IPAddress, "ip", false, "display only ips in cli output"),
+		flagSet.BoolVarP(&options.ExcludePrivate, "exclude-private", "ep", false, "exclude private ips in cli output"),
+	)
+	createGroup(flagSet, "output", "Output",
+		flagSet.StringVarP(&options.Output, "output", "o", "", "output file to write results"),
+		flagSet.BoolVar(&options.JSON, "json", false, "write output in json format"),
+		flagSet.BoolVar(&options.Version, "version", false, "display version of cloudlist"),
+		flagSet.BoolVar(&options.Verbose, "v", false, "display derbose output"),
+		flagSet.BoolVar(&options.Silent, "silent", false, "display only results in output"),
+	)
 
 	_ = flagSet.Parse()
 
@@ -132,6 +139,13 @@ func userHomeDir() string {
 		gologger.Fatal().Msgf("Could not get user home directory: %s\n", err)
 	}
 	return usr.HomeDir
+}
+
+func createGroup(flagSet *goflags.FlagSet, groupName, description string, flags ...*goflags.FlagData) {
+	flagSet.SetGroup(groupName, description)
+	for _, currentFlag := range flags {
+		currentFlag.Group(groupName)
+	}
 }
 
 const defaultProviderConfigFile = `#  #Provider configuration file for cloudlist enumeration agent
