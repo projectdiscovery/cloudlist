@@ -10,13 +10,13 @@ import (
 
 // instanceProvider is an instance provider for scaleway API
 type instanceProvider struct {
-	profile     string
+	id          string
 	instanceAPI *instance.API
 }
 
 // GetInstances returns all the instances in the store for a provider.
 func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
-	list := &schema.Resources{}
+	list := schema.NewResources()
 
 	for _, zone := range scw.AllZones {
 		req := &instance.ListServersRequest{
@@ -39,12 +39,18 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 				if server.PrivateIP != nil {
 					privateIP4 = *server.PrivateIP
 				}
+				if privateIP4 != "" {
+					list.Append(&schema.Resource{
+						Provider:    providerName,
+						ID:          d.id,
+						PrivateIpv4: privateIP4,
+					})
+				}
 				list.Append(&schema.Resource{
-					Provider:    providerName,
-					PublicIPv4:  ip4,
-					Profile:     d.profile,
-					PrivateIpv4: privateIP4,
-					Public:      ip4 != "",
+					Provider:   providerName,
+					ID:         d.id,
+					PublicIPv4: ip4,
+					Public:     true,
 				})
 			}
 			if resp.TotalCount == totalResults {

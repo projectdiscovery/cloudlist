@@ -3,6 +3,9 @@ package schema
 import (
 	"context"
 	"fmt"
+	"sync"
+
+	"github.com/projectdiscovery/cloudlist/pkg/schema/validate"
 )
 
 // Provider is an interface implemented by any cloud service provider.
@@ -12,8 +15,8 @@ import (
 type Provider interface {
 	// Name returns the name of the provider
 	Name() string
-	// ProfileName returns the name of the provider profile
-	ProfileName() string
+	// ID returns the name of the provider id
+	ID() string
 	// Resources returns the provider for an resource deployment source.
 	Resources(ctx context.Context) (*Resources, error)
 }
@@ -23,14 +26,75 @@ type Resources struct {
 	Items []*Resource
 }
 
+// NewResources creates a new resources structure
+func NewResources() *Resources {
+	return &Resources{Items: make([]*Resource, 0)}
+}
+
+var uniqueMap *sync.Map
+var validator *validate.Validator
+
+func init() {
+	uniqueMap = &sync.Map{}
+	// Create validator
+	var err error
+	validator, err = validate.NewValidator()
+	if err != nil {
+		panic(fmt.Sprintf("Could not create validator: %s\n", err))
+	}
+}
+
+// appendResourceWithTypeAndMeta appends a resource with a type and metadata
+func (r *Resources) appendResourceWithTypeAndMeta(resourceType validate.ResourceType, item, id, provider string) {
+	resource := &Resource{
+		Provider: provider,
+		ID:       id,
+	}
+	switch resourceType {
+	case validate.DNSName:
+		resource.Public = true
+		resource.DNSName = item
+	case validate.PublicIP:
+		resource.Public = true
+		resource.PublicIPv4 = item
+	case validate.PrivateIP:
+		resource.PrivateIpv4 = item
+	default:
+		return
+	}
+	r.Items = append(r.Items, resource)
+}
+
+// appendResource appends a resource to the resources list
+func (r *Resources) appendResource(resource *Resource, uniqueMap *sync.Map) {
+	if _, ok := uniqueMap.Load(resource.DNSName); !ok && resource.DNSName != "" {
+		resourceType := validator.Identify(resource.DNSName)
+		r.appendResourceWithTypeAndMeta(resourceType, resource.DNSName, resource.ID, resource.Provider)
+		uniqueMap.Store(resource.DNSName, struct{}{})
+	}
+	if _, ok := uniqueMap.Load(resource.PublicIPv4); !ok && resource.PublicIPv4 != "" {
+		resourceType := validator.Identify(resource.PublicIPv4)
+		r.appendResourceWithTypeAndMeta(resourceType, resource.PublicIPv4, resource.ID, resource.Provider)
+		uniqueMap.Store(resource.PublicIPv4, struct{}{})
+	}
+	if _, ok := uniqueMap.Load(resource.PrivateIpv4); !ok && resource.PrivateIpv4 != "" {
+		resourceType := validator.Identify(resource.PrivateIpv4)
+		r.appendResourceWithTypeAndMeta(resourceType, resource.PrivateIpv4, resource.ID, resource.Provider)
+		uniqueMap.Store(resource.PrivateIpv4, struct{}{})
+	}
+}
+
 // Append appends a single resource to the resource list
 func (r *Resources) Append(resource *Resource) {
-	r.Items = append(r.Items, resource)
+	r.appendResource(resource, uniqueMap)
 }
 
 // Merge merges a list of resources into the main list
 func (r *Resources) Merge(resources *Resources) {
-	r.Items = append(r.Items, resources.Items...)
+	mergeUniqueMap := &sync.Map{}
+	for _, item := range resources.Items {
+		r.appendResource(item, mergeUniqueMap)
+	}
 }
 
 // Resource is a cloud resource belonging to the organization
@@ -39,10 +103,8 @@ type Resource struct {
 	Public bool `json:"public"`
 	// Provider is the name of provider for instance
 	Provider string `json:"provider"`
-	// Profile is the profile name of the resource provider
-	Profile string `json:"profile,omitempty"`
-	// ProfileName is the name of the key profile
-	ProfileName string `json:"profile_name,omitempty"`
+	// ID is the id name of the resource provider
+	ID string `json:"id,omitempty"`
 	// PublicIPv4 is the public ipv4 address of the instance.
 	PublicIPv4 string `json:"public_ipv4,omitempty"`
 	// PrivateIpv4 is the private ipv4 address of the instance

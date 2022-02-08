@@ -1,39 +1,41 @@
-package scaleway
+package cloudflare
 
 import (
 	"context"
 
+	"github.com/cloudflare/cloudflare-go"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
-	"github.com/scaleway/scaleway-sdk-go/api/instance/v1"
-	"github.com/scaleway/scaleway-sdk-go/scw"
 )
 
-// Provider is a data provider for scaleway API
+// Provider is a data provider for cloudflare API
 type Provider struct {
 	id     string
-	client *scw.Client
+	client *cloudflare.API
 }
 
-// New creates a new provider client for scaleway API
+// New creates a new provider client for cloudflare API
 func New(options schema.OptionBlock) (*Provider, error) {
 	accessKey, ok := options.GetMetadata(apiAccessKey)
 	if !ok {
 		return nil, &schema.ErrNoSuchKey{Name: apiAccessKey}
 	}
-	accessToken, ok := options.GetMetadata(apiAccessToken)
+	apiEmail, ok := options.GetMetadata(apiEmail)
 	if !ok {
-		return nil, &schema.ErrNoSuchKey{Name: apiAccessToken}
+		return nil, &schema.ErrNoSuchKey{Name: apiEmail}
 	}
 	id, _ := options.GetMetadata("id")
 
-	client, err := scw.NewClient(scw.WithAuth(accessKey, accessToken))
+	// Construct a new API object
+	api, err := cloudflare.New(accessKey, apiEmail)
 	if err != nil {
 		return nil, err
 	}
-	return &Provider{client: client, id: id}, nil
+	return &Provider{id: id, client: api}, nil
 }
 
-const providerName = "scw"
+const apiAccessKey = "api_key"
+const apiEmail = "email"
+const providerName = "cloudflare"
 
 // Name returns the name of the provider
 func (p *Provider) Name() string {
@@ -45,11 +47,12 @@ func (p *Provider) ID() string {
 	return p.id
 }
 
-const apiAccessKey = "scaleway_access_key"
-const apiAccessToken = "scaleway_access_token"
-
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	provider := &instanceProvider{instanceAPI: instance.NewAPI(p.client), id: p.id}
-	return provider.GetResource(ctx)
+	dnsProvider := &dnsProvider{id: p.id, client: p.client}
+	list, err := dnsProvider.GetResource(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return list, nil
 }

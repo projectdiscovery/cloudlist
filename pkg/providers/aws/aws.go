@@ -14,7 +14,7 @@ import (
 
 // Provider is a data provider for aws API
 type Provider struct {
-	profile       string
+	id            string
 	ec2Client     *ec2.EC2
 	route53Client *route53.Route53
 	regions       *ec2.DescribeRegionsOutput
@@ -31,13 +31,18 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	if !ok {
 		return nil, &schema.ErrNoSuchKey{Name: apiSecretKey}
 	}
-	profile, _ := options.GetMetadata("profile")
 
+	token, _ := options.GetMetadata(sessionToken)
+	id, _ := options.GetMetadata("id")
 	config := aws.NewConfig()
 	config.WithRegion("us-east-1")
-	config.WithCredentials(credentials.NewStaticCredentials(accessKey, accessToken, ""))
+	config.WithCredentials(credentials.NewStaticCredentials(accessKey, accessToken, token))
 
-	session := session.New(config)
+	session, err := session.NewSession(config)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not extablish a session")
+	}
+
 	ec2Client := ec2.New(session)
 	route53Client := route53.New(session)
 
@@ -45,11 +50,12 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get list of regions")
 	}
-	return &Provider{ec2Client: ec2Client, profile: profile, regions: regions, route53Client: route53Client, session: session}, nil
+	return &Provider{ec2Client: ec2Client, id: id, regions: regions, route53Client: route53Client, session: session}, nil
 }
 
 const apiAccessKey = "aws_access_key"
 const apiSecretKey = "aws_secret_key"
+const sessionToken = "aws_session_token"
 const providerName = "aws"
 
 // Name returns the name of the provider
@@ -57,24 +63,24 @@ func (p *Provider) Name() string {
 	return providerName
 }
 
-// ProfileName returns the name of the provider profile
-func (p *Provider) ProfileName() string {
-	return p.profile
+// ID returns the name of the provider id
+func (p *Provider) ID() string {
+	return p.id
 }
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	ec2provider := &instanceProvider{ec2Client: p.ec2Client, profile: p.profile, session: p.session, regions: p.regions}
+	ec2provider := &instanceProvider{ec2Client: p.ec2Client, id: p.id, session: p.session, regions: p.regions}
 	list, err := ec2provider.GetResource(ctx)
 	if err != nil {
 		return nil, err
 	}
-	route53Provider := &route53Provider{route53: p.route53Client, profile: p.profile, session: p.session}
+	route53Provider := &route53Provider{route53: p.route53Client, id: p.id, session: p.session}
 	zones, err := route53Provider.GetResource(ctx)
 	if err != nil {
 		return nil, err
 	}
-	finalList := &schema.Resources{Items: make([]*schema.Resource, 0, len(list.Items)+len(zones.Items))}
+	finalList := schema.NewResources()
 	finalList.Merge(list)
 	finalList.Merge(zones)
 	return finalList, nil

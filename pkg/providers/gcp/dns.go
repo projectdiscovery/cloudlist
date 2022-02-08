@@ -10,14 +10,14 @@ import (
 
 // cloudDNSProvider is a provider for aws Route53 API
 type cloudDNSProvider struct {
-	profile  string
+	id       string
 	dns      *dns.Service
 	projects []string
 }
 
 // GetResource returns all the resources in the store for a provider.
 func (d *cloudDNSProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
-	list := &schema.Resources{}
+	list := schema.NewResources()
 
 	for _, project := range d.projects {
 		zone := d.dns.ManagedZones.List(project)
@@ -46,10 +46,10 @@ func (d *cloudDNSProvider) GetResource(ctx context.Context) (*schema.Resources, 
 
 // parseRecordsForResourceSet parses and returns the records for a resource set
 func (d *cloudDNSProvider) parseRecordsForResourceSet(r *dns.ResourceRecordSetsListResponse) *schema.Resources {
-	list := &schema.Resources{}
+	list := schema.NewResources()
 
 	for _, resource := range r.Rrsets {
-		if resource.Type != "A" {
+		if resource.Type != "A" && resource.Type != "CNAME" && resource.Type != "AAAA" {
 			continue
 		}
 
@@ -58,7 +58,7 @@ func (d *cloudDNSProvider) parseRecordsForResourceSet(r *dns.ResourceRecordSetsL
 				DNSName:    resource.Name,
 				Public:     true,
 				PublicIPv4: data,
-				Profile:    d.profile,
+				ID:         d.id,
 				Provider:   providerName,
 			})
 		}
