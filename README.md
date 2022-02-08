@@ -183,6 +183,12 @@ The default provider config file should be located at `$HOME/.config/cloudlist/p
   aws_secret_key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   # aws_session_token session token for temporary security credentials retrieved via STS (optional)
   aws_session_token: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+- # provider is the name of the provider (Google Cloud Platform)
+  provider: gcp
+  # profile is the name of the provider profile
+  id: logs
+  # gcp_service_account_key is the minified json of a google cloud service account with list permissions
+  gcp_service_account_key: '{xxxxxxxxxxxxx}'
 - # provider is the name of the provider
   provider: azure
   # id is the name of the provider id
