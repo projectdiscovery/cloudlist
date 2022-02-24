@@ -237,7 +237,7 @@ The default provider config file should be located at `$HOME/.config/cloudlist/p
   alibaba_access_key: XXXXXXXXXXXXXXXXXXXX
   # alibaba_access_key_secret is the secret access key for alibaba cloud account
   alibaba_access_key_secret: XXXXXXXXXXXXXXXX
- - # provider is the name of the provider
+- # provider is the name of the provider
   provider: namecheap
   # id is the name of the provider id
   id: staging
@@ -245,14 +245,14 @@ The default provider config file should be located at `$HOME/.config/cloudlist/p
   namecheap_api_key: XXXXXXXXXXXXXXXXXXXXXXX
   # namecheap_user_name is the username of the namecheap account
   namecheap_user_name: XXXXXXX
- - # provider is the name of the provider
+- # provider is the name of the provider
   provider: terraform
   # id is the name of the provider id
   id: staging
   #tf_state_file is the location of terraform state file (terraform.tfsate) 
   tf_state_file: path/to/terraform.tfstate
- - # provider is the name of the provider
- provider: nomad
+- # provider is the name of the provider
+  provider: nomad
   # nomad_url is the url for nomad server
   nomad_url: http:/127.0.0.1:4646/
   # nomad_ca_file is the path to nomad CA file
@@ -278,7 +278,7 @@ The default provider config file should be located at `$HOME/.config/cloudlist/p
   # consul_http_token is the consul authentication token
   # consul_http_token: <consul-token>
   # consul_http_auth is the consul http auth value
-  # consul_http_auth: <consul-http-auth-value>`
+  # consul_http_auth: <consul-http-auth-value>
 ```
 
 # Contribution
