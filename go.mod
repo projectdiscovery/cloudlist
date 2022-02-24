@@ -9,7 +9,7 @@ require (
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.11
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
-	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1160
+	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1488
 	github.com/aws/aws-sdk-go v1.38.62
 	github.com/cloudflare/cloudflare-go v0.17.0
 	github.com/digitalocean/godo v1.75.0
@@ -35,6 +35,5 @@ require (
 	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22 // indirect
 	google.golang.org/api v0.48.0
 	google.golang.org/genproto v0.0.0-20210614182748-5b3b54cad159 // indirect
-	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 )
