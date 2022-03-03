@@ -3,7 +3,6 @@ module github.com/projectdiscovery/cloudlist
 go 1.14
 
 require (
-	cloud.google.com/go v0.84.0 // indirect
 	github.com/Azure/azure-sdk-for-go v61.6.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.24
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.11
@@ -31,8 +30,7 @@ require (
 	github.com/projectdiscovery/iputil v0.0.0-20210705072957-5a968407979b
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.7
 	github.com/stretchr/testify v1.7.0
-	golang.org/x/oauth2 v0.0.0-20210615190721-d04028783cf1
-	google.golang.org/api v0.48.0
-	google.golang.org/genproto v0.0.0-20210614182748-5b3b54cad159 // indirect
+	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
+	google.golang.org/api v0.70.0
 	gopkg.in/yaml.v2 v2.4.0
 )
