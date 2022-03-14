@@ -88,8 +88,8 @@ github.com/PuerkitoBio/purell v1.0.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbt
 github.com/PuerkitoBio/urlesc v0.0.0-20160726150825-5bd2802263f2/go.mod h1:uGdkoq3SwY9Y+13GIhn11/XLaGBb4BfwItxLd5jeuXE=
 github.com/ajg/form v0.0.0-20160802194845-cc2954064ec9 h1:fJ4XPqxuZfm11zauw9XX7c30P8xwDyucdWu8H6Htrxs=
 github.com/ajg/form v0.0.0-20160802194845-cc2954064ec9/go.mod h1:uL1WgH+h2mgNtvBq0339dVnzXdBETtL2LeUXaIv25UY=
-github.com/aliyun/alibaba-cloud-sdk-go v1.61.1488 h1:cTisL80bXIzHU6cVDyTaRUNvZ6LDG7zSyxojn3glges=
-github.com/aliyun/alibaba-cloud-sdk-go v1.61.1488/go.mod h1:RcDobYh8k5VP6TNybz9m++gL3ijVI5wueVr0EM10VsU=
+github.com/aliyun/alibaba-cloud-sdk-go v1.61.1517 h1:KVMEEtO9cVl7O2mDhQ5db73/gfuIXRr9I7b4n8dalwE=
+github.com/aliyun/alibaba-cloud-sdk-go v1.61.1517/go.mod h1:RcDobYh8k5VP6TNybz9m++gL3ijVI5wueVr0EM10VsU=
 github.com/antihax/optional v1.0.0/go.mod h1:uupD/76wgC+ih3iEmQUL+0Ugr19nfwCT1kdvxnR2qWY=
 github.com/armon/circbuf v0.0.0-20150827004946-bbbad097214e/go.mod h1:3U/XgcO3hCbHZ8TKRvWD2dDTCfh9M9ya+I9JpbB7O8o=
 github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da h1:8GUt8eRujhVEGZFFEjBj46YV4rDjvGrNxb0KMWYkL2I=
