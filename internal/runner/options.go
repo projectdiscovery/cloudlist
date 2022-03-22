@@ -120,7 +120,7 @@ func readProviderConfig(configFile string) (schema.Options, error) {
 // checkAndCreateProviderConfigFile checks if a provider config file exists,
 // if not creates a default.
 func checkAndCreateProviderConfigFile(options *Options) {
-	if options.ProviderConfig == "" {
+	if options.ProviderConfig == "" || !fileutil.FileExists(defaultProviderConfigLocation) {
 		err := os.MkdirAll(filepath.Dir(options.ProviderConfig), os.ModePerm)
 		if err != nil {
 			gologger.Warning().Msgf("Could not create default config file: %s\n", err)
