@@ -8,7 +8,7 @@ require (
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.11
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
-	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1488
+	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1537
 	github.com/aws/aws-sdk-go v1.43.5
 	github.com/cloudflare/cloudflare-go v0.32.0
 	github.com/digitalocean/godo v1.75.0
