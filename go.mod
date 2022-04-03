@@ -9,9 +9,9 @@ require (
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1488
-	github.com/aws/aws-sdk-go v1.43.26
+	github.com/aws/aws-sdk-go v1.43.31
 	github.com/cloudflare/cloudflare-go v0.36.0
-	github.com/digitalocean/godo v1.75.0
+	github.com/digitalocean/godo v1.78.0
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
 	github.com/fastly/go-fastly/v3 v3.12.0
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
