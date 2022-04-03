@@ -30,7 +30,7 @@ require (
 	github.com/projectdiscovery/iputil v0.0.0-20210705072957-5a968407979b
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.7
 	github.com/stretchr/testify v1.7.0
-	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
-	google.golang.org/api v0.70.0
+	golang.org/x/oauth2 v0.0.0-20220309155454-6242fa91716a
+	google.golang.org/api v0.74.0
 	gopkg.in/yaml.v2 v2.4.0
 )
