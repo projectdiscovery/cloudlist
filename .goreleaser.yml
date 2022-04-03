@@ -36,3 +36,30 @@ archives:
 
 checksum:
   algorithm: sha256
+
+snapcrafts:
+  - id: cloudlist
+    replacements:
+      darwin: macOS
+    name: cloudlist
+    publish: false
+    summary: Cloudlist is a multi-cloud tool for getting Assets (Hostnames, IP Addresses) from Cloud Providers.
+    description: |
+      Cloudlist is a multi-cloud tool for getting Assets (Hostnames, IP Addresses) from Cloud Providers. This is intended to be used by the blue team to augment Attack Surface Management efforts by maintaining a centralized list of assets across multiple clouds with very little configuration efforts.
+    grade: stable
+    confinement: strict
+    license: MIT
+    base: core18
+    apps:
+      cloudlist:
+        command: cloudlist
+        plugs:
+          - home
+          - network
+          - removable-media
+          - dot-cloudlist
+    plugs:
+      dot-cloudlist:
+        interface: personal-files
+        write:
+          - $HOME/.config/cloudlist
