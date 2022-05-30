@@ -3,13 +3,13 @@ module github.com/projectdiscovery/cloudlist
 go 1.14
 
 require (
-	github.com/Azure/azure-sdk-for-go v64.1.0+incompatible
+	github.com/Azure/azure-sdk-for-go v65.0.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.27
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.11
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1593
-	github.com/aws/aws-sdk-go v1.44.14
+	github.com/aws/aws-sdk-go v1.44.24
 	github.com/cloudflare/cloudflare-go v0.37.0
 	github.com/digitalocean/godo v1.79.0
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
