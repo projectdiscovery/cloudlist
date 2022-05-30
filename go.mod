@@ -9,7 +9,7 @@ require (
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1593
-	github.com/aws/aws-sdk-go v1.44.14
+	github.com/aws/aws-sdk-go v1.44.24
 	github.com/cloudflare/cloudflare-go v0.37.0
 	github.com/digitalocean/godo v1.79.0
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
@@ -19,7 +19,7 @@ require (
 	github.com/hashicorp/nomad/api v0.0.0-20210711205811-0ef51f1383ff
 	github.com/heroku/heroku-go/v5 v5.4.1
 	github.com/json-iterator/go v1.1.12
-	github.com/linode/linodego v1.4.1
+	github.com/linode/linodego v1.6.0
 	github.com/miekg/dns v1.1.43 // indirect
 	github.com/namecheap/go-namecheap-sdk/v2 v2.0.0-20210701132211-e8fe6bd652dd
 	github.com/pkg/errors v0.9.1
