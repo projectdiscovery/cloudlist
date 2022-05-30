@@ -126,8 +126,8 @@ github.com/dave/rebecca v0.9.1/go.mod h1:N6XYdMD/OKw3lkF3ywh8Z6wPGuwNFDNtWYEMFWE
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/digitalocean/godo v1.79.0 h1:Uwef1rh/QLnADR1pR6oyZfqA5zLqondiSnWFPwDzbog=
-github.com/digitalocean/godo v1.79.0/go.mod h1:BPCqvwbjbGqxuUnIKB4EvS/AX7IDnNmt5fwvIkWo+ew=
+github.com/digitalocean/godo v1.80.0 h1:ZULJ/fWDM97YtO7Fa+K6hzJLd7+smCu4N+0n+B/xtj4=
+github.com/digitalocean/godo v1.80.0/go.mod h1:BPCqvwbjbGqxuUnIKB4EvS/AX7IDnNmt5fwvIkWo+ew=
 github.com/dimchansky/utfbom v1.1.1 h1:vV6w1AhK4VMnhBno/TPVCoK9U/LP0PkLCS9tbxHdi/U=
 github.com/dimchansky/utfbom v1.1.1/go.mod h1:SxdoEBH5qIqFocHMyGOXVAybYJdr71b1Q/j0mACtrfE=
 github.com/dnaeon/go-vcr v1.0.1/go.mod h1:aBB1+wY4s93YsC3HHjMBMrwTj2R9FHDzUr9KyGc8n1E=
