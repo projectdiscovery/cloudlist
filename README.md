@@ -152,6 +152,8 @@ cloudlist -silent | httpx -silent | nuclei -t cves/
   - Nomad
   - Consul
   - Terraform
+- Hetzner Cloud
+  - Instances
 
 
 # Configuration file
@@ -278,7 +280,13 @@ The default provider config file should be located at `$HOME/.config/cloudlist/p
   # consul_http_token is the consul authentication token
   # consul_http_token: <consul-token>
   # consul_http_auth is the consul http auth value
-  # consul_http_auth: <consul-http-auth-value>`
+  # consul_http_auth: <consul-http-auth-value>
+- # provider is the name of the provider
+  provider: hetzner
+  # id is the name of the provider id
+  id: staging
+  # auth_token is the is the hetzner authentication token
+  auth_token: <hetzner-token>`
 ```
 
 # Contribution

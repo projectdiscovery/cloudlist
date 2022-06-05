@@ -273,4 +273,11 @@ const defaultProviderConfigFile = `#  #Provider configuration file for cloudlist
 #  # consul_http_token is the consul authentication token
 #  # consul_http_token: <consul-token>
 #  # consul_http_auth is the consul http auth value
-#  # consul_http_auth: <consul-http-auth-value>`
+#  # consul_http_auth: <consul-http-auth-value>
+
+#- # provider is the name of the provider
+#  provider: hetzner
+#  # id is the name of the provider id
+#  id: staging
+#  # auth_token is the is the hetzner authentication token
+#  auth_token: <hetzner-token>`
