@@ -25,7 +25,7 @@
 </p>
 
 
-Cloudlist is a multi-cloud tool for getting Assets (Hostnames, IP Addresses) from Cloud Providers. This is intended to be used by the blue team to augment Attack Surface Management efforts by maintaining a centralized list of assets across multiple clouds with very little configuration efforts.
+Cloudlist is a multi-cloud tool for getting Assets from Cloud Providers. This is intended to be used by the blue team to augment Attack Surface Management efforts by maintaining a centralized list of assets across multiple clouds with very little configuration efforts.
 
 
 # Features
@@ -36,10 +36,12 @@ Cloudlist is a multi-cloud tool for getting Assets (Hostnames, IP Addresses) fro
 </h1>
 
 
- - Easily list Cloud assets with multiple configurations.
- - Multiple cloud providers support.
- - Highly extensible making adding new providers a breeze.
- - **stdout** support to work with other tools in pipelines.
+ - List Cloud assets with multiple configurations
+ - Multiple Cloud providers support
+ - Multiple output format support
+ - Multiple filters support
+ - Highly extensible making adding new providers a breeze
+ - **stdout** support to work with other tools in pipelines
 
 # Usage
 
@@ -158,25 +160,25 @@ cloudlist -silent | httpx -silent | nuclei -t cves/
 
 # Configuration file
 
-The default provider config file should be located at `$HOME/.config/cloudlist/provider-config.yaml` and has the following contents as an example. In order to run this tool, the keys need to updated in the config file.
+The default provider config file should be located at `$HOME/.config/cloudlist/provider-config.yaml` and has the following contents as an example. In order to run this tool, the keys need to updated in the config file for the desired providers.
+
+<details>
+<summary>Example Provider Config</summary>
 
 ```yaml
-- # provider is the name of the provider
-  provider: do
+- provider: do # provider is the name of the provider
   # id is the name of the provider id
   id: xxxx
   # digitalocean_token is the API key for digitalocean cloud platform
   digitalocean_token: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
-- # provider is the name of the provider
-  provider: scw
+- provider: scw # provider is the name of the provider
   # scaleway_access_key is the access key for scaleway API
   scaleway_access_key: SCWXXXXXXXXXXXXXX
   # scaleway_access_token is the access token for scaleway API
   scaleway_access_token: xxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxx
 
-- # provider is the name of the provider
-  provider: aws
+- provider: aws # provider is the name of the provider
   # id is the name of the provider id
   id: staging
   # aws_access_key is the access key for AWS account
@@ -185,14 +187,14 @@ The default provider config file should be located at `$HOME/.config/cloudlist/p
   aws_secret_key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   # aws_session_token session token for temporary security credentials retrieved via STS (optional)
   aws_session_token: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-- # provider is the name of the provider (Google Cloud Platform)
-  provider: gcp
+
+- provider: gcp # provider is the name of the provider
   # profile is the name of the provider profile
   id: logs
   # gcp_service_account_key is the minified json of a google cloud service account with list permissions
   gcp_service_account_key: '{xxxxxxxxxxxxx}'
-- # provider is the name of the provider
-  provider: azure
+
+- provider: azure # provider is the name of the provider
   # id is the name of the provider id
   id: staging
   # client_id is the client ID of registered application of the azure account (not requuired if using cli auth)
@@ -205,32 +207,32 @@ The default provider config file should be located at `$HOME/.config/cloudlist/p
   subscription_id: xxxxxxxxxxxxxxxxxxx
   #use_cli_auth if set to true cloudlist will use azure cli auth
   use_cli_auth: true
-- # provider is the name of the provider
-  provider: cloudflare
+
+- provider: cloudflare # provider is the name of the provider
   # email is the email for cloudflare
   email: user@domain.com
   # api_key is the api_key for cloudflare
   api_key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-- # provider is the name of the provider
-  provider: heroku
+
+- provider: heroku # provider is the name of the provider
   # id is the name of the provider id
   id: staging
   # heroku_api_token is the api key for Heroku account
   heroku_api_token: xxxxxxxxxxxxxxxxxxxx
-- # provider is the name of the provider
-  provider: linode
+
+- provider: linode # provider is the name of the provider
   # id is the name of the provider id
   id: staging
   # linode_personal_access_token is the personal access token for linode account
   linode_personal_access_token: XXXXXXXXXXXXXXXXXXXXXXXX
-- # provider is the name of the provider
-  provider: fastly
+
+- provider: fastly # provider is the name of the provider
   # id is the name of the provider id
   id: staging
   # fastly_api_key is the personal API token for fastly account
   fastly_api_key: XX-XXXXXXXXXXXXXXXXXXXXXX-
-- # provider is the name of the provider
-  provider: alibaba
+
+- provider: alibaba # provider is the name of the provider
   # id is the name of the provider id
   id: staging
   # alibaba_region_id is the region id of the resources
@@ -239,22 +241,28 @@ The default provider config file should be located at `$HOME/.config/cloudlist/p
   alibaba_access_key: XXXXXXXXXXXXXXXXXXXX
   # alibaba_access_key_secret is the secret access key for alibaba cloud account
   alibaba_access_key_secret: XXXXXXXXXXXXXXXX
- - # provider is the name of the provider
-  provider: namecheap
+
+- provider: namecheap # provider is the name of the provider
   # id is the name of the provider id
   id: staging
   # namecheap_api_key is the api key for namecheap account
   namecheap_api_key: XXXXXXXXXXXXXXXXXXXXXXX
   # namecheap_user_name is the username of the namecheap account
   namecheap_user_name: XXXXXXX
- - # provider is the name of the provider
-  provider: terraform
+
+- provider: terraform # provider is the name of the provider
   # id is the name of the provider id
   id: staging
   #tf_state_file is the location of terraform state file (terraform.tfsate) 
   tf_state_file: path/to/terraform.tfstate
- - # provider is the name of the provider
- provider: nomad
+
+- provider: hetzner # provider is the name of the provider
+  # id is the name of the provider id
+  id: staging
+  # auth_token is the is the hetzner authentication token
+  auth_token: <hetzner-token>
+
+- provider: nomad # provider is the name of the provider
   # nomad_url is the url for nomad server
   nomad_url: http:/127.0.0.1:4646/
   # nomad_ca_file is the path to nomad CA file
@@ -267,8 +275,8 @@ The default provider config file should be located at `$HOME/.config/cloudlist/p
   # nomad_token: <nomad-token>
   # nomad_http_auth is the nomad http auth value
   # nomad_http_auth: <nomad-http-auth-value>
-- # provider is the name of the provider
-  provider: consul
+
+- provider: consul # provider is the name of the provider
   # consul_url is the url for consul server
   consul_url: http://localhost:8500/
   # consul_ca_file is the path to consul CA file
@@ -281,13 +289,9 @@ The default provider config file should be located at `$HOME/.config/cloudlist/p
   # consul_http_token: <consul-token>
   # consul_http_auth is the consul http auth value
   # consul_http_auth: <consul-http-auth-value>
-- # provider is the name of the provider
-  provider: hetzner
-  # id is the name of the provider id
-  id: staging
-  # auth_token is the is the hetzner authentication token
-  auth_token: <hetzner-token>`
 ```
+
+</details>
 
 # Contribution
 
