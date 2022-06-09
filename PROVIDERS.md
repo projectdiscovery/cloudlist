@@ -330,3 +330,19 @@ Specifying https in the `nomad_url` automatically turns SSL to on. All the field
 
 References - 
 - https://www.nomadproject.io/api-docs
+
+### Hetzner Cloud
+
+Hetzner Cloud can be integrated by using the following configuration block.
+
+```yaml
+- # provider is the name of the provider
+ provider: hetzner
+ # id is the name of the provider id
+ id: staging
+ # auth_token is the is the hetzner authentication token
+ auth_token: <hetzner-token>
+```
+
+References -
+- https://docs.hetzner.cloud/#authentication
