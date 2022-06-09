@@ -12,6 +12,7 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/providers/fastly"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/gcp"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/heroku"
+	"github.com/projectdiscovery/cloudlist/pkg/providers/hetzner"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/linode"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/namecheap"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/nomad"
@@ -77,6 +78,8 @@ func nameToProvider(value string, block schema.OptionBlock) (schema.Provider, er
 		return consul.New(block)
 	case "nomad":
 		return nomad.New(block)
+	case "hetzner":
+		return hetzner.New(block)
 	default:
 		return nil, fmt.Errorf("invalid provider name found: %s", value)
 	}
