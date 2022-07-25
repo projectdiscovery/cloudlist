@@ -18,7 +18,7 @@ require (
 	github.com/hashicorp/consul/api v1.13.0
 	github.com/hashicorp/nomad/api v0.0.0-20210711205811-0ef51f1383ff
 	github.com/heroku/heroku-go/v5 v5.4.1
-	github.com/hetznercloud/hcloud-go v1.33.2
+	github.com/hetznercloud/hcloud-go v1.35.1
 	github.com/json-iterator/go v1.1.12
 	github.com/linode/linodego v1.6.0
 	github.com/miekg/dns v1.1.43 // indirect
