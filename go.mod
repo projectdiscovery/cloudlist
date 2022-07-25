@@ -24,13 +24,13 @@ require (
 	github.com/miekg/dns v1.1.43 // indirect
 	github.com/namecheap/go-namecheap-sdk/v2 v2.0.0-20210701132211-e8fe6bd652dd
 	github.com/pkg/errors v0.9.1
-	github.com/projectdiscovery/fileutil v0.0.0-20210601061022-8ef4fc6fbfb6
-	github.com/projectdiscovery/goflags v0.0.7
+	github.com/projectdiscovery/fileutil v0.0.0-20210928100737-cab279c5d4b5
+	github.com/projectdiscovery/goflags v0.0.9
 	github.com/projectdiscovery/gologger v1.1.4
 	github.com/projectdiscovery/iputil v0.0.0-20210705072957-5a968407979b
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.7
-	github.com/stretchr/testify v1.7.1
-	golang.org/x/oauth2 v0.0.0-20220524215830-622c5d57e401
-	google.golang.org/api v0.82.0
+	github.com/stretchr/testify v1.8.0
+	golang.org/x/oauth2 v0.0.0-20220622183110-fd043fe589d2
+	google.golang.org/api v0.88.0
 	gopkg.in/yaml.v2 v2.4.0
 )
