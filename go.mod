@@ -11,11 +11,11 @@ require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1623
 	github.com/aws/aws-sdk-go v1.44.61
 	github.com/cloudflare/cloudflare-go v0.37.0
-	github.com/digitalocean/godo v1.81.0
+	github.com/digitalocean/godo v1.83.0
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
 	github.com/fastly/go-fastly/v3 v3.12.0
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/hashicorp/consul/api v1.13.0
+	github.com/hashicorp/consul/api v1.14.0
 	github.com/hashicorp/nomad/api v0.0.0-20210711205811-0ef51f1383ff
 	github.com/heroku/heroku-go/v5 v5.4.1
 	github.com/hetznercloud/hcloud-go v1.35.1
