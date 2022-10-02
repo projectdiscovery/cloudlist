@@ -18,18 +18,18 @@ import (
 
 // Options contains the configuration options for cloudlist.
 type Options struct {
-	JSON           bool                          // JSON returns JSON output
-	Silent         bool                          // Silent Display results only
-	Version        bool                          // Version returns the version of the tool.
-	Verbose        bool                          // Verbose prints verbose output.
-	Hosts          bool                          // Hosts specifies to fetch only DNS Names
-	IPAddress      bool                          // IPAddress specifes to fetch only IP Addresses
-	Config         string                        // Config is the location of the config file.
-	Output         string                        // Output is the file to write found results too.
-	ExcludePrivate bool                          // ExcludePrivate excludes private IPs from results
-	Provider       goflags.NormalizedStringSlice // Provider specifies what providers to fetch assets for.
-	Id             goflags.NormalizedStringSlice // Id specifies what id's to fetch assets for.
-	ProviderConfig string                        // ProviderConfig is the location of the provider config file.
+	JSON           bool                // JSON returns JSON output
+	Silent         bool                // Silent Display results only
+	Version        bool                // Version returns the version of the tool.
+	Verbose        bool                // Verbose prints verbose output.
+	Hosts          bool                // Hosts specifies to fetch only DNS Names
+	IPAddress      bool                // IPAddress specifes to fetch only IP Addresses
+	Config         string              // Config is the location of the config file.
+	Output         string              // Output is the file to write found results too.
+	ExcludePrivate bool                // ExcludePrivate excludes private IPs from results
+	Provider       goflags.StringSlice // Provider specifies what providers to fetch assets for.
+	Id             goflags.StringSlice // Id specifies what id's to fetch assets for.
+	ProviderConfig string              // ProviderConfig is the location of the provider config file.
 }
 
 var (
@@ -57,18 +57,18 @@ func ParseOptions() *Options {
 	flagSet := goflags.NewFlagSet()
 	flagSet.SetDescription(`Cloudlist is a tool for listing Assets from multiple cloud providers.`)
 
-	createGroup(flagSet, "config", "Configuration",
+	flagSet.CreateGroup("config", "Configuration",
 		flagSet.StringVar(&options.Config, "config", defaultConfigLocation, "cloudlist flag config file"),
 		flagSet.StringVarP(&options.ProviderConfig, "provider-config", "pc", defaultProviderConfigLocation, "provider config file"),
 	)
-	createGroup(flagSet, "filter", "Filters",
-		flagSet.NormalizedStringSliceVarP(&options.Provider, "provider", "p", []string{}, "display results for given providers (comma-separated)"),
-		flagSet.NormalizedStringSliceVar(&options.Id, "id", []string{}, "display results for given ids (comma-separated)"),
+	flagSet.CreateGroup("filter", "Filters",
+		flagSet.StringSliceVarP(&options.Provider, "provider", "p", nil, "display results for given providers (comma-separated)", goflags.NormalizedStringSliceOptions),
+		flagSet.StringSliceVar(&options.Id, "id", nil, "display results for given ids (comma-separated)", goflags.NormalizedStringSliceOptions),
 		flagSet.BoolVar(&options.Hosts, "host", false, "display only hostnames in results"),
 		flagSet.BoolVar(&options.IPAddress, "ip", false, "display only ips in results"),
 		flagSet.BoolVarP(&options.ExcludePrivate, "exclude-private", "ep", false, "exclude private ips in cli output"),
 	)
-	createGroup(flagSet, "output", "Output",
+	flagSet.CreateGroup("output", "Output",
 		flagSet.StringVarP(&options.Output, "output", "o", "", "output file to write results"),
 		flagSet.BoolVar(&options.JSON, "json", false, "write output in json format"),
 		flagSet.BoolVar(&options.Version, "version", false, "display version of cloudlist"),
@@ -139,13 +139,6 @@ func userHomeDir() string {
 		gologger.Fatal().Msgf("Could not get user home directory: %s\n", err)
 	}
 	return usr.HomeDir
-}
-
-func createGroup(flagSet *goflags.FlagSet, groupName, description string, flags ...*goflags.FlagData) {
-	flagSet.SetGroup(groupName, description)
-	for _, currentFlag := range flags {
-		currentFlag.Group(groupName)
-	}
 }
 
 const defaultProviderConfigFile = `#  #Provider configuration file for cloudlist enumeration agent
