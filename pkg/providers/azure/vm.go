@@ -3,9 +3,8 @@ package azure
 import (
 	"context"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
-
+	"github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
+	"github.com/Azure/azure-sdk-for-go/profiles/latest/network/mgmt/network"
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/resources/mgmt/resources"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
@@ -95,7 +94,7 @@ func fetchVMList(ctx context.Context, group string, sess *vmProvider) (VMList []
 	vmClient := compute.NewVirtualMachinesClient(sess.SubscriptionID)
 	vmClient.Authorizer = sess.Authorizer
 
-	for vm, err := vmClient.ListComplete(context.Background(), group); vm.NotDone(); err = vm.Next() {
+	for vm, err := vmClient.ListComplete(context.Background(), group, ""); vm.NotDone(); err = vm.Next() {
 
 		if err != nil {
 			return nil, errors.Wrap(err, "error traverising vm list")
