@@ -8,7 +8,7 @@ require (
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.11
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
-	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1623
+	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1799
 	github.com/aws/aws-sdk-go v1.44.61
 	github.com/cloudflare/cloudflare-go v0.37.0
 	github.com/digitalocean/godo v1.86.0
@@ -24,8 +24,8 @@ require (
 	github.com/miekg/dns v1.1.43 // indirect
 	github.com/namecheap/go-namecheap-sdk/v2 v2.0.0-20210701132211-e8fe6bd652dd
 	github.com/pkg/errors v0.9.1
-	github.com/projectdiscovery/fileutil v0.0.0-20210601061022-8ef4fc6fbfb6
-	github.com/projectdiscovery/goflags v0.0.7
+	github.com/projectdiscovery/fileutil v0.0.0-20220705195237-01becc2a8963
+	github.com/projectdiscovery/goflags v0.1.0
 	github.com/projectdiscovery/gologger v1.1.4
 	github.com/projectdiscovery/iputil v0.0.0-20210705072957-5a968407979b
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.7
