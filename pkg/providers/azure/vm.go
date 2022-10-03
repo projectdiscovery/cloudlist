@@ -94,7 +94,7 @@ func fetchVMList(ctx context.Context, group string, sess *vmProvider) (VMList []
 	vmClient := compute.NewVirtualMachinesClient(sess.SubscriptionID)
 	vmClient.Authorizer = sess.Authorizer
 
-	for vm, err := vmClient.ListComplete(context.Background(), group); vm.NotDone(); err = vm.Next() {
+	for vm, err := vmClient.ListComplete(context.Background(), group, ""); vm.NotDone(); err = vm.Next() {
 
 		if err != nil {
 			return nil, errors.Wrap(err, "error traverising vm list")
