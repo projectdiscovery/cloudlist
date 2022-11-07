@@ -25,7 +25,7 @@ require (
 	github.com/namecheap/go-namecheap-sdk/v2 v2.0.0-20210701132211-e8fe6bd652dd
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/fileutil v0.0.0-20220705195237-01becc2a8963
-	github.com/projectdiscovery/goflags v0.1.1
+	github.com/projectdiscovery/goflags v0.1.3
 	github.com/projectdiscovery/gologger v1.1.4
 	github.com/projectdiscovery/iputil v0.0.0-20210705072957-5a968407979b
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.7
