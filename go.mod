@@ -21,13 +21,14 @@ require (
 	github.com/hetznercloud/hcloud-go v1.35.3
 	github.com/json-iterator/go v1.1.12
 	github.com/linode/linodego v1.9.3
-	github.com/miekg/dns v1.1.43 // indirect
+	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/namecheap/go-namecheap-sdk/v2 v2.0.0-20210701132211-e8fe6bd652dd
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/fileutil v0.0.0-20220705195237-01becc2a8963
 	github.com/projectdiscovery/goflags v0.1.1
 	github.com/projectdiscovery/gologger v1.1.4
 	github.com/projectdiscovery/iputil v0.0.0-20210705072957-5a968407979b
+	github.com/projectdiscovery/utils v0.0.2 // indirect
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.7
 	github.com/stretchr/testify v1.8.1
 	golang.org/x/oauth2 v0.0.0-20221014153046-6fdb5e3db783

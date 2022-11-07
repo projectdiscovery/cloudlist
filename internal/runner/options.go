@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
-	"github.com/projectdiscovery/fileutil"
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/levels"
+	fileutil "github.com/projectdiscovery/utils/file"
 	"gopkg.in/yaml.v2"
 )
 
