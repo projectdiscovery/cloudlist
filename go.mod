@@ -8,9 +8,10 @@ require (
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.11
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
-	github.com/aliyun/alibaba-cloud-sdk-go v1.61.1823
+	github.com/HdrHistogram/hdrhistogram-go v1.1.2 // indirect
+	github.com/aliyun/alibaba-cloud-sdk-go v1.62.2
 	github.com/aws/aws-sdk-go v1.44.121
-	github.com/cloudflare/cloudflare-go v0.52.0
+	github.com/cloudflare/cloudflare-go v0.53.0
 	github.com/digitalocean/godo v1.87.0
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
 	github.com/fastly/go-fastly/v3 v3.12.0
@@ -29,6 +30,6 @@ require (
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.7
 	github.com/stretchr/testify v1.8.1
 	golang.org/x/oauth2 v0.0.0-20221014153046-6fdb5e3db783
-	google.golang.org/api v0.100.0
+	google.golang.org/api v0.102.0
 	gopkg.in/yaml.v2 v2.4.0
 )
