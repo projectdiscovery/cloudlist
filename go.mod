@@ -30,6 +30,6 @@ require (
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.7
 	github.com/stretchr/testify v1.8.1
 	golang.org/x/oauth2 v0.0.0-20221014153046-6fdb5e3db783
-	google.golang.org/api v0.102.0
+	google.golang.org/api v0.103.0
 	gopkg.in/yaml.v2 v2.4.0
 )
