@@ -12,7 +12,7 @@ require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.62.2
 	github.com/aws/aws-sdk-go v1.44.121
 	github.com/cloudflare/cloudflare-go v0.53.0
-	github.com/digitalocean/godo v1.87.0
+	github.com/digitalocean/godo v1.89.0
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
 	github.com/fastly/go-fastly/v3 v3.12.0
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
