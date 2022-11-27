@@ -273,4 +273,19 @@ const defaultProviderConfigFile = `#  #Provider configuration file for cloudlist
 #  # id is the name of the provider id
 #  id: staging
 #  # auth_token is the is the hetzner authentication token
-#  auth_token: <hetzner-token>`
+#  auth_token: <hetzner-token>
+
+#- # provider is the name of the provider
+#  provider: openstack
+#  # id is the name of the provider id
+#  id: staging
+#  # identity_endpoint is Openstack identity endpoint used to authenticate
+#  identity_endpoint: <openstack-identity-endpoint>
+#  # domain_name is Openstack domain name used to authenticate
+#  domain_name: <openstack-domain-name>
+#  # tenant_name is Openstack tenant name
+#  tenant_name: <openstack-tenant-name>
+#  # username is Openstack username used to authenticate
+#  username: <openstack-username>
+#  # password is Openstack password used to authenticate
+#  password: <openstack-password>`
