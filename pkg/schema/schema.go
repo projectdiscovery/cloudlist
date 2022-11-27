@@ -3,6 +3,7 @@ package schema
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema/validate"
@@ -134,6 +135,13 @@ func (o OptionBlock) GetMetadata(key string) (string, bool) {
 	data, ok := o[key]
 	if !ok || data == "" {
 		return "", false
+	}
+	// if data starts with $, treat it as an env var
+	if data[0] == '$' {
+		envData := os.Getenv(data[1:])
+		if envData != "" {
+			return envData, true
+		}
 	}
 	return data, true
 }
