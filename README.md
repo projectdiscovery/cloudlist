@@ -167,26 +167,26 @@ The default provider config file should be located at `$HOME/.config/cloudlist/p
 
 ```yaml
 - provider: do # provider is the name of the provider
-  # id is the name of the provider id
+  id is the name defined by user for filtering (optional)
   id: xxxx
   # digitalocean_token is the API key for digitalocean cloud platform
-  digitalocean_token: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  digitalocean_token: $DIGITALOCEAN_TOKEN
 
 - provider: scw # provider is the name of the provider
   # scaleway_access_key is the access key for scaleway API
-  scaleway_access_key: SCWXXXXXXXXXXXXXX
+  scaleway_access_key: $SCALEWAY_ACCESS_KEY
   # scaleway_access_token is the access token for scaleway API
-  scaleway_access_token: xxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxx
+  scaleway_access_token: $SCALEWAY_ACCESS_TOKEN
 
 - provider: aws # provider is the name of the provider
-  # id is the name of the provider id
+  id is the name defined by user for filtering (optional)
   id: staging
   # aws_access_key is the access key for AWS account
-  aws_access_key: AKIAXXXXXXXXXXXXXX
+  aws_access_key: $AWS_ACCESS_KEY
   # aws_secret_key is the secret key for AWS account
-  aws_secret_key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  aws_secret_key: $AWS_SECRET_KEY
   # aws_session_token session token for temporary security credentials retrieved via STS (optional)
-  aws_session_token: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  aws_session_token: $AWS_SESSION_TOKEN
 
 - provider: gcp # provider is the name of the provider
   # profile is the name of the provider profile
@@ -195,72 +195,72 @@ The default provider config file should be located at `$HOME/.config/cloudlist/p
   gcp_service_account_key: '{xxxxxxxxxxxxx}'
 
 - provider: azure # provider is the name of the provider
-  # id is the name of the provider id
+  id is the name defined by user for filtering (optional)
   id: staging
   # client_id is the client ID of registered application of the azure account (not requuired if using cli auth)
-  client_id: xxxxxxxxxxxxxxxxxxxxxxxxx
+  client_id: $AZURE_CLIENT_ID
   # client_secret is the secret ID of registered application of the zure account (not requuired if using cli uth)
-  client_secret: xxxxxxxxxxxxxxxxxxxxx
+  client_secret: $AZURE_CLIENT_SECRET
   # tenant_id is the tenant ID of registered application of the azure account (not requuired if using cli auth)
-  tenant_id: xxxxxxxxxxxxxxxxxxxxxxxxx
+  tenant_id: $AZURE_TENANT_ID
   #subscription_id is the azure subscription id
-  subscription_id: xxxxxxxxxxxxxxxxxxx
+  subscription_id: $AZURE_SUBSCRIPTION_ID
   #use_cli_auth if set to true cloudlist will use azure cli auth
   use_cli_auth: true
 
 - provider: cloudflare # provider is the name of the provider
   # email is the email for cloudflare
-  email: user@domain.com
+  email: $CF_EMAIL
   # api_key is the api_key for cloudflare
-  api_key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  api_key: $CF_API_KEY
 
 - provider: heroku # provider is the name of the provider
-  # id is the name of the provider id
+  id is the name defined by user for filtering (optional)
   id: staging
   # heroku_api_token is the api key for Heroku account
-  heroku_api_token: xxxxxxxxxxxxxxxxxxxx
+  heroku_api_token: $HEROKU_API_TOKEN
 
 - provider: linode # provider is the name of the provider
-  # id is the name of the provider id
+  id is the name defined by user for filtering (optional)
   id: staging
   # linode_personal_access_token is the personal access token for linode account
-  linode_personal_access_token: XXXXXXXXXXXXXXXXXXXXXXXX
+  linode_personal_access_token: $LINODE_PERSONAL_ACCESS_TOKEN
 
 - provider: fastly # provider is the name of the provider
-  # id is the name of the provider id
+  id is the name defined by user for filtering (optional)
   id: staging
   # fastly_api_key is the personal API token for fastly account
-  fastly_api_key: XX-XXXXXXXXXXXXXXXXXXXXXX-
+  fastly_api_key: $FASTLY_API_KEY
 
 - provider: alibaba # provider is the name of the provider
-  # id is the name of the provider id
+  id is the name defined by user for filtering (optional)
   id: staging
   # alibaba_region_id is the region id of the resources
-  alibaba_region_id: ap-XXXXXXX
+  alibaba_region_id: $ALIBABA_REGION_ID
   # alibaba_access_key is the access key ID for alibaba cloud account
-  alibaba_access_key: XXXXXXXXXXXXXXXXXXXX
+  alibaba_access_key: $ALIBABA_ACCESS_KEY
   # alibaba_access_key_secret is the secret access key for alibaba cloud account
-  alibaba_access_key_secret: XXXXXXXXXXXXXXXX
+  alibaba_access_key_secret: $ALIBABA_ACCESS_KEY_SECRET
 
 - provider: namecheap # provider is the name of the provider
-  # id is the name of the provider id
+  id is the name defined by user for filtering (optional)
   id: staging
   # namecheap_api_key is the api key for namecheap account
-  namecheap_api_key: XXXXXXXXXXXXXXXXXXXXXXX
+  namecheap_api_key: $NAMECHEAP_API_KEY
   # namecheap_user_name is the username of the namecheap account
-  namecheap_user_name: XXXXXXX
+  namecheap_user_name: $NAMECHEAP_USER_NAME
 
 - provider: terraform # provider is the name of the provider
-  # id is the name of the provider id
+  id is the name defined by user for filtering (optional)
   id: staging
   #tf_state_file is the location of terraform state file (terraform.tfsate) 
   tf_state_file: path/to/terraform.tfstate
 
 - provider: hetzner # provider is the name of the provider
-  # id is the name of the provider id
+  id is the name defined by user for filtering (optional)
   id: staging
   # auth_token is the is the hetzner authentication token
-  auth_token: <hetzner-token>
+  auth_token: $HETZNER_AUTH_TOKEN
 
 - provider: nomad # provider is the name of the provider
   # nomad_url is the url for nomad server
