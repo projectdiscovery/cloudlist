@@ -1,4 +1,5 @@
 name: 🎉 Release Binary
+
 on:
   push:
     tags:
@@ -21,3 +22,4 @@ jobs:
           workdir: .
         env: 
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          SLACK_WEBHOOK: "${{ secrets.RELEASE_SLACK_WEBHOOK }}"
