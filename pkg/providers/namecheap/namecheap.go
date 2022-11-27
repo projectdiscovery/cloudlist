@@ -6,7 +6,7 @@ import (
 	"github.com/namecheap/go-namecheap-sdk/v2/namecheap"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
-	"github.com/projectdiscovery/iputil"
+	iputil "github.com/projectdiscovery/utils/ip"
 )
 
 const (
