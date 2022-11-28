@@ -11,7 +11,7 @@ require (
 	github.com/HdrHistogram/hdrhistogram-go v1.1.2 // indirect
 	github.com/aliyun/alibaba-cloud-sdk-go v1.62.2
 	github.com/aws/aws-sdk-go v1.44.121
-	github.com/cloudflare/cloudflare-go v0.53.0
+	github.com/cloudflare/cloudflare-go v0.55.0
 	github.com/digitalocean/godo v1.89.0
 	github.com/dnaeon/go-vcr v1.1.0 // indirect
 	github.com/fastly/go-fastly/v3 v3.12.0
