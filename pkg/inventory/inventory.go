@@ -16,6 +16,7 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/providers/linode"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/namecheap"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/nomad"
+	"github.com/projectdiscovery/cloudlist/pkg/providers/openstack"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/scaleway"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/terraform"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
@@ -80,6 +81,8 @@ func nameToProvider(value string, block schema.OptionBlock) (schema.Provider, er
 		return nomad.New(block)
 	case "hetzner":
 		return hetzner.New(block)
+	case "openstack":
+		return openstack.New(block)
 	default:
 		return nil, fmt.Errorf("invalid provider name found: %s", value)
 	}

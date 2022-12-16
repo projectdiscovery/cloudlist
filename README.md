@@ -156,7 +156,8 @@ cloudlist -silent | httpx -silent | nuclei -t cves/
   - Terraform
 - Hetzner Cloud
   - Instances
-
+- Openstack
+  - Instances
 
 # Configuration file
 
@@ -289,6 +290,20 @@ The default provider config file should be located at `$HOME/.config/cloudlist/p
   # consul_http_token: <consul-token>
   # consul_http_auth is the consul http auth value
   # consul_http_auth: <consul-http-auth-value>
+
+- provider: openstack # provider is the name of the provider
+ # id is the name of the provider id
+ id: staging
+ # identity_endpoint is Openstack identity endpoint used to authenticate
+ identity_endpoint: $OS_IDENTITY_ENDPOINT
+ # domain_name is Openstack domain name used to authenticate
+ domain_name: $OS_DOMAIN_NAME
+ # tenant_name is Openstack project name
+ tenant_name: $OS_TENANT_NAME
+ # username is Openstack username used to authenticate
+ username: $OS_USERNAME
+ # password is Openstack password used to authenticate
+ password: $OS_PASSWORD
 ```
 
 </details>
