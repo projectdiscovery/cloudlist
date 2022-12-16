@@ -10,6 +10,7 @@ require (
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
 	github.com/HdrHistogram/hdrhistogram-go v1.1.2 // indirect
 	github.com/aliyun/alibaba-cloud-sdk-go v1.62.2
+	github.com/armon/go-metrics v0.3.10 // indirect
 	github.com/aws/aws-sdk-go v1.44.121
 	github.com/cloudflare/cloudflare-go v0.53.0
 	github.com/digitalocean/godo v1.91.1
@@ -17,7 +18,10 @@ require (
 	github.com/fastly/go-fastly/v3 v3.12.0
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/gophercloud/gophercloud v1.1.0
-	github.com/hashicorp/consul/api v1.15.3
+	github.com/hashicorp/consul/api v1.18.0
+	github.com/hashicorp/go-immutable-radix v1.3.0 // indirect
+	github.com/hashicorp/go-msgpack v0.5.5 // indirect
+	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/nomad/api v0.0.0-20210711205811-0ef51f1383ff
 	github.com/heroku/heroku-go/v5 v5.5.0
 	github.com/hetznercloud/hcloud-go v1.37.0
