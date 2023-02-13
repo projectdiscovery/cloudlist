@@ -810,8 +810,8 @@ github.com/projectdiscovery/goflags v0.1.5/go.mod h1:mms5rLXW0+jjbFFTyl/4t9VwtP5
 github.com/projectdiscovery/gologger v1.1.5 h1:CT2Jrpzusca+dwNREMMz4RnAreJ0RqaISRU4SBcZC+M=
 github.com/projectdiscovery/gologger v1.1.5/go.mod h1:bNyVaC1U/NpJtFkJltcesn01NR3K8Hg6RsLVce6yvrw=
 github.com/projectdiscovery/utils v0.0.2/go.mod h1:PEYYkpCedmtydQRUvfWLPw0VRWpaFms4GFqNAziBANI=
-github.com/projectdiscovery/utils v0.0.3 h1:pAjZTGYpnATRc6uaNACdiHv4joZ0Ml7Wpu0dudpcGfM=
-github.com/projectdiscovery/utils v0.0.3/go.mod h1:ne3eSlZlUKuhjHr8FfsfGcGteCzxcbJvFBx4VDBCxK0=
+github.com/projectdiscovery/utils v0.0.9 h1:+bmjtRU1IWt5dKg9+9TbIaRkw/kN05myCXDOhCQRX7g=
+github.com/projectdiscovery/utils v0.0.9/go.mod h1:dZqlayNwgCGn2HgYfKrI71RjBEyKsEPovrU+UDfpQWw=
 github.com/prometheus/client_golang v0.9.1/go.mod h1:7SWBe2y4D6OKWSNQJUaRYU/AaXPKyh/dDVn+NZz0KFw=
 github.com/prometheus/client_golang v1.0.0/go.mod h1:db9x61etRT2tGnBNRi70OPL5FsnadC4Ky3P0J6CfImo=
 github.com/prometheus/client_golang v1.4.0/go.mod h1:e9GMxYsXl05ICDXkRhurwBS4Q3OK1iX/F2sw+iXX5zU=
