@@ -39,6 +39,20 @@ const apiKey = "digitalocean_token"
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	provider := &instanceProvider{client: p.client, id: p.id}
-	return provider.GetResource(ctx)
+	instanceprovider := &instanceProvider{client: p.client, id: p.id}
+	instances, err := instanceprovider.GetResource(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	appprovider := &appsProvider{client: p.client, id: p.id}
+	apps, err := appprovider.GetResource(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	finalList := schema.NewResources()
+	finalList.Merge(instances)
+	finalList.Merge(apps)
+	return finalList, nil
 }
