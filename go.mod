@@ -13,7 +13,7 @@ require (
 	github.com/armon/go-metrics v0.3.10 // indirect
 	github.com/aws/aws-sdk-go v1.44.121
 	github.com/cloudflare/cloudflare-go v0.53.0
-	github.com/digitalocean/godo v1.97.0
+	github.com/digitalocean/godo v1.98.0
 	github.com/fastly/go-fastly/v3 v3.12.0
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/gophercloud/gophercloud v1.1.0
