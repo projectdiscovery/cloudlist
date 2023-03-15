@@ -2,6 +2,9 @@ name: 🔨 Build Test
 
 on:
   pull_request:
+    paths:
+      - '**.go'
+      - '**.mod'
   workflow_dispatch:
 
 jobs:
@@ -10,7 +13,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        go-version: [1.18.x, 1.19.x]
+        go-version: [1.19.x]
         os: [ubuntu-latest, windows-latest, macOS-12]
     steps:
       - name: Set up Go

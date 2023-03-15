@@ -30,10 +30,10 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/goflags v0.1.8
 	github.com/projectdiscovery/gologger v1.1.8
-	github.com/projectdiscovery/utils v0.0.4-0.20221214110533-9f95ee986a54
+	github.com/projectdiscovery/utils v0.0.15-0.20230312150239-2528d5ff811d
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.14
 	github.com/stretchr/testify v1.8.1
-	golang.org/x/oauth2 v0.0.0-20221014153046-6fdb5e3db783
+	golang.org/x/oauth2 v0.5.0
 	google.golang.org/api v0.109.0
 	gopkg.in/yaml.v2 v2.4.0
 )

@@ -13,23 +13,25 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/levels"
 	fileutil "github.com/projectdiscovery/utils/file"
+	updateutils "github.com/projectdiscovery/utils/update"
 	"gopkg.in/yaml.v2"
 )
 
 // Options contains the configuration options for cloudlist.
 type Options struct {
-	JSON           bool                // JSON returns JSON output
-	Silent         bool                // Silent Display results only
-	Version        bool                // Version returns the version of the tool.
-	Verbose        bool                // Verbose prints verbose output.
-	Hosts          bool                // Hosts specifies to fetch only DNS Names
-	IPAddress      bool                // IPAddress specifes to fetch only IP Addresses
-	Config         string              // Config is the location of the config file.
-	Output         string              // Output is the file to write found results too.
-	ExcludePrivate bool                // ExcludePrivate excludes private IPs from results
-	Provider       goflags.StringSlice // Provider specifies what providers to fetch assets for.
-	Id             goflags.StringSlice // Id specifies what id's to fetch assets for.
-	ProviderConfig string              // ProviderConfig is the location of the provider config file.
+	JSON               bool                // JSON returns JSON output
+	Silent             bool                // Silent Display results only
+	Version            bool                // Version returns the version of the tool.
+	Verbose            bool                // Verbose prints verbose output.
+	Hosts              bool                // Hosts specifies to fetch only DNS Names
+	IPAddress          bool                // IPAddress specifes to fetch only IP Addresses
+	Config             string              // Config is the location of the config file.
+	Output             string              // Output is the file to write found results too.
+	ExcludePrivate     bool                // ExcludePrivate excludes private IPs from results
+	Provider           goflags.StringSlice // Provider specifies what providers to fetch assets for.
+	Id                 goflags.StringSlice // Id specifies what id's to fetch assets for.
+	ProviderConfig     string              // ProviderConfig is the location of the provider config file.
+	DisableUpdateCheck bool                // DisableUpdateCheck disable automatic update check
 }
 
 var (
@@ -39,8 +41,6 @@ var (
 
 // ParseOptions parses the command line flags provided by a user
 func ParseOptions() *Options {
-	showBanner()
-
 	// Migrate config to provider config
 	if fileutil.FileExists(defaultConfigLocation) && !fileutil.FileExists(defaultProviderConfigLocation) {
 		if _, err := readProviderConfig(defaultConfigLocation); err == nil {
@@ -68,6 +68,10 @@ func ParseOptions() *Options {
 		flagSet.BoolVar(&options.IPAddress, "ip", false, "display only ips in results"),
 		flagSet.BoolVarP(&options.ExcludePrivate, "exclude-private", "ep", false, "exclude private ips in cli output"),
 	)
+	flagSet.CreateGroup("update", "Update",
+		flagSet.CallbackVarP(GetUpdateCallback(), "update", "up", "update cloudlist to latest version"),
+		flagSet.BoolVarP(&options.DisableUpdateCheck, "disable-update-check", "duc", false, "disable automatic cloudlist update check"),
+	)
 	flagSet.CreateGroup("output", "Output",
 		flagSet.StringVarP(&options.Output, "output", "o", "", "output file to write results"),
 		flagSet.BoolVar(&options.JSON, "json", false, "write output in json format"),
@@ -79,11 +83,23 @@ func ParseOptions() *Options {
 	_ = flagSet.Parse()
 
 	options.configureOutput()
-
+	showBanner()
 	if options.Version {
-		gologger.Info().Msgf("Current Version: %s\n", Version)
+		gologger.Info().Msgf("Current Version: %s\n", version)
 		os.Exit(0)
 	}
+
+	if !options.DisableUpdateCheck {
+		latestVersion, err := updateutils.GetVersionCheckCallback("cloudlist")()
+		if err != nil {
+			if options.Verbose {
+				gologger.Error().Msgf("cloudlist version check failed: %v", err.Error())
+			}
+		} else {
+			gologger.Info().Msgf("Current cloudlist version %v %v", version, updateutils.GetVersionDescription(version, latestVersion))
+		}
+	}
+
 	checkAndCreateProviderConfigFile(options)
 	return options
 }
