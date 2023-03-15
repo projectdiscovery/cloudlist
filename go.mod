@@ -12,6 +12,7 @@ require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.62.2
 	github.com/armon/go-metrics v0.3.10 // indirect
 	github.com/aws/aws-sdk-go v1.44.121
+	github.com/aymanbagabas/go-osc52 v1.2.2 // indirect
 	github.com/cloudflare/cloudflare-go v0.53.0
 	github.com/digitalocean/godo v1.98.0
 	github.com/fastly/go-fastly/v3 v3.12.0
@@ -30,7 +31,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/goflags v0.1.8
 	github.com/projectdiscovery/gologger v1.1.8
-	github.com/projectdiscovery/utils v0.0.15-0.20230312150239-2528d5ff811d
+	github.com/projectdiscovery/utils v0.0.16
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.14
 	github.com/stretchr/testify v1.8.1
 	golang.org/x/oauth2 v0.5.0
