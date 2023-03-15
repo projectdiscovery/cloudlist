@@ -13,7 +13,7 @@ require (
 	github.com/armon/go-metrics v0.3.10 // indirect
 	github.com/aws/aws-sdk-go v1.44.121
 	github.com/aymanbagabas/go-osc52 v1.2.2 // indirect
-	github.com/cloudflare/cloudflare-go v0.53.0
+	github.com/cloudflare/cloudflare-go v0.63.0
 	github.com/digitalocean/godo v1.98.0
 	github.com/fastly/go-fastly/v3 v3.12.0
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
@@ -33,7 +33,7 @@ require (
 	github.com/projectdiscovery/gologger v1.1.8
 	github.com/projectdiscovery/utils v0.0.16
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.14
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.2
 	golang.org/x/oauth2 v0.5.0
 	google.golang.org/api v0.109.0
 	gopkg.in/yaml.v2 v2.4.0
