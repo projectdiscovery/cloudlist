@@ -7,13 +7,14 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
-	"gopkg.in/yaml.v2"
+
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/levels"
 	fileutil "github.com/projectdiscovery/utils/file"
-	updateutils "github.com/projectdiscovery/utils/update"	
+	updateutils "github.com/projectdiscovery/utils/update"
+	"gopkg.in/yaml.v2"
 )
 
 // Options contains the configuration options for cloudlist.
@@ -40,8 +41,6 @@ var (
 
 // ParseOptions parses the command line flags provided by a user
 func ParseOptions() *Options {
-	showBanner()
-
 	// Migrate config to provider config
 	if fileutil.FileExists(defaultConfigLocation) && !fileutil.FileExists(defaultProviderConfigLocation) {
 		if _, err := readProviderConfig(defaultConfigLocation); err == nil {
@@ -84,7 +83,7 @@ func ParseOptions() *Options {
 	_ = flagSet.Parse()
 
 	options.configureOutput()
-
+	showBanner()
 	if options.Version {
 		gologger.Info().Msgf("Current Version: %s\n", version)
 		os.Exit(0)
