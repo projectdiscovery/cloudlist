@@ -15,7 +15,6 @@ require (
 	github.com/cloudflare/cloudflare-go v0.53.0
 	github.com/digitalocean/godo v1.97.0
 	github.com/fastly/go-fastly/v3 v3.12.0
-	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/gophercloud/gophercloud v1.1.0
 	github.com/hashicorp/consul/api v1.18.0
 	github.com/hashicorp/go-immutable-radix v1.3.0 // indirect
@@ -36,4 +35,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20221014153046-6fdb5e3db783
 	google.golang.org/api v0.109.0
 	gopkg.in/yaml.v2 v2.4.0
+	k8s.io/api v0.26.3
+	k8s.io/apimachinery v0.26.3
+	k8s.io/client-go v0.26.3
 )
