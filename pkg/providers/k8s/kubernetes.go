@@ -58,7 +58,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not list kubernetes services")
 	}
-	k8sServiceProvider := k8sServiceProvider{serviceClient: services, id: p.id}
+	k8sServiceProvider := K8sServiceProvider{serviceClient: services, id: p.id}
 	serviceIPs, _ := k8sServiceProvider.GetResource(ctx)
 	finalList.Merge(serviceIPs)
 
@@ -66,7 +66,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not list kubernetes ingress")
 	}
-	k8sIngressProvider := k8sIngressProvider{ingress: ingress, id: p.id}
+	k8sIngressProvider := K8sIngressProvider{ingress: ingress, id: p.id}
 	ingressHosts, _ := k8sIngressProvider.GetResource(ctx)
 	finalList.Merge(ingressHosts)
 	return finalList, nil
