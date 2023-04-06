@@ -8,13 +8,20 @@ import (
 )
 
 // k8sServiceProvider is a provider for aws Route53 API
-type k8sIngressProvider struct {
+type K8sIngressProvider struct {
 	id      string
 	ingress *v1.IngressList
 }
 
+func NewK8sIngressProvider(id string, ingress *v1.IngressList) *K8sIngressProvider {
+	return &K8sIngressProvider{
+		id:      id,
+		ingress: ingress,
+	}
+}
+
 // GetResource returns all the resources in the store for a provider.
-func (k *k8sIngressProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
+func (k *K8sIngressProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
 	for _, ingress := range k.ingress.Items {
 		for _, rule := range ingress.Spec.Rules {

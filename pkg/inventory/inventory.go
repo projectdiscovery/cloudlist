@@ -13,7 +13,7 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/providers/gcp"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/heroku"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/hetzner"
-	k8s "github.com/projectdiscovery/cloudlist/pkg/providers/kubernetes"
+	"github.com/projectdiscovery/cloudlist/pkg/providers/k8s"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/linode"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/namecheap"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/nomad"

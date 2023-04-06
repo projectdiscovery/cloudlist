@@ -7,14 +7,14 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-// k8sServiceProvider is a provider for aws Route53 API
-type k8sServiceProvider struct {
+// K8sServiceProvider is a provider for aws Route53 API
+type K8sServiceProvider struct {
 	id            string
 	serviceClient *v1.ServiceList
 }
 
 // GetResource returns all the resources in the store for a provider.
-func (k *k8sServiceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
+func (k *K8sServiceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
 	for _, service := range k.serviceClient.Items {
 		if service.Spec.LoadBalancerIP != "" {
