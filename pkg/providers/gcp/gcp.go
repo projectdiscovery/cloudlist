@@ -6,44 +6,16 @@ import (
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"google.golang.org/api/cloudresourcemanager/v1"
+	container "google.golang.org/api/container/v1beta1"
 	"google.golang.org/api/dns/v1"
-	"google.golang.org/api/option"
 )
 
 // Provider is a data provider for gcp API
 type Provider struct {
 	dns      *dns.Service
+	gke      *container.Service
 	id       string
 	projects []string
-}
-
-// New creates a new provider client for gcp API
-func New(options schema.OptionBlock) (*Provider, error) {
-	gcpDNSKey, ok := options.GetMetadata(serviceAccountJSON)
-	if !ok {
-		return nil, errors.New("could not get API Key")
-	}
-	id, _ := options.GetMetadata("id")
-
-	creds := option.WithCredentialsJSON([]byte(gcpDNSKey))
-	dnsService, err := dns.NewService(context.Background(), creds)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create dns service with api key")
-	}
-
-	projects := []string{}
-	manager, err := cloudresourcemanager.NewService(context.Background(), creds)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not list projects")
-	}
-	list := manager.Projects.List()
-	err = list.Pages(context.Background(), func(resp *cloudresourcemanager.ListProjectsResponse) error {
-		for _, project := range resp.Projects {
-			projects = append(projects, project.ProjectId)
-		}
-		return nil
-	})
-	return &Provider{dns: dnsService, projects: projects, id: id}, err
 }
 
 const serviceAccountJSON = "gcp_service_account_key"
@@ -59,12 +31,57 @@ func (p *Provider) ID() string {
 	return p.id
 }
 
+// New creates a new provider client for gcp API
+func New(options schema.OptionBlock) (*Provider, error) {
+	JSONData, ok := options.GetMetadata(serviceAccountJSON)
+	if !ok {
+		return nil, errors.New("could not get API Key")
+	}
+	id, _ := options.GetMetadata("id")
+
+	creds, err := register(context.Background(), []byte(JSONData))
+	if err != nil {
+		return nil, errors.Wrap(err, "could not register gcp service account")
+	}
+	dnsService, err := dns.NewService(context.Background(), creds)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create dns service with api key")
+	}
+
+	containerService, err := container.NewService(context.Background(), creds)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create container service with api key")
+	}
+
+	projects := []string{}
+	manager, err := cloudresourcemanager.NewService(context.Background(), creds)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not list projects")
+	}
+	list := manager.Projects.List()
+	err = list.Pages(context.Background(), func(resp *cloudresourcemanager.ListProjectsResponse) error {
+		for _, project := range resp.Projects {
+			projects = append(projects, project.ProjectId)
+		}
+		return nil
+	})
+	return &Provider{dns: dnsService, gke: containerService, projects: projects, id: id}, err
+}
+
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
+	finalList := schema.NewResources()
 	cloudDNSProvider := &cloudDNSProvider{dns: p.dns, id: p.id, projects: p.projects}
 	zones, err := cloudDNSProvider.GetResource(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return zones, nil
+	finalList.Merge(zones)
+	GKEProvider := &gkeProvider{svc: p.gke, id: p.id, projects: p.projects}
+	gkeData, err := GKEProvider.GetResource(ctx)
+	if err != nil {
+		return nil, err
+	}
+	finalList.Merge(gkeData)
+	return finalList, nil
 }
