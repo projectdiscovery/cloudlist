@@ -18,7 +18,7 @@ type Provider struct {
 }
 
 const kubeconfig_file = "kubeconfig_file"
-const providerName = "k8s"
+const providerName = "kubernetes"
 
 func New(options schema.OptionBlock) (*Provider, error) {
 	id, _ := options.GetMetadata("id")

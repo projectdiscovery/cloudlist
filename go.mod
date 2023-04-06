@@ -15,6 +15,7 @@ require (
 	github.com/cloudflare/cloudflare-go v0.53.0
 	github.com/digitalocean/godo v1.97.0
 	github.com/fastly/go-fastly/v3 v3.12.0
+	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gophercloud/gophercloud v1.1.0
 	github.com/hashicorp/consul/api v1.18.0
 	github.com/hashicorp/go-immutable-radix v1.3.0 // indirect
@@ -24,14 +25,16 @@ require (
 	github.com/heroku/heroku-go/v5 v5.5.0
 	github.com/hetznercloud/hcloud-go v1.39.0
 	github.com/json-iterator/go v1.1.12
+	github.com/kr/pretty v0.3.1 // indirect
 	github.com/linode/linodego v1.9.3
 	github.com/namecheap/go-namecheap-sdk/v2 v2.0.0-20210701132211-e8fe6bd652dd
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/goflags v0.1.5
 	github.com/projectdiscovery/gologger v1.1.8
-	github.com/projectdiscovery/utils v0.0.3
+	github.com/projectdiscovery/utils v0.0.14
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.13
 	github.com/stretchr/testify v1.8.1
+	golang.org/x/net v0.8.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20221014153046-6fdb5e3db783
 	google.golang.org/api v0.109.0
 	gopkg.in/yaml.v2 v2.4.0

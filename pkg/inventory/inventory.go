@@ -84,7 +84,7 @@ func nameToProvider(value string, block schema.OptionBlock) (schema.Provider, er
 		return hetzner.New(block)
 	case "openstack":
 		return openstack.New(block)
-	case "k8s":
+	case "kubernetes":
 		return k8s.New(block)
 	default:
 		return nil, fmt.Errorf("invalid provider name found: %s", value)
