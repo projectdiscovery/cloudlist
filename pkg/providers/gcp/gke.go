@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"github.com/projectdiscovery/cloudlist/pkg/providers/k8sprovider"
+	"github.com/projectdiscovery/cloudlist/pkg/providers/k8s"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	container "google.golang.org/api/container/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,7 +28,6 @@ type gkeProvider struct {
 func (d *gkeProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
 
-
 	for _, project := range d.projects {
 		kubeConfig, err := d.getK8sClusterConfigs(ctx, project)
 		if err != nil {
@@ -49,7 +48,7 @@ func (d *gkeProvider) GetResource(ctx context.Context) (*schema.Resources, error
 			if err != nil {
 				return nil, errors.Wrap(err, "could not list kubernetes ingress")
 			}
-			k8sIngressProvider := k8sprovider.NewK8sIngressProvider(d.id, ingress)
+			k8sIngressProvider := k8s.NewK8sIngressProvider(d.id, ingress)
 			ingressHosts, _ := k8sIngressProvider.GetResource(ctx)
 			list.Merge(ingressHosts)
 		}
