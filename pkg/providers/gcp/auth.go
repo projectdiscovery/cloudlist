@@ -2,9 +2,9 @@ package gcp
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
+	errorutil "github.com/projectdiscovery/utils/errors"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
@@ -34,14 +34,14 @@ func (g *googleAuthProvider) Login() error { return nil }
 func (g *googleAuthProvider) Name() string { return googleAuthPlugin }
 
 func register(ctx context.Context, data []byte) (option.ClientOption, error) {
-
+	// Register the auth plugin, it is requied for accessing GKE cluster using kubeconfig
 	creds, err := google.CredentialsFromJSON(ctx, data, scope)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create google credentials: %+v", err)
+		return nil, errorutil.NewWithErr(err).Msgf("failed to create google credentials")
 	}
 	token, err := creds.TokenSource.Token()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create google token: %+v", err)
+		return nil, errorutil.NewWithErr(err).Msgf("failed to create google token")
 	}
 	tokenSource := oauth2.StaticTokenSource(token)
 
@@ -53,13 +53,14 @@ func register(ctx context.Context, data []byte) (option.ClientOption, error) {
 			if tokenSource == nil {
 				tokenSource, err = google.DefaultTokenSource(ctx, scope)
 				if err != nil {
-					return nil, fmt.Errorf("failed to create google token source: %+v", err)
+					return nil, errorutil.NewWithErr(err).Msgf("failed to create google token source")
 				}
 			}
 			return &googleAuthProvider{tokenSource: tokenSource}, nil
 		})
 	if err != nil {
-		return nil, fmt.Errorf("failed to register %s auth plugin: %+v", googleAuthPlugin, err)
+		return nil, errorutil.NewWithErr(err).Msgf("failed to register %s auth plugin", googleAuthPlugin)
 	}
+	// return clioptions
 	return option.WithCredentialsJSON(data), nil
 }

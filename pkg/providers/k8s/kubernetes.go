@@ -3,8 +3,8 @@ package k8s
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	errorutil "github.com/projectdiscovery/utils/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -23,7 +23,6 @@ const providerName = "kubernetes"
 func New(options schema.OptionBlock) (*Provider, error) {
 	id, _ := options.GetMetadata("id")
 
-	// TODO : Add context filter to k8s provider
 	configFile, ok := options.GetMetadata("kubeconfig_file")
 	if !ok {
 		return nil, &schema.ErrNoSuchKey{Name: kubeconfig_file}
@@ -31,11 +30,11 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	context, _ := options.GetMetadata("context")
 	kubeConfig, err := buildConfigWithContext(context, configFile)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not build kubeconfig")
+		return nil, errorutil.NewWithErr(err).Msgf("could not build kubeconfig")
 	}
 	clientset, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not create kubernetes clientset")
+		return nil, errorutil.NewWithErr(err).Msgf("could not create kubernetes clientset")
 	}
 
 	return &Provider{id: id, clientSet: clientset}, nil
@@ -56,7 +55,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalList := schema.NewResources()
 	services, err := p.clientSet.CoreV1().Services("").List(ctx, metav1.ListOptions{})
 	if err != nil {
-		return nil, errors.Wrap(err, "could not list kubernetes services")
+		return nil, errorutil.NewWithErr(err).Msgf("could not list kubernetes services")
 	}
 	k8sServiceProvider := K8sServiceProvider{serviceClient: services, id: p.id}
 	serviceIPs, _ := k8sServiceProvider.GetResource(ctx)
@@ -64,7 +63,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 
 	ingress, err := p.clientSet.NetworkingV1().Ingresses("").List(ctx, metav1.ListOptions{})
 	if err != nil {
-		return nil, errors.Wrap(err, "could not list kubernetes ingress")
+		return nil, errorutil.NewWithErr(err).Msgf("could not list kubernetes ingress")
 	}
 	k8sIngressProvider := K8sIngressProvider{ingress: ingress, id: p.id}
 	ingressHosts, _ := k8sIngressProvider.GetResource(ctx)
@@ -76,7 +75,7 @@ func buildConfigWithContext(context string, kubeconfigPath string) (*rest.Config
 	if context == "" {
 		kubeConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
 		if err != nil {
-			return kubeConfig, errors.Wrap(err, "could not read kubeconfig file")
+			return kubeConfig, errorutil.NewWithErr(err).Msgf("could not read kubeconfig file")
 		}
 	}
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
