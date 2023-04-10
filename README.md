@@ -214,6 +214,8 @@ The default provider config file should be located at `$HOME/.config/cloudlist/p
   email: $CF_EMAIL
   # api_key is the api_key for cloudflare
   api_key: $CF_API_KEY
+  # api_token is the scoped_api_token for cloudflare (optional)
+  api_token: $CF_API_TOKEN
 
 - provider: heroku # provider is the name of the provider
   id is the name defined by user for filtering (optional)
