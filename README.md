@@ -132,6 +132,7 @@ cloudlist -silent | httpx -silent | nuclei -t cves/
   - Route53
 - GCP (Google Cloud Platform)
   - Cloud DNS
+  - GKE
 - DO (DigitalOcean)
   - Instances
 - SCW (Scaleway)
@@ -158,6 +159,9 @@ cloudlist -silent | httpx -silent | nuclei -t cves/
   - Instances
 - Openstack
   - Instances
+- Kubernetes
+  - Services
+  - Ingresses
 
 # Configuration file
 
@@ -168,7 +172,7 @@ The default provider config file should be located at `$HOME/.config/cloudlist/p
 
 ```yaml
 - provider: do # provider is the name of the provider
-  id is the name defined by user for filtering (optional)
+  # id is the name defined by user for filtering (optional)
   id: xxxx
   # digitalocean_token is the API key for digitalocean cloud platform
   digitalocean_token: $DIGITALOCEAN_TOKEN
@@ -180,7 +184,7 @@ The default provider config file should be located at `$HOME/.config/cloudlist/p
   scaleway_access_token: $SCALEWAY_ACCESS_TOKEN
 
 - provider: aws # provider is the name of the provider
-  id is the name defined by user for filtering (optional)
+  # id is the name defined by user for filtering (optional)
   id: staging
   # aws_access_key is the access key for AWS account
   aws_access_key: $AWS_ACCESS_KEY
@@ -196,7 +200,7 @@ The default provider config file should be located at `$HOME/.config/cloudlist/p
   gcp_service_account_key: '{xxxxxxxxxxxxx}'
 
 - provider: azure # provider is the name of the provider
-  id is the name defined by user for filtering (optional)
+  # id is the name defined by user for filtering (optional)
   id: staging
   # client_id is the client ID of registered application of the azure account (not requuired if using cli auth)
   client_id: $AZURE_CLIENT_ID
@@ -216,25 +220,25 @@ The default provider config file should be located at `$HOME/.config/cloudlist/p
   api_key: $CF_API_KEY
 
 - provider: heroku # provider is the name of the provider
-  id is the name defined by user for filtering (optional)
+  # id is the name defined by user for filtering (optional)
   id: staging
   # heroku_api_token is the api key for Heroku account
   heroku_api_token: $HEROKU_API_TOKEN
 
 - provider: linode # provider is the name of the provider
-  id is the name defined by user for filtering (optional)
+  # id is the name defined by user for filtering (optional)
   id: staging
   # linode_personal_access_token is the personal access token for linode account
   linode_personal_access_token: $LINODE_PERSONAL_ACCESS_TOKEN
 
 - provider: fastly # provider is the name of the provider
-  id is the name defined by user for filtering (optional)
+  # id is the name defined by user for filtering (optional)
   id: staging
   # fastly_api_key is the personal API token for fastly account
   fastly_api_key: $FASTLY_API_KEY
 
 - provider: alibaba # provider is the name of the provider
-  id is the name defined by user for filtering (optional)
+  # id is the name defined by user for filtering (optional)
   id: staging
   # alibaba_region_id is the region id of the resources
   alibaba_region_id: $ALIBABA_REGION_ID
@@ -244,7 +248,7 @@ The default provider config file should be located at `$HOME/.config/cloudlist/p
   alibaba_access_key_secret: $ALIBABA_ACCESS_KEY_SECRET
 
 - provider: namecheap # provider is the name of the provider
-  id is the name defined by user for filtering (optional)
+  # id is the name defined by user for filtering (optional)
   id: staging
   # namecheap_api_key is the api key for namecheap account
   namecheap_api_key: $NAMECHEAP_API_KEY
@@ -252,13 +256,13 @@ The default provider config file should be located at `$HOME/.config/cloudlist/p
   namecheap_user_name: $NAMECHEAP_USER_NAME
 
 - provider: terraform # provider is the name of the provider
-  id is the name defined by user for filtering (optional)
+  # id is the name defined by user for filtering (optional)
   id: staging
   #tf_state_file is the location of terraform state file (terraform.tfsate) 
   tf_state_file: path/to/terraform.tfstate
 
 - provider: hetzner # provider is the name of the provider
-  id is the name defined by user for filtering (optional)
+  # id is the name defined by user for filtering (optional)
   id: staging
   # auth_token is the is the hetzner authentication token
   auth_token: $HETZNER_AUTH_TOKEN
@@ -304,6 +308,15 @@ The default provider config file should be located at `$HOME/.config/cloudlist/p
  username: $OS_USERNAME
  # password is Openstack password used to authenticate
  password: $OS_PASSWORD
+
+- provider: kubernetes # provider is the name of the provider
+  # id is the name of the provider id
+  id: staging
+  # kubeconfig_file is the path of kubeconfig file
+  kubeconfig: path/to/kubeconfig
+  # context is the context to be used from kubeconfig file
+  context: <context-name>
+
 ```
 
 </details>
