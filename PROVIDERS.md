@@ -346,8 +346,6 @@ Hetzner Cloud can be integrated by using the following configuration block.
 References -
 - https://docs.hetzner.cloud/#authentication
 
-
-
 ### Kubernetes
 
 Kubernetes can be integrated by using the following configuration block.
@@ -367,4 +365,4 @@ References -
 - https://www.redhat.com/sysadmin/kubeconfig
 - https://docs.aws.amazon.com/eks/latest/userguide/create-kubeconfig.html
 - https://learn.microsoft.com/en-us/azure/aks/control-kubeconfig-access#get-and-verify-the-configuration-information
-- https://cloud.google.com/kubernetes-engine/docs/how-to/cluster-access-for-kubectl#store_info 
+- https://cloud.google.com/kubernetes-engine/docs/how-to/cluster-access-for-kubectl#store_info

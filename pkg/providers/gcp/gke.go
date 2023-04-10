@@ -12,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // register GCP auth provider
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 )
@@ -57,7 +56,6 @@ func (d *gkeProvider) GetResource(ctx context.Context) (*schema.Resources, error
 }
 
 func (d *gkeProvider) getK8sClusterConfigs(ctx context.Context, projectId string) (*api.Config, error) {
-
 	// Basic config structure
 	ret := api.Config{
 		APIVersion: "v1",
