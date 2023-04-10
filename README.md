@@ -130,6 +130,7 @@ cloudlist -silent | httpx -silent | nuclei -t cves/
 - AWS (Amazon web services)
   - EC2
   - Route53
+  - S3
 - GCP (Google Cloud Platform)
   - Cloud DNS
 - DO (DigitalOcean)
