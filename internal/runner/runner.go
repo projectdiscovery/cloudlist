@@ -157,7 +157,7 @@ func (r *Runner) Enumerate() {
 				builder.Reset()
 				gologger.Silent().Msgf("%s", instance.PublicIPv4)
 			}
-			if instance.PrivateIpv4 != "" {
+			if instance.PrivateIpv4 != "" && !r.options.ExcludePrivate {
 				ipCount++
 				builder.WriteString(instance.PrivateIpv4)
 				builder.WriteRune('\n')
