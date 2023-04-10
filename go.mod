@@ -34,7 +34,7 @@ require (
 	github.com/projectdiscovery/utils v0.0.16
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.14
 	github.com/stretchr/testify v1.8.2
-	golang.org/x/oauth2 v0.5.0
+	golang.org/x/oauth2 v0.7.0
 	google.golang.org/api v0.109.0
 	gopkg.in/yaml.v2 v2.4.0
 )
