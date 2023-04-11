@@ -2,7 +2,7 @@ package terraform
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"os"
 	"regexp"
 
@@ -24,7 +24,7 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 	}
 	defer file.Close()
 
-	data, err := ioutil.ReadAll(file)
+	data, err := io.ReadAll(file)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read state file")
 	}

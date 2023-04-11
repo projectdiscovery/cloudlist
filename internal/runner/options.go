@@ -3,7 +3,6 @@ package runner
 import (
 	"errors"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -142,7 +141,7 @@ func checkAndCreateProviderConfigFile(options *Options) {
 			gologger.Warning().Msgf("Could not create default config file: %s\n", err)
 		}
 		if !fileutil.FileExists(defaultProviderConfigLocation) {
-			if writeErr := ioutil.WriteFile(defaultProviderConfigLocation, []byte(defaultProviderConfigFile), os.ModePerm); writeErr != nil {
+			if writeErr := os.WriteFile(defaultProviderConfigLocation, []byte(defaultProviderConfigFile), os.ModePerm); writeErr != nil {
 				gologger.Warning().Msgf("Could not write default output to %s: %s\n", defaultProviderConfigLocation, writeErr)
 			}
 		}
