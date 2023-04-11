@@ -134,6 +134,8 @@ Cloudflare can be integrated by using the following configuration block.
   email: $CF_EMAIL
   # api_key is the api_key for cloudflare
   api_key: $CF_API_KEY
+  # api_token is the scoped_api_token for cloudflare (optional)
+  api_token: $CF_API_TOKEN
 ```
 
 `api_key` can be generated from Cloudflare API Key manager. It needs to be Global API Key due to limitation of cloudflare new API tokens.

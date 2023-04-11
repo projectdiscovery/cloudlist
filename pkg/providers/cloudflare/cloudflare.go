@@ -14,7 +14,19 @@ type Provider struct {
 }
 
 // New creates a new provider client for cloudflare API
+// Here api_token overrides api_key
 func New(options schema.OptionBlock) (*Provider, error) {
+	id, _ := options.GetMetadata("id")
+	apiToken, ok := options.GetMetadata(apiToken)
+	if ok {
+		// Construct a new API object with scoped api token
+		api, err := cloudflare.NewWithAPIToken(apiToken)
+		if err != nil {
+			return nil, err
+		}
+		return &Provider{id: id, client: api}, nil
+	}
+
 	accessKey, ok := options.GetMetadata(apiAccessKey)
 	if !ok {
 		return nil, &schema.ErrNoSuchKey{Name: apiAccessKey}
@@ -23,7 +35,6 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	if !ok {
 		return nil, &schema.ErrNoSuchKey{Name: apiEmail}
 	}
-	id, _ := options.GetMetadata("id")
 
 	// Construct a new API object
 	api, err := cloudflare.New(accessKey, apiEmail)
@@ -33,6 +44,8 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	return &Provider{id: id, client: api}, nil
 }
 
+// apiToken is a cloudflare scoped API token
+const apiToken = "api_token"
 const apiAccessKey = "api_key"
 const apiEmail = "email"
 const providerName = "cloudflare"

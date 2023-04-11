@@ -198,13 +198,15 @@ const defaultProviderConfigFile = `#  #Provider configuration file for cloudlist
 #  subscription_id: xxxxxxxxxxxxxxxxxxx
 #  #use_cli_auth if set to true cloudlist will use azure cli auth
 #  use_cli_auth: true
-
+ 
 #- # provider is the name of the provider
 #  provider: cloudflare
 #  # email is the email for cloudflare
 #  email: user@domain.com
 #  # api_key is the api_key for cloudflare
 #  api_key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+#  # api_token is the scoped_api_token for cloudflare (optional)
+#  api_token: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 #- # provider is the name of the provider
 #  provider: heroku

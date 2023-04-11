@@ -24,7 +24,7 @@ func (d *dnsProvider) GetResource(ctx context.Context) (*schema.Resources, error
 	}
 	for _, zone := range zones {
 		// Fetch all records for a zone
-		recs, err := d.client.DNSRecords(ctx, zone.ID, cloudflare.DNSRecord{})
+		recs, _, err := d.client.ListDNSRecords(ctx, cloudflare.ZoneIdentifier(zone.ID), cloudflare.ListDNSRecordsParams{})
 		if err != nil {
 			return list, errors.Wrap(err, "could not list zones")
 		}
