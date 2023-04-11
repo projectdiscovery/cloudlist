@@ -25,15 +25,6 @@ func (k *K8sIngressProvider) GetResource(ctx context.Context) (*schema.Resources
 	list := schema.NewResources()
 	for _, ingress := range k.ingress.Items {
 		for _, rule := range ingress.Spec.Rules {
-			// Include the paths in the assests as well.
-			// for _, path := range rule.IngressRuleValue.HTTP.Paths {
-			// 	list.Append(&schema.Resource{
-			// 		Public:   true,
-			// 		Provider: providerName,
-			// 		ID:       k.id,
-			// 		DNSName:  fmt.Sprintf("%s%s", rule.Host, path.Path),
-			// 	})
-			// }
 			list.Append(&schema.Resource{
 				Public:   true,
 				Provider: providerName,
