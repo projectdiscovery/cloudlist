@@ -1,10 +1,15 @@
-FROM golang:1.19.3-alpine AS builder
-RUN apk add --no-cache git
-RUN go install -v github.com/projectdiscovery/cloudlist/cmd/cloudlist@latest
+# Base
+FROM golang:1.20.1-alpine AS builder
+RUN apk add --no-cache build-base
+WORKDIR /app
+COPY . /app
+RUN go mod download
+RUN go build ./cmd/cloudlist
 
-FROM alpine:3.16.3
+# Release
+FROM alpine:3.17.2
 RUN apk -U upgrade --no-cache \
     && apk add --no-cache bind-tools ca-certificates
-COPY --from=builder /go/bin/cloudlist /usr/local/bin/
+COPY --from=builder /app/cloudlist /usr/local/bin/
 
 ENTRYPOINT ["cloudlist"]

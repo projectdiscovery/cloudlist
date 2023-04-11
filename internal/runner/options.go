@@ -3,7 +3,6 @@ package runner
 import (
 	"errors"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -13,23 +12,25 @@ import (
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/gologger/levels"
 	fileutil "github.com/projectdiscovery/utils/file"
+	updateutils "github.com/projectdiscovery/utils/update"
 	"gopkg.in/yaml.v2"
 )
 
 // Options contains the configuration options for cloudlist.
 type Options struct {
-	JSON           bool                // JSON returns JSON output
-	Silent         bool                // Silent Display results only
-	Version        bool                // Version returns the version of the tool.
-	Verbose        bool                // Verbose prints verbose output.
-	Hosts          bool                // Hosts specifies to fetch only DNS Names
-	IPAddress      bool                // IPAddress specifes to fetch only IP Addresses
-	Config         string              // Config is the location of the config file.
-	Output         string              // Output is the file to write found results too.
-	ExcludePrivate bool                // ExcludePrivate excludes private IPs from results
-	Provider       goflags.StringSlice // Provider specifies what providers to fetch assets for.
-	Id             goflags.StringSlice // Id specifies what id's to fetch assets for.
-	ProviderConfig string              // ProviderConfig is the location of the provider config file.
+	JSON               bool                // JSON returns JSON output
+	Silent             bool                // Silent Display results only
+	Version            bool                // Version returns the version of the tool.
+	Verbose            bool                // Verbose prints verbose output.
+	Hosts              bool                // Hosts specifies to fetch only DNS Names
+	IPAddress          bool                // IPAddress specifes to fetch only IP Addresses
+	Config             string              // Config is the location of the config file.
+	Output             string              // Output is the file to write found results too.
+	ExcludePrivate     bool                // ExcludePrivate excludes private IPs from results
+	Provider           goflags.StringSlice // Provider specifies what providers to fetch assets for.
+	Id                 goflags.StringSlice // Id specifies what id's to fetch assets for.
+	ProviderConfig     string              // ProviderConfig is the location of the provider config file.
+	DisableUpdateCheck bool                // DisableUpdateCheck disable automatic update check
 }
 
 var (
@@ -39,8 +40,6 @@ var (
 
 // ParseOptions parses the command line flags provided by a user
 func ParseOptions() *Options {
-	showBanner()
-
 	// Migrate config to provider config
 	if fileutil.FileExists(defaultConfigLocation) && !fileutil.FileExists(defaultProviderConfigLocation) {
 		if _, err := readProviderConfig(defaultConfigLocation); err == nil {
@@ -68,6 +67,10 @@ func ParseOptions() *Options {
 		flagSet.BoolVar(&options.IPAddress, "ip", false, "display only ips in results"),
 		flagSet.BoolVarP(&options.ExcludePrivate, "exclude-private", "ep", false, "exclude private ips in cli output"),
 	)
+	flagSet.CreateGroup("update", "Update",
+		flagSet.CallbackVarP(GetUpdateCallback(), "update", "up", "update cloudlist to latest version"),
+		flagSet.BoolVarP(&options.DisableUpdateCheck, "disable-update-check", "duc", false, "disable automatic cloudlist update check"),
+	)
 	flagSet.CreateGroup("output", "Output",
 		flagSet.StringVarP(&options.Output, "output", "o", "", "output file to write results"),
 		flagSet.BoolVar(&options.JSON, "json", false, "write output in json format"),
@@ -79,11 +82,23 @@ func ParseOptions() *Options {
 	_ = flagSet.Parse()
 
 	options.configureOutput()
-
+	showBanner()
 	if options.Version {
-		gologger.Info().Msgf("Current Version: %s\n", Version)
+		gologger.Info().Msgf("Current Version: %s\n", version)
 		os.Exit(0)
 	}
+
+	if !options.DisableUpdateCheck {
+		latestVersion, err := updateutils.GetVersionCheckCallback("cloudlist")()
+		if err != nil {
+			if options.Verbose {
+				gologger.Error().Msgf("cloudlist version check failed: %v", err.Error())
+			}
+		} else {
+			gologger.Info().Msgf("Current cloudlist version %v %v", version, updateutils.GetVersionDescription(version, latestVersion))
+		}
+	}
+
 	checkAndCreateProviderConfigFile(options)
 	return options
 }
@@ -126,7 +141,7 @@ func checkAndCreateProviderConfigFile(options *Options) {
 			gologger.Warning().Msgf("Could not create default config file: %s\n", err)
 		}
 		if !fileutil.FileExists(defaultProviderConfigLocation) {
-			if writeErr := ioutil.WriteFile(defaultProviderConfigLocation, []byte(defaultProviderConfigFile), os.ModePerm); writeErr != nil {
+			if writeErr := os.WriteFile(defaultProviderConfigLocation, []byte(defaultProviderConfigFile), os.ModePerm); writeErr != nil {
 				gologger.Warning().Msgf("Could not write default output to %s: %s\n", defaultProviderConfigLocation, writeErr)
 			}
 		}
@@ -182,13 +197,15 @@ const defaultProviderConfigFile = `#  #Provider configuration file for cloudlist
 #  subscription_id: xxxxxxxxxxxxxxxxxxx
 #  #use_cli_auth if set to true cloudlist will use azure cli auth
 #  use_cli_auth: true
-
+ 
 #- # provider is the name of the provider
 #  provider: cloudflare
 #  # email is the email for cloudflare
 #  email: user@domain.com
 #  # api_key is the api_key for cloudflare
 #  api_key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+#  # api_token is the scoped_api_token for cloudflare (optional)
+#  api_token: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 #- # provider is the name of the provider
 #  provider: heroku
@@ -273,4 +290,19 @@ const defaultProviderConfigFile = `#  #Provider configuration file for cloudlist
 #  # id is the name of the provider id
 #  id: staging
 #  # auth_token is the is the hetzner authentication token
-#  auth_token: <hetzner-token>`
+#  auth_token: <hetzner-token>
+
+#- # provider is the name of the provider
+#  provider: openstack
+#  # id is the name of the provider id
+#  id: staging
+#  # identity_endpoint is Openstack identity endpoint used to authenticate
+#  identity_endpoint: <openstack-identity-endpoint>
+#  # domain_name is Openstack domain name used to authenticate
+#  domain_name: <openstack-domain-name>
+#  # tenant_name is Openstack tenant name
+#  tenant_name: <openstack-tenant-name>
+#  # username is Openstack username used to authenticate
+#  username: <openstack-username>
+#  # password is Openstack password used to authenticate
+#  password: <openstack-password>`
