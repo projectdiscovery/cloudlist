@@ -14,7 +14,7 @@ require (
 	github.com/digitalocean/godo v1.98.0
 	github.com/fastly/go-fastly/v3 v3.12.0
 	github.com/gophercloud/gophercloud v1.1.0
-	github.com/hashicorp/consul/api v1.18.0
+	github.com/hashicorp/consul/api v1.20.0
 	github.com/hashicorp/go-immutable-radix v1.3.0 // indirect
 	github.com/hashicorp/go-msgpack v0.5.5 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
