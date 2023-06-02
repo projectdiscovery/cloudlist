@@ -34,7 +34,7 @@ require (
 	google.golang.org/api v0.109.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.26.3
-	k8s.io/apimachinery v0.26.3
+	k8s.io/apimachinery v0.27.2
 	k8s.io/client-go v0.26.3
 )
 
@@ -69,9 +69,9 @@ require (
 	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
 	github.com/fatih/color v1.14.1 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
-	github.com/go-openapi/jsonpointer v0.19.5 // indirect
-	github.com/go-openapi/jsonreference v0.20.0 // indirect
-	github.com/go-openapi/swag v0.19.14 // indirect
+	github.com/go-openapi/jsonpointer v0.19.6 // indirect
+	github.com/go-openapi/jsonreference v0.20.1 // indirect
+	github.com/go-openapi/swag v0.22.3 // indirect
 	github.com/go-resty/resty/v2 v2.1.1-0.20191201195748-d7b97669fe48 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.2.0 // indirect
@@ -101,7 +101,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
-	github.com/mailru/easyjson v0.7.6 // indirect
+	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
@@ -140,13 +140,13 @@ require (
 	go.uber.org/multierr v1.8.0 // indirect
 	golang.org/x/crypto v0.7.0 // indirect
 	golang.org/x/exp v0.0.0-20221019170559-20944726eadf // indirect
-	golang.org/x/mod v0.8.0 // indirect
+	golang.org/x/mod v0.9.0 // indirect
 	golang.org/x/net v0.9.0 // indirect
 	golang.org/x/sys v0.7.0 // indirect
 	golang.org/x/term v0.7.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
-	golang.org/x/tools v0.6.0 // indirect
+	golang.org/x/tools v0.7.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20221227171554-f9683d7f8bef // indirect
 	google.golang.org/grpc v1.51.0 // indirect
@@ -155,10 +155,10 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/klog/v2 v2.80.1 // indirect
-	k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280 // indirect
-	k8s.io/utils v0.0.0-20221107191617-1a15be271d1d // indirect
-	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
+	k8s.io/klog/v2 v2.90.1 // indirect
+	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f // indirect
+	k8s.io/utils v0.0.0-20230209194617-a36077c30491 // indirect
+	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
