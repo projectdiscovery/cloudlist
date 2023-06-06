@@ -23,7 +23,7 @@ require (
 	github.com/hetznercloud/hcloud-go v1.45.1
 	github.com/json-iterator/go v1.1.12
 	github.com/linode/linodego v1.9.3
-	github.com/namecheap/go-namecheap-sdk/v2 v2.0.0-20210701132211-e8fe6bd652dd
+	github.com/namecheap/go-namecheap-sdk/v2 v2.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/goflags v0.1.8
 	github.com/projectdiscovery/gologger v1.1.8
