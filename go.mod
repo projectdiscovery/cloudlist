@@ -3,12 +3,12 @@ module github.com/projectdiscovery/cloudlist
 go 1.19
 
 require (
-	github.com/Azure/azure-sdk-for-go v67.1.0+incompatible
+	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.28
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.12
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
-	github.com/aliyun/alibaba-cloud-sdk-go v1.62.2
+	github.com/aliyun/alibaba-cloud-sdk-go v1.62.506
 	github.com/aws/aws-sdk-go v1.44.317
 	github.com/cloudflare/cloudflare-go v0.64.0
 	github.com/digitalocean/godo v1.98.0
@@ -29,7 +29,7 @@ require (
 	github.com/projectdiscovery/gologger v1.1.8
 	github.com/projectdiscovery/utils v0.0.16
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.14
-	github.com/stretchr/testify v1.8.2
+	github.com/stretchr/testify v1.8.4
 	golang.org/x/oauth2 v0.8.0
 	google.golang.org/api v0.125.0
 	gopkg.in/yaml.v2 v2.4.0
