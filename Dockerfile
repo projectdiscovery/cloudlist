@@ -7,7 +7,7 @@ RUN go mod download
 RUN go build ./cmd/cloudlist
 
 # Release
-FROM alpine:3.18.2
+FROM alpine:3.18.3
 RUN apk -U upgrade --no-cache \
     && apk add --no-cache bind-tools ca-certificates
 COPY --from=builder /app/cloudlist /usr/local/bin/
