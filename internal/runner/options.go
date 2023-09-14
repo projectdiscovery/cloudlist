@@ -89,7 +89,7 @@ func ParseOptions() *Options {
 	}
 
 	if !options.DisableUpdateCheck {
-		latestVersion, err := updateutils.GetVersionCheckCallback("cloudlist")()
+		latestVersion, err := updateutils.GetToolVersionCallback("cloudlist", version)()
 		if err != nil {
 			if options.Verbose {
 				gologger.Error().Msgf("cloudlist version check failed: %v", err.Error())
