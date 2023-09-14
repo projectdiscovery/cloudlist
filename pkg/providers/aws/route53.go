@@ -36,7 +36,7 @@ func (d *route53Provider) GetResource(ctx context.Context) (*schema.Resources, e
 			list.Merge(items)
 		}
 		if aws.BoolValue(zoneOutput.IsTruncated) && *zoneOutput.NextMarker != "" {
-			req.SetMarker(*zoneOutput.Marker)
+			req.SetMarker(*zoneOutput.NextMarker)
 		} else {
 			return list, nil
 		}
