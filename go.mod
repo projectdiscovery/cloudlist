@@ -11,7 +11,7 @@ require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.62.560
 	github.com/aws/aws-sdk-go v1.45.11
 	github.com/cloudflare/cloudflare-go v0.77.0
-	github.com/digitalocean/godo v1.98.0
+	github.com/digitalocean/godo v1.102.1
 	github.com/fastly/go-fastly/v3 v3.12.0
 	github.com/gophercloud/gophercloud v1.1.0
 	github.com/hashicorp/consul/api v1.20.0
