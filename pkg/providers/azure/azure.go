@@ -2,6 +2,7 @@ package azure
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
@@ -84,6 +85,22 @@ func (p *Provider) ID() string {
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	provider := &vmProvider{Authorizer: p.Authorizer, SubscriptionID: p.SubscriptionID, id: p.id}
-	return provider.GetResource(ctx)
+	vmp := &vmProvider{Authorizer: p.Authorizer, SubscriptionID: p.SubscriptionID, id: p.id}
+
+	vmIPs, err := vmp.GetResource(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error listing VM public ips: %s", err)
+	}
+
+	publicIPp := &publicIPProvider{Authorizer: p.Authorizer, SubscriptionID: p.SubscriptionID, id: p.id}
+	publicIPs, err := publicIPp.GetResource(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error listing public ips: %s", err)
+	}
+
+	resources := &schema.Resources{}
+	resources.Merge(vmIPs)
+	resources.Merge(publicIPs)
+
+	return resources, err
 }
