@@ -29,14 +29,14 @@ func (d *route53Provider) GetResource(ctx context.Context) (*schema.Resources, e
 			return nil, errors.Wrap(err, "could not list hosted zones")
 		}
 		for _, zone := range zoneOutput.HostedZones {
-			items, err := d.listResourceRecords(*zone.Id)
+			items, err := d.listResourceRecords(zone)
 			if err != nil {
 				return nil, errors.Wrap(err, "could not list hosted zones records")
 			}
 			list.Merge(items)
 		}
 		if aws.BoolValue(zoneOutput.IsTruncated) && *zoneOutput.NextMarker != "" {
-			req.SetMarker(*zoneOutput.Marker)
+			req.SetMarker(*zoneOutput.NextMarker)
 		} else {
 			return list, nil
 		}
@@ -44,8 +44,9 @@ func (d *route53Provider) GetResource(ctx context.Context) (*schema.Resources, e
 }
 
 // listResourceRecords lists the resource records for a hosted route53 zone.
-func (d *route53Provider) listResourceRecords(zone string) (*schema.Resources, error) {
-	req := &route53.ListResourceRecordSetsInput{HostedZoneId: aws.String(zone)}
+func (d *route53Provider) listResourceRecords(zone *route53.HostedZone) (*schema.Resources, error) {
+	public := !*zone.Config.PrivateZone
+	req := &route53.ListResourceRecordSetsInput{HostedZoneId: aws.String(*zone.Id)}
 	list := schema.NewResources()
 
 	for {
@@ -65,13 +66,13 @@ func (d *route53Provider) listResourceRecords(zone string) (*schema.Resources, e
 			}
 			list.Append(&schema.Resource{
 				ID:       d.id,
-				Public:   true,
+				Public:   public,
 				DNSName:  name,
 				Provider: providerName,
 			})
 			list.Append(&schema.Resource{
 				ID:         d.id,
-				Public:     true,
+				Public:     public,
 				PublicIPv4: ip4,
 				Provider:   providerName,
 			})
