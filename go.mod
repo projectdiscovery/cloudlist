@@ -25,7 +25,7 @@ require (
 	github.com/linode/linodego v1.22.0
 	github.com/namecheap/go-namecheap-sdk/v2 v2.1.0
 	github.com/pkg/errors v0.9.1
-	github.com/projectdiscovery/goflags v0.1.29
+	github.com/projectdiscovery/goflags v0.1.30
 	github.com/projectdiscovery/gologger v1.1.11
 	github.com/projectdiscovery/utils v0.0.65
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.14
