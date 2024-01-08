@@ -35,6 +35,11 @@ func NewResources() *Resources {
 var uniqueMap *sync.Map
 var validator *validate.Validator
 
+// ClearUniqueMap clears the unique map
+func ClearUniqueMap() {
+	uniqueMap = &sync.Map{}
+}
+
 func init() {
 	uniqueMap = &sync.Map{}
 	// Create validator
