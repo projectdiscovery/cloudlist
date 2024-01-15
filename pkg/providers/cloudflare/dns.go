@@ -38,6 +38,10 @@ func (d *dnsProvider) GetResource(ctx context.Context) (*schema.Resources, error
 				DNSName:  record.Name,
 				ID:       d.id,
 			})
+			// Skip CNAME records values to discard duplidate data
+			if record.Type == "CNAME" {
+				continue
+			}
 			list.Append(&schema.Resource{
 				Public:     true,
 				Provider:   providerName,
