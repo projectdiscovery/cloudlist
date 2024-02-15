@@ -47,6 +47,9 @@ func (k *K8sServiceProvider) GetResource(ctx context.Context) (*schema.Resources
 			})
 		}
 		for _, ip := range service.Spec.ClusterIPs {
+			if ip == "None" {
+				continue
+			}
 			list.Append(&schema.Resource{
 				Public:      false,
 				Provider:    providerName,
