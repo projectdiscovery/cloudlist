@@ -18,17 +18,20 @@ type Provider struct {
 	clientSet *kubernetes.Clientset
 }
 
-const kubeconfig_file = "kubeconfig_file"
-const providerName = "kubernetes"
+const (
+	kubeconfig_file = "kubeconfig_file"
+	kubeConfig      = "kubeconfig"
+	providerName    = "kubernetes"
+)
 
 func New(options schema.OptionBlock) (*Provider, error) {
 	id, _ := options.GetMetadata("id")
 
-	configFile, ok := options.GetMetadata("kubeconfig_file")
-	configStr, strOk := options.GetMetadata("kubeconfig")
+	configFile, ok := options.GetMetadata(kubeconfig_file)
+	configStr, strOk := options.GetMetadata(kubeConfig)
 
 	if !ok && !strOk {
-		return nil, errorutil.New("no kubeconfig file or kubeconfig string provided")
+		return nil, errorutil.New("no kubeconfig_file or kubeconfig  provided")
 	}
 	context, _ := options.GetMetadata("context")
 
