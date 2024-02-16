@@ -350,7 +350,7 @@ References -
 
 ### Kubernetes
 
-To integrate Kubernetes, utilize the configuration block outlined below. This block allows you to specify Kubernetes connection details either through a file path or directly by providing the kubeconfig content. If both kubeconfig_file and kubeconfig are specified, the kubeconfig content will take precedence.
+To integrate Kubernetes, utilize the configuration block outlined below. This block allows you to specify Kubernetes connection details either through a file path or directly by providing the encoded kubeconfig content. If both kubeconfig_file and kubeconfig_encoded are specified, the kubeconfig_encoded will take precedence.
 
 
 ```yaml
@@ -360,14 +360,8 @@ To integrate Kubernetes, utilize the configuration block outlined below. This bl
   id: staging
   # Path to the kubeconfig file.
   kubeconfig_file: path/to/kubeconfig
-  # Direct kubeconfig content.
-  kubeconfig: |  
-    apiVersion: v1
-    clusters:
-    - cluster:
-        certificate-authority-data: <data>  # Base64-encoded certificate authority data.
-        server: <url>  # Kubernetes API server URL.
-      name: <name>  # Name of the cluster.
+  # Base64 encoded kubeconfig, $ cat $KUBECONFIG | base64
+  kubeconfig_encoded: <encoded-kubeconfig>
   # The context to use from the kubeconfig (optional). If omitted, the default is the current-context as defined in the kubeconfig.
   context: <context-name>  
 ```

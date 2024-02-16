@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
@@ -19,26 +20,30 @@ type Provider struct {
 }
 
 const (
-	kubeconfig_file = "kubeconfig_file"
-	kubeConfig      = "kubeconfig"
-	providerName    = "kubernetes"
+	kubeconfig_file   = "kubeconfig_file"
+	encodedKubeConfig = "kubeconfig_encoded"
+	providerName      = "kubernetes"
 )
 
 func New(options schema.OptionBlock) (*Provider, error) {
 	id, _ := options.GetMetadata("id")
 
 	configFile, ok := options.GetMetadata(kubeconfig_file)
-	configStr, strOk := options.GetMetadata(kubeConfig)
+	configEncoded, strOk := options.GetMetadata(encodedKubeConfig)
 
 	if !ok && !strOk {
-		return nil, errorutil.New("no kubeconfig_file or kubeconfig  provided")
+		return nil, errorutil.New("no kubeconfig_file or kubeconfig_encoded  provided")
 	}
 	context, _ := options.GetMetadata("context")
 
 	var kubeConfig *rest.Config
 	var err error
 	if strOk {
-		kubeConfig, err = buildConfigFromStr(context, configStr)
+		decodedConfig, err := base64.StdEncoding.DecodeString(configEncoded)
+		if err != nil {
+			return nil, errorutil.NewWithErr(err).Msgf("could not decode kubeconfig")
+		}
+		kubeConfig, err = buildConfigFromStr(context, decodedConfig)
 		if err != nil {
 			return nil, errorutil.NewWithErr(err).Msgf("could not build kubeconfig")
 		}
@@ -102,9 +107,9 @@ func buildConfigWithContext(context string, kubeconfigPath string) (*rest.Config
 		}).ClientConfig()
 }
 
-func buildConfigFromStr(contextName, configStr string) (*rest.Config, error) {
+func buildConfigFromStr(contextName string, config []byte) (*rest.Config, error) {
 
-	clientConfig, err := clientcmd.NewClientConfigFromBytes([]byte(configStr))
+	clientConfig, err := clientcmd.NewClientConfigFromBytes(config)
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).Msgf("could not read kubeconfig file")
 	}
@@ -112,15 +117,16 @@ func buildConfigFromStr(contextName, configStr string) (*rest.Config, error) {
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).Msgf("could not read kubeconfig file")
 	}
-	// Check if the context exists in the kubeconfig
-	if _, exists := rawConfig.Contexts[contextName]; !exists {
-		return nil, fmt.Errorf("context %q does not exist in the kubeconfig", contextName)
-	}
 	if contextName != "" {
+		// Check if the context exists in the kubeconfig
+		if _, exists := rawConfig.Contexts[contextName]; !exists {
+			return nil, fmt.Errorf("context %q does not exist in the kubeconfig", contextName)
+		}
 		rawConfig.CurrentContext = contextName
 	}
+
 	// Create a new clientcmd.ClientConfig from the modified rawConfig
-	modifiedClientConfig := clientcmd.NewNonInteractiveClientConfig(rawConfig, contextName, &clientcmd.ConfigOverrides{}, nil)
+	modifiedClientConfig := clientcmd.NewNonInteractiveClientConfig(rawConfig, rawConfig.CurrentContext, &clientcmd.ConfigOverrides{}, nil)
 
 	// Get the rest.Config from the modified client configuration
 	kubeConfig, err := modifiedClientConfig.ClientConfig()
