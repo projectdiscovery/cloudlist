@@ -350,17 +350,20 @@ References -
 
 ### Kubernetes
 
-Kubernetes can be integrated by using the following configuration block.
+To integrate Kubernetes, utilize the configuration block outlined below. This block allows you to specify Kubernetes connection details either through a file path or directly by providing the encoded kubeconfig content. If both kubeconfig_file and kubeconfig_encoded are specified, the kubeconfig_encoded will take precedence.
+
 
 ```yaml
-- # provider is the name of the provider
- provider: kubernetes
- # id is the name defined by user for filtering (optional)
- id: staging
- # kubeconfig is the path to kubeconfig file
- kubeconfig: path/to/kubeconfig
- # context is the context to be used from kubeconfig file (optional), if not specified, current-context will be used
- context: <context-name>
+- # This identifies the provider in use
+  provider: kubernetes
+  # User-defined identifier for filtering (optional).
+  id: staging
+  # Path to the kubeconfig file.
+  kubeconfig_file: path/to/kubeconfig
+  # Base64 encoded kubeconfig, $ cat $KUBECONFIG | base64
+  kubeconfig_encoded: <encoded-kubeconfig>
+  # The context to use from the kubeconfig (optional). If omitted, the default is the current-context as defined in the kubeconfig.
+  context: <context-name>  
 ```
 
 References -
