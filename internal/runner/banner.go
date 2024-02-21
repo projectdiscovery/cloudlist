@@ -13,7 +13,7 @@ const banner = `
 `
 
 // version is the current version of cloudlist
-const version = `1.0.6`
+const version = `1.0.7`
 
 // showBanner is used to show the banner to the user
 func showBanner() {
