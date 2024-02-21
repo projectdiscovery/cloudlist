@@ -23,7 +23,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	return &Provider{id: id, client: godo.NewFromToken(token)}, nil
 }
 
-const providerName = "do"
+const providerName = "digitalocean"
 
 // Name returns the name of the provider
 func (p *Provider) Name() string {

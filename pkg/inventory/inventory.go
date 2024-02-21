@@ -54,7 +54,7 @@ func nameToProvider(value string, block schema.OptionBlock) (schema.Provider, er
 	switch value {
 	case "aws":
 		return aws.New(block)
-	case "do":
+	case "do", "digitalocean":
 		return digitalocean.New(block)
 	case "gcp":
 		return gcp.New(block)
