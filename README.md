@@ -15,12 +15,12 @@
 
 <p align="center">
   <a href="#features">Features</a> •
-  <a href="#installation-instructions">Installation</a> •
-  <a href="#usage">Usage</a> •
-  <a href="#configuration-file">Configuration</a> •
-  <a href="#running-cloudlist">Running cloudlist</a> •
-  <a href="#supported-providers">Supported providers</a> •
-  <a href="#cloudlist-as-a-library">Library</a> •
+  <a href="https://docs.projectdiscovery.io/tools/cloudlist/install">Installation</a> •
+  <a href="https://docs.projectdiscovery.io/tools/cloudlist/usage">Usage</a> •
+  <a href="https://docs.projectdiscovery.io/tools/cloudlist/running#configuration-file">Configuration</a> •
+  <a href="https://docs.projectdiscovery.io/tools/cloudlist/running">Running cloudlist</a> •
+  <a href="https://docs.projectdiscovery.io/tools/cloudlist/running#supported-providers">Supported providers</a> •
+  <a href="https://docs.projectdiscovery.io/tools/cloudlist/running#cloudlist-as-a-library">Library</a> •
   <a href="https://discord.gg/projectdiscovery">Join Discord</a>
 </p>
 
