@@ -97,6 +97,9 @@ func (r *Resources) Append(resource *Resource) {
 
 // Merge merges a list of resources into the main list
 func (r *Resources) Merge(resources *Resources) {
+	if resources == nil {
+		return
+	}
 	mergeUniqueMap := &sync.Map{}
 	for _, item := range resources.Items {
 		r.appendResource(item, mergeUniqueMap)
