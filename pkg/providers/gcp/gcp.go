@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	"google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/compute/v1"
@@ -87,7 +88,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	GKEProvider := &gkeProvider{svc: p.gke, id: p.id, projects: p.projects}
 	gkeData, err := GKEProvider.GetResource(ctx)
 	if err != nil {
-		return nil, err
+		gologger.Warning().Msgf("Could not get GKE resources: %s\n", err)
 	}
 	finalList.Merge(gkeData)
 

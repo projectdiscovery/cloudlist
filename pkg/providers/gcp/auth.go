@@ -47,7 +47,7 @@ func register(ctx context.Context, data []byte) (option.ClientOption, error) {
 
 	// Authenticate with the token
 	// If it's nil use Google ADC
-	err = rest.RegisterAuthProviderPlugin(googleAuthPlugin,
+	_ = rest.RegisterAuthProviderPlugin(googleAuthPlugin,
 		func(clusterAddress string, config map[string]string, persister rest.AuthProviderConfigPersister) (rest.AuthProvider, error) {
 			var err error
 			if tokenSource == nil {
@@ -58,9 +58,6 @@ func register(ctx context.Context, data []byte) (option.ClientOption, error) {
 			}
 			return &googleAuthProvider{tokenSource: tokenSource}, nil
 		})
-	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("failed to register %s auth plugin", googleAuthPlugin)
-	}
 	// return clioptions
 	return option.WithCredentialsJSON(data), nil
 }
