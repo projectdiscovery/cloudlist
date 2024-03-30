@@ -4,8 +4,10 @@ import (
 	"context"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 	errorutil "github.com/projectdiscovery/utils/errors"
 	"google.golang.org/api/cloudresourcemanager/v1"
+	"google.golang.org/api/compute/v1"
 	container "google.golang.org/api/container/v1beta1"
 	"google.golang.org/api/dns/v1"
 )
@@ -14,6 +16,7 @@ import (
 type Provider struct {
 	dns      *dns.Service
 	gke      *container.Service
+	compute  *compute.Service
 	id       string
 	projects []string
 }
@@ -47,7 +50,10 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).Msgf("could not create dns service with api key")
 	}
-
+	computeService, err := compute.NewService(context.Background(), creds)
+	if err != nil {
+		return nil, errorutil.NewWithErr(err).Msgf("could not create compute service with api key")
+	}
 	containerService, err := container.NewService(context.Background(), creds)
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).Msgf("could not create container service with api key")
@@ -65,23 +71,33 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		}
 		return nil
 	})
-	return &Provider{dns: dnsService, gke: containerService, projects: projects, id: id}, err
+	return &Provider{dns: dnsService, gke: containerService, projects: projects, id: id, compute: computeService}, err
 }
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalList := schema.NewResources()
+
 	cloudDNSProvider := &cloudDNSProvider{dns: p.dns, id: p.id, projects: p.projects}
 	zones, err := cloudDNSProvider.GetResource(ctx)
 	if err != nil {
 		return nil, err
 	}
 	finalList.Merge(zones)
+
 	GKEProvider := &gkeProvider{svc: p.gke, id: p.id, projects: p.projects}
 	gkeData, err := GKEProvider.GetResource(ctx)
 	if err != nil {
-		return nil, err
+		gologger.Warning().Msgf("Could not get GKE resources: %s\n", err)
 	}
 	finalList.Merge(gkeData)
+
+	VMProvider := &cloudVMProvider{compute: p.compute, id: p.id, projects: p.projects}
+	vmData, err := VMProvider.GetResource(ctx)
+	if err != nil {
+		return nil, err
+	}
+	finalList.Merge(vmData)
+
 	return finalList, nil
 }

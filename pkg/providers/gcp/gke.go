@@ -43,7 +43,10 @@ func (d *gkeProvider) GetResource(ctx context.Context) (*schema.Resources, error
 			if err != nil {
 				return nil, fmt.Errorf("failed to create Kubernetes client cluster=%s: %w", clusterName, err)
 			}
-			ingress, err := k8sClient.NetworkingV1().Ingresses("").List(ctx, metav1.ListOptions{})
+			timeoutSeconds := int64(10)
+			ingress, err := k8sClient.NetworkingV1().Ingresses("").List(ctx, metav1.ListOptions{
+				TimeoutSeconds: &timeoutSeconds,
+			})
 			if err != nil {
 				return nil, errors.Wrap(err, "could not list kubernetes ingress")
 			}
