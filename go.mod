@@ -25,9 +25,9 @@ require (
 	github.com/linode/linodego v1.22.0
 	github.com/namecheap/go-namecheap-sdk/v2 v2.1.0
 	github.com/pkg/errors v0.9.1
-	github.com/projectdiscovery/goflags v0.1.46
+	github.com/projectdiscovery/goflags v0.1.47
 	github.com/projectdiscovery/gologger v1.1.12
-	github.com/projectdiscovery/utils v0.0.86
+	github.com/projectdiscovery/utils v0.0.87
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.14
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/oauth2 v0.12.0
@@ -88,7 +88,7 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/jsonapi v0.0.0-20201022225600-f822737867f6 // indirect
 	github.com/google/s2a-go v0.1.4 // indirect
-	github.com/google/uuid v1.3.0 // indirect
+	github.com/google/uuid v1.3.1 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
 	github.com/googleapis/gax-go/v2 v2.11.0 // indirect
 	github.com/gorilla/css v1.0.0 // indirect
@@ -153,6 +153,7 @@ require (
 	github.com/yuin/goldmark v1.5.4 // indirect
 	github.com/yuin/goldmark-emoji v1.0.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
+	github.com/zcalusic/sysinfo v1.0.2 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
