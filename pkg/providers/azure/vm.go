@@ -51,6 +51,12 @@ func (d *vmProvider) GetResource(ctx context.Context) (*schema.Resources, error)
 				for _, ipConfig := range ipconfigList {
 					privateIP := *ipConfig.PrivateIPAddress
 
+					// The PublicIPAddress field can be nil especially for SQL Server
+					// VMs that are pulled.
+					// In these cases, we just want to return an empty error
+					if ipConfig.PublicIPAddress == nil {
+						return nil, nil
+					}
 					res, err := azure.ParseResourceID(*ipConfig.PublicIPAddress.ID)
 					if err != nil {
 						return nil, err
