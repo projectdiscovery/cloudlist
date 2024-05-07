@@ -55,8 +55,9 @@ func (d *vmProvider) GetResource(ctx context.Context) (*schema.Resources, error)
 					// VMs that are pulled.
 					// In these cases, we just want to return an empty error
 					if ipConfig.PublicIPAddress == nil {
-						return nil, nil
+						continue
 					}
+
 					res, err := azure.ParseResourceID(*ipConfig.PublicIPAddress.ID)
 					if err != nil {
 						return nil, err
@@ -65,6 +66,10 @@ func (d *vmProvider) GetResource(ctx context.Context) (*schema.Resources, error)
 					publicIP, err := fetchPublicIP(ctx, group, res.ResourceName, d)
 					if err != nil {
 						return nil, err
+					}
+
+					if publicIP.IPAddress == nil {
+						return nil, nil
 					}
 
 					list.Append(&schema.Resource{
