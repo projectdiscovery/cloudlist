@@ -48,7 +48,7 @@ func (ep *eksProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 
 func listEKSResources(eksClient *eks.EKS, list *schema.Resources) error {
 	req := &eks.ListClustersInput{
-		MaxResults: aws.Int64(1000),
+		MaxResults: aws.Int64(100),
 	}
 	for {
 		clustersOutput, err := eksClient.ListClusters(req)
