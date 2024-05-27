@@ -27,7 +27,7 @@ func (ep *elbV2Provider) GetResource(ctx context.Context) (*schema.Resources, er
 		regionName := *region.RegionName
 		sess, err := session.NewSession(&aws.Config{
 			// Endpoint: aws.String("http://localhost:4566"),
-			Region:   aws.String(regionName)},
+			Region: aws.String(regionName)},
 		)
 		if err != nil {
 			return nil, errors.Wrapf(err, "could not create session for region %s", regionName)
@@ -43,60 +43,69 @@ func (ep *elbV2Provider) GetResource(ctx context.Context) (*schema.Resources, er
 }
 
 func listELBV2Resources(albClient *elbv2.ELBV2, ec2Client *ec2.EC2, list *schema.Resources) error {
-	lbOutput, err := albClient.DescribeLoadBalancers(nil)
-	if err != nil {
-		return errors.Wrap(err, "could not describe load balancers")
+	req := &elbv2.DescribeLoadBalancersInput{
+		PageSize: aws.Int64(20),
 	}
-
-	for _, lb := range lbOutput.LoadBalancers {
-		albDNS := *lb.DNSName
-		resource := &schema.Resource{
-			Provider: "aws",
-			ID:       *lb.LoadBalancerName,
-			DNSName:  albDNS,
-			Public:   true,
-		}
-		list.Append(resource)
-		// Describe targets for the Load Balancer
-		targetsOutput, err := albClient.DescribeTargetGroups(&elbv2.DescribeTargetGroupsInput{
-			LoadBalancerArn: lb.LoadBalancerArn,
-		})
+	for {
+		lbOutput, err := albClient.DescribeLoadBalancers(req)
 		if err != nil {
-			continue
+			return errors.Wrap(err, "could not describe load balancers")
 		}
 
-		for _, tg := range targetsOutput.TargetGroups {
-			targets, err := albClient.DescribeTargetHealth(&elbv2.DescribeTargetHealthInput{
-				TargetGroupArn: tg.TargetGroupArn,
+		for _, lb := range lbOutput.LoadBalancers {
+			albDNS := *lb.DNSName
+			resource := &schema.Resource{
+				Provider: "aws",
+				ID:       *lb.LoadBalancerName,
+				DNSName:  albDNS,
+				Public:   true,
+			}
+			list.Append(resource)
+			// Describe targets for the Load Balancer
+			targetsOutput, err := albClient.DescribeTargetGroups(&elbv2.DescribeTargetGroupsInput{
+				LoadBalancerArn: lb.LoadBalancerArn,
 			})
 			if err != nil {
 				continue
 			}
 
-			for _, target := range targets.TargetHealthDescriptions {
-				instanceID := *target.Target.Id
-				instanceOutput, err := ec2Client.DescribeInstances(&ec2.DescribeInstancesInput{
-					InstanceIds: []*string{&instanceID},
+			for _, tg := range targetsOutput.TargetGroups {
+				targets, err := albClient.DescribeTargetHealth(&elbv2.DescribeTargetHealthInput{
+					TargetGroupArn: tg.TargetGroupArn,
 				})
 				if err != nil {
-					return errors.Wrapf(err, "could not describe instance %s", instanceID)
+					continue
 				}
-				// Extract private IP address
-				for _, reservation := range instanceOutput.Reservations {
-					for _, instance := range reservation.Instances {
-						if instance.PrivateIpAddress != nil {
-							resource := &schema.Resource{
-								Provider:    "aws",
-								ID:          instanceID,
-								PrivateIpv4: *instance.PrivateIpAddress,
-								Public:      false,
+
+				for _, target := range targets.TargetHealthDescriptions {
+					instanceID := *target.Target.Id
+					instanceOutput, err := ec2Client.DescribeInstances(&ec2.DescribeInstancesInput{
+						InstanceIds: []*string{&instanceID},
+					})
+					if err != nil {
+						return errors.Wrapf(err, "could not describe instance %s", instanceID)
+					}
+					// Extract private IP address
+					for _, reservation := range instanceOutput.Reservations {
+						for _, instance := range reservation.Instances {
+							if instance.PrivateIpAddress != nil {
+								resource := &schema.Resource{
+									Provider:    "aws",
+									ID:          instanceID,
+									PrivateIpv4: *instance.PrivateIpAddress,
+									Public:      false,
+								}
+								list.Append(resource)
 							}
-							list.Append(resource)
 						}
 					}
 				}
 			}
 		}
+		if aws.StringValue(req.Marker) == "" {
+			break
+		}
+		req.SetMarker(aws.StringValue(req.Marker))
 	}
 	return nil
 }

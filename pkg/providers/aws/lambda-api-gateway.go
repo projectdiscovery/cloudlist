@@ -49,30 +49,33 @@ func (ap *lambdaAndapiGatewayProvider) GetResource(ctx context.Context) (*schema
 }
 
 func listAPIGatewayResources(apiGateway *apigateway.APIGateway, list *schema.Resources, sess *session.Session, lambdaClient *lambda.Lambda) error {
-	apis, err := apiGateway.GetRestApis(nil)
+	apis, err := apiGateway.GetRestApis(&apigateway.GetRestApisInput{Limit: aws.Int64(500)})
 	if err != nil {
 		return errors.Wrap(err, "could not list APIs")
 	}
 	// List Lambda functions and create a mapping of function ARN to function name
-	lambdaFunctions, err := lambdaClient.ListFunctions(nil)
-	if err != nil {
-		return errors.Wrap(err, "could not list Lambda functions")
-	}
+	lambdaReq := &lambda.ListFunctionsInput{MaxItems: aws.Int64(20)}
 	lambdaFunctionMapping := make(map[string]string)
-	for _, lambdaFunction := range lambdaFunctions.Functions {
-		lambdaFunctionMapping[*lambdaFunction.FunctionArn] = *lambdaFunction.FunctionName
+	for {
+		lambdaFunctions, err := lambdaClient.ListFunctions(lambdaReq)
+		if err != nil {
+			return errors.Wrap(err, "could not list Lambda functions")
+		}
+		for _, lambdaFunction := range lambdaFunctions.Functions {
+			lambdaFunctionMapping[*lambdaFunction.FunctionArn] = *lambdaFunction.FunctionName
+		}
+		if aws.StringValue(lambdaFunctions.NextMarker) == "" {
+			break
+		}
+		lambdaReq.SetMarker(*lambdaFunctions.NextMarker)
 	}
-
 	// Iterate over each API Gateway resource
 	for _, api := range apis.Items {
-		// Construct base URL
 		apiBaseURL := fmt.Sprintf("https://%s.execute-api.%s.amazonaws.com", *api.Id, *sess.Config.Region)
 		// Get resources for the API
-		resources, err := apiGateway.GetResources(&apigateway.GetResourcesInput{
+		resourceReq := &apigateway.GetResourcesInput{
 			RestApiId: api.Id,
-		})
-		if err != nil {
-			return errors.Wrapf(err, "could not get resources for API %s", *api.Id)
+			Limit:     aws.Int64(100),
 		}
 		list.Append(&schema.Resource{
 			Provider: "aws",
@@ -80,33 +83,44 @@ func listAPIGatewayResources(apiGateway *apigateway.APIGateway, list *schema.Res
 			DNSName:  apiBaseURL,
 			Public:   true,
 		})
+		for {
+			resources, err := apiGateway.GetResources(resourceReq)
+			if err != nil {
+				return errors.Wrapf(err, "could not get resources for API %s", *api.Id)
+			}
 
-		for _, resource := range resources.Items {
-			// List methods for the resource
-			for _, method := range resource.ResourceMethods {
-				integration, err := apiGateway.GetIntegration(&apigateway.GetIntegrationInput{
-					RestApiId:  api.Id,
-					ResourceId: resource.Id,
-					HttpMethod: aws.String(*method.HttpMethod),
-				})
-				if err != nil {
-					continue
-				}
-				// Check if the integration type is AWS_PROXY (indicating Lambda integration)
-				if integration.Type != nil && *integration.Type == "AWS_PROXY" {
-					functionARN := extractLambdaARN(*integration.Uri)
-					functionName := lambdaFunctionMapping[functionARN]
-					if functionName != "" {
-						apiURLWithLambda := fmt.Sprintf("%s/lambda/%s", apiBaseURL, functionName)
-						list.Append(&schema.Resource{
-							Provider: "aws",
-							ID:       *api.Id,
-							DNSName:  apiURLWithLambda,
-							Public:   true,
-						})
+			for _, resource := range resources.Items {
+				// List methods for the resource
+				for _, method := range resource.ResourceMethods {
+					integration, err := apiGateway.GetIntegration(&apigateway.GetIntegrationInput{
+						RestApiId:  api.Id,
+						ResourceId: resource.Id,
+						HttpMethod: aws.String(*method.HttpMethod),
+					})
+					if err != nil {
+						continue
+					}
+					// Check if the integration type is AWS_PROXY (indicating Lambda integration)
+					if integration.Type != nil && *integration.Type == "AWS_PROXY" {
+						functionARN := extractLambdaARN(*integration.Uri)
+						functionName := lambdaFunctionMapping[functionARN]
+						if functionName != "" {
+							apiURLWithLambda := fmt.Sprintf("%s/lambda/%s", apiBaseURL, functionName)
+							list.Append(&schema.Resource{
+								Provider: "aws",
+								ID:       *api.Id,
+								DNSName:  apiURLWithLambda,
+								Public:   true,
+							})
+						}
 					}
 				}
 			}
+
+			if aws.StringValue(resources.Position) == "" {
+				break
+			}
+			resourceReq.SetPosition(*resources.Position)
 		}
 	}
 	return nil

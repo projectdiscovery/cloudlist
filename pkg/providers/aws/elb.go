@@ -43,44 +43,51 @@ func (ep *elbProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 }
 
 func listELBResources(elbClient *elb.ELB, ec2Client *ec2.EC2, list *schema.Resources) error {
-	lbOutput, err := elbClient.DescribeLoadBalancers(nil)
-	if err != nil {
-		return errors.Wrap(err, "could not describe load balancers")
-	}
-
-	for _, lb := range lbOutput.LoadBalancerDescriptions {
-		elbDNS := *lb.DNSName
-		resource := &schema.Resource{
-			Provider: "aws",
-			ID:       *lb.LoadBalancerName,
-			DNSName:  elbDNS,
-			Public:   true,
+	req := &elb.DescribeLoadBalancersInput{}
+	for {
+		lbOutput, err := elbClient.DescribeLoadBalancers(req)
+		if err != nil {
+			return errors.Wrap(err, "could not describe load balancers")
 		}
-		list.Append(resource)
-		// Describe Instances for the Load Balancer
-		for _, instance := range lb.Instances {
-			instanceID := *instance.InstanceId
-			instanceOutput, err := ec2Client.DescribeInstances(&ec2.DescribeInstancesInput{
-				InstanceIds: []*string{&instanceID},
-			})
-			if err != nil {
-				return errors.Wrapf(err, "could not describe instance %s", instanceID)
+
+		for _, lb := range lbOutput.LoadBalancerDescriptions {
+			elbDNS := *lb.DNSName
+			resource := &schema.Resource{
+				Provider: "aws",
+				ID:       *lb.LoadBalancerName,
+				DNSName:  elbDNS,
+				Public:   true,
 			}
-			// Extract private IP address
-			for _, reservation := range instanceOutput.Reservations {
-				for _, instance := range reservation.Instances {
-					if instance.PrivateIpAddress != nil {
-						resource := &schema.Resource{
-							Provider:    "aws",
-							ID:          instanceID,
-							PrivateIpv4: *instance.PrivateIpAddress,
-							Public:      false,
+			list.Append(resource)
+			// Describe Instances for the Load Balancer
+			for _, instance := range lb.Instances {
+				instanceID := *instance.InstanceId
+				instanceOutput, err := ec2Client.DescribeInstances(&ec2.DescribeInstancesInput{
+					InstanceIds: []*string{&instanceID},
+				})
+				if err != nil {
+					return errors.Wrapf(err, "could not describe instance %s", instanceID)
+				}
+				// Extract private IP address
+				for _, reservation := range instanceOutput.Reservations {
+					for _, instance := range reservation.Instances {
+						if instance.PrivateIpAddress != nil {
+							resource := &schema.Resource{
+								Provider:    "aws",
+								ID:          instanceID,
+								PrivateIpv4: *instance.PrivateIpAddress,
+								Public:      false,
+							}
+							list.Append(resource)
 						}
-						list.Append(resource)
 					}
 				}
 			}
 		}
+		if aws.StringValue(lbOutput.NextMarker) == "" {
+			break
+		}
+		req.SetMarker(aws.StringValue(lbOutput.NextMarker))
 	}
 	return nil
 }
