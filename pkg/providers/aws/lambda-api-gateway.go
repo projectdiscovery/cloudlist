@@ -30,8 +30,8 @@ func (ap *lambdaAndapiGatewayProvider) GetResource(ctx context.Context) (*schema
 	for _, region := range ap.regions.Regions {
 		regionName := *region.RegionName
 		sess, err := session.NewSession(&aws.Config{
-			Endpoint: aws.String("http://localhost:4566"), // LocalStack endpoint
-			Region:   aws.String(regionName)},
+			// Endpoint: aws.String("http://localhost:4566"),
+			Region: aws.String(regionName)},
 		)
 		if err != nil {
 			return nil, errors.Wrapf(err, "could not create session for region %s", regionName)

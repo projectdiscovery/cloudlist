@@ -26,7 +26,7 @@ func (ep *elbV2Provider) GetResource(ctx context.Context) (*schema.Resources, er
 	for _, region := range ep.regions.Regions {
 		regionName := *region.RegionName
 		sess, err := session.NewSession(&aws.Config{
-			Endpoint: aws.String("http://localhost:4566"), // LocalStack endpoint
+			// Endpoint: aws.String("http://localhost:4566"),
 			Region:   aws.String(regionName)},
 		)
 		if err != nil {
