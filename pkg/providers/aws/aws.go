@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudfront"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ecs"
+	"github.com/aws/aws-sdk-go/service/eks"
 	"github.com/aws/aws-sdk-go/service/elb"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/lambda"
@@ -27,6 +28,7 @@ type Provider struct {
 	route53Client    *route53.Route53
 	s3Client         *s3.S3
 	ecsClient        *ecs.ECS
+	eksClient        *eks.EKS
 	lambdaClient     *lambda.Lambda
 	apiGateway       *apigateway.APIGateway
 	albClient        *elbv2.ELBV2
@@ -63,6 +65,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	route53Client := route53.New(session)
 	s3Client := s3.New(session)
 	ecsClient := ecs.New(session)
+	eksClient := eks.New(session)
 	lambdaClient := lambda.New(session)
 	apiGateway := apigateway.New(session)
 	albClient := elbv2.New(session)
@@ -74,7 +77,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get list of regions")
 	}
-	return &Provider{ec2Client: ec2Client, id: id, regions: regions, route53Client: route53Client, s3Client: s3Client, ecsClient: ecsClient, apiGateway: apiGateway, lambdaClient: lambdaClient, albClient: albClient, elbClient: elbClient, lightsailClient: lightsailClient, cloudFrontClient: cloudFrontClient, session: session}, nil
+	return &Provider{ec2Client: ec2Client, id: id, regions: regions, route53Client: route53Client, s3Client: s3Client, ecsClient: ecsClient, eksClient: eksClient, apiGateway: apiGateway, lambdaClient: lambdaClient, albClient: albClient, elbClient: elbClient, lightsailClient: lightsailClient, cloudFrontClient: cloudFrontClient, session: session}, nil
 }
 
 const apiAccessKey = "aws_access_key"
@@ -110,7 +113,12 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		return nil, err
 	}
 	ecsProvider := &ecsProvider{ecsClient: p.ecsClient, id: p.id, session: p.session, regions: p.regions}
-	ecs, err := ecsProvider.GetResource(ctx)
+	ecsResources, err := ecsProvider.GetResource(ctx)
+	if err != nil {
+		return nil, err
+	}
+	eksProvider := &eksProvider{eksClient: p.eksClient, id: p.id, session: p.session, regions: p.regions}
+	eksResources, err := eksProvider.GetResource(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +137,6 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	lsRegions, err := p.lightsailClient.GetRegions(&lightsail.GetRegionsInput{})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get Lightsail regions")
@@ -150,7 +157,8 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalList.Merge(lsInstances)
 	finalList.Merge(zones)
 	finalList.Merge(buckets)
-	finalList.Merge(ecs)
+	finalList.Merge(ecsResources)
+	finalList.Merge(eksResources)
 	finalList.Merge(lambdaAndApiGateways)
 	finalList.Merge(albs)
 	finalList.Merge(elbs)
