@@ -25,9 +25,9 @@ require (
 	github.com/linode/linodego v1.22.0
 	github.com/namecheap/go-namecheap-sdk/v2 v2.1.0
 	github.com/pkg/errors v0.9.1
-	github.com/projectdiscovery/goflags v0.1.53
+	github.com/projectdiscovery/goflags v0.1.54
 	github.com/projectdiscovery/gologger v1.1.12
-	github.com/projectdiscovery/utils v0.0.94
+	github.com/projectdiscovery/utils v0.1.0
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.14
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/oauth2 v0.12.0
@@ -88,6 +88,7 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/jsonapi v0.0.0-20201022225600-f822737867f6 // indirect
 	github.com/google/s2a-go v0.1.4 // indirect
+	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.3.1 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.3 // indirect
 	github.com/googleapis/gax-go/v2 v2.11.0 // indirect
