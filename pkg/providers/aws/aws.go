@@ -6,7 +6,13 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/apigateway"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/ecs"
+	"github.com/aws/aws-sdk-go/service/elb"
+	"github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/aws/aws-sdk-go/service/lambda"
+	"github.com/aws/aws-sdk-go/service/lightsail"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/pkg/errors"
@@ -15,12 +21,18 @@ import (
 
 // Provider is a data provider for aws API
 type Provider struct {
-	id            string
-	ec2Client     *ec2.EC2
-	route53Client *route53.Route53
-	s3Client      *s3.S3
-	regions       *ec2.DescribeRegionsOutput
-	session       *session.Session
+	id              string
+	ec2Client       *ec2.EC2
+	route53Client   *route53.Route53
+	s3Client        *s3.S3
+	ecsClient       *ecs.ECS
+	lambdaClient    *lambda.Lambda
+	apiGateway      *apigateway.APIGateway
+	albClient       *elbv2.ELBV2
+	elbClient       *elb.ELB
+	lightsailClient *lightsail.Lightsail
+	regions         *ec2.DescribeRegionsOutput
+	session         *session.Session
 }
 
 // New creates a new provider client for aws API
@@ -48,12 +60,18 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	ec2Client := ec2.New(session)
 	route53Client := route53.New(session)
 	s3Client := s3.New(session)
+	ecsClient := ecs.New(session)
+	lambdaClient := lambda.New(session)
+	apiGateway := apigateway.New(session)
+	albClient := elbv2.New(session)
+	elbClient := elb.New(session)
+	lightsailClient := lightsail.New(session)
 
 	regions, err := ec2Client.DescribeRegions(&ec2.DescribeRegionsInput{})
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get list of regions")
 	}
-	return &Provider{ec2Client: ec2Client, id: id, regions: regions, route53Client: route53Client, s3Client: s3Client, session: session}, nil
+	return &Provider{ec2Client: ec2Client, id: id, regions: regions, route53Client: route53Client, s3Client: s3Client, ecsClient: ecsClient, apiGateway: apiGateway, lambdaClient: lambdaClient, albClient: albClient, elbClient: elbClient, lightsailClient: lightsailClient, session: session}, nil
 }
 
 const apiAccessKey = "aws_access_key"
@@ -88,9 +106,45 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	if err != nil {
 		return nil, err
 	}
+	ecsProvider := &ecsProvider{ecsClient: p.ecsClient, id: p.id, session: p.session, regions: p.regions}
+	ecs, err := ecsProvider.GetResource(ctx)
+	if err != nil {
+		return nil, err
+	}
+	lamdaAndApiGatewayProvider := &lambdaAndapiGatewayProvider{apiGateway: p.apiGateway, lambdaClient: p.lambdaClient, id: p.id, session: p.session, regions: p.regions}
+	lambdaAndApiGateways, err := lamdaAndApiGatewayProvider.GetResource(ctx)
+	if err != nil {
+		return nil, err
+	}
+	albProvider := &elbV2Provider{albClient: p.albClient, id: p.id, session: p.session, regions: p.regions}
+	albs, err := albProvider.GetResource(ctx)
+	if err != nil {
+		return nil, err
+	}
+	elbProvider := &elbProvider{elbClient: p.elbClient, id: p.id, session: p.session, regions: p.regions}
+	elbs, err := elbProvider.GetResource(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	lsRegions, err := p.lightsailClient.GetRegions(&lightsail.GetRegionsInput{})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get Lightsail regions")
+	}
+	lightsailProvider := &lightsailProvider{lsClient: p.lightsailClient, id: p.id, session: p.session, regions: lsRegions.Regions}
+	lsInstances, err := lightsailProvider.GetResource(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	finalList := schema.NewResources()
 	finalList.Merge(list)
+	finalList.Merge(lsInstances)
 	finalList.Merge(zones)
 	finalList.Merge(buckets)
+	finalList.Merge(ecs)
+	finalList.Merge(lambdaAndApiGateways)
+	finalList.Merge(albs)
+	finalList.Merge(elbs)
 	return finalList, nil
 }
