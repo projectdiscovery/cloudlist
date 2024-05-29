@@ -31,17 +31,8 @@ func (ep *eksProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 
 	for _, region := range ep.regions.Regions {
 		regionName := *region.RegionName
-		sess, err := session.NewSession(&aws.Config{
-			Region: aws.String(regionName)},
-		)
-		if err != nil {
-			return nil, errors.Wrapf(err, "could not create session for region %s", regionName)
-		}
-		ep.eksClient = eks.New(sess)
-		err = listEKSResources(ep.eksClient, list)
-		if err != nil {
-			return nil, errors.Wrapf(err, "could not list EKS resources for region %s", regionName)
-		}
+		ep.eksClient = eks.New(ep.session, aws.NewConfig().WithRegion(regionName))
+		_ = listEKSResources(ep.eksClient, list)
 	}
 	return list, nil
 }

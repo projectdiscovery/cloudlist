@@ -25,90 +25,128 @@ func (ep *ecsProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 
 	for _, region := range ep.regions.Regions {
 		regionName := *region.RegionName
-		sess, err := session.NewSession(&aws.Config{
-			Region: aws.String(regionName)},
-		)
-		if err != nil {
-			return nil, errors.Wrapf(err, "could not create session for region %s", regionName)
-		}
-		ecsClient := ecs.New(sess)
-		err = listECSResources(ecsClient, list, sess)
-		if err != nil {
-			return nil, errors.Wrapf(err, "could not list ECS resources for region %s", regionName)
-		}
+		ecsClient := ecs.New(ep.session, aws.NewConfig().WithRegion(regionName))
+		ec2Client := ec2.New(ep.session, aws.NewConfig().WithRegion(regionName))
+		_ = listECSResources(ecsClient, ec2Client, list)
 	}
 	return list, nil
 }
 
-func listECSResources(ecsClient *ecs.ECS, list *schema.Resources, sess *session.Session) error {
+func listECSResources(ecsClient *ecs.ECS, ec2Client *ec2.EC2, list *schema.Resources) error {
 	req := &ecs.ListClustersInput{
 		MaxResults: aws.Int64(100),
 	}
 	for {
 		clustersOutput, err := ecsClient.ListClusters(req)
 		if err != nil {
-			return errors.Wrap(err, "could not list clusters")
+			return errors.Wrap(err, "could not list ECS clusters")
 		}
 
 		for _, clusterArn := range clustersOutput.ClusterArns {
-			// List services in the cluster
-			servicesOutput, err := ecsClient.ListServices(&ecs.ListServicesInput{
-				Cluster: clusterArn,
-			})
-			if err != nil {
-				return errors.Wrap(err, "could not list services")
+			listServicesInputReq := &ecs.ListServicesInput{
+				Cluster:    clusterArn,
+				MaxResults: aws.Int64(100),
 			}
-
-			for _, serviceArn := range servicesOutput.ServiceArns {
-				// List tasks in the service
-				tasksOutput, err := ecsClient.ListTasks(&ecs.ListTasksInput{
-					Cluster:     clusterArn,
-					ServiceName: serviceArn,
-				})
+			for {
+				servicesOutput, err := ecsClient.ListServices(listServicesInputReq)
 				if err != nil {
-					return errors.Wrap(err, "could not list tasks")
+					return errors.Wrap(err, "could not list ECS services")
 				}
 
-				if len(tasksOutput.TaskArns) == 0 {
-					continue
-				}
+				for _, serviceArn := range servicesOutput.ServiceArns {
+					listTasksInputReq := &ecs.ListTasksInput{
+						Cluster:     clusterArn,
+						ServiceName: serviceArn,
+						MaxResults:  aws.Int64(100),
+					}
 
-				describeTasksOutput, err := ecsClient.DescribeTasks(&ecs.DescribeTasksInput{
-					Cluster: clusterArn,
-					Tasks:   tasksOutput.TaskArns,
-				})
-				if err != nil {
-					return errors.Wrap(err, "could not describe tasks")
-				}
+					for {
+						tasksOutput, err := ecsClient.ListTasks(listTasksInputReq)
+						if err != nil {
+							return errors.Wrap(err, "could not list tasks")
+						}
 
-				for _, task := range describeTasksOutput.Tasks {
-					for _, attachment := range task.Attachments {
-						for _, detail := range attachment.Details {
-							if *detail.Name == "networkInterfaceId" {
-								networkInterfaceId := *detail.Value
-								ec2Client := ec2.New(sess)
-								networkInterfaceOutput, err := ec2Client.DescribeNetworkInterfaces(&ec2.DescribeNetworkInterfacesInput{
-									NetworkInterfaceIds: []*string{aws.String(networkInterfaceId)},
-								})
-								if err != nil {
-									return errors.Wrap(err, "could not describe network interface")
+						if len(tasksOutput.TaskArns) == 0 {
+							continue
+						}
+
+						describeTasksInput := &ecs.DescribeTasksInput{
+							Cluster: clusterArn,
+							Tasks:   tasksOutput.TaskArns,
+						}
+
+						describeTasksOutput, err := ecsClient.DescribeTasks(describeTasksInput)
+						if err != nil {
+							return errors.Wrap(err, "could not describe tasks")
+						}
+
+						for _, task := range describeTasksOutput.Tasks {
+							if task.ContainerInstanceArn == nil {
+								continue
+							}
+							describeContainerInstancesInput := &ecs.DescribeContainerInstancesInput{
+								Cluster:            clusterArn,
+								ContainerInstances: []*string{task.ContainerInstanceArn},
+							}
+
+							describeContainerInstancesOutput, err := ecsClient.DescribeContainerInstances(describeContainerInstancesInput)
+							if err != nil {
+								return errors.Wrap(err, "could not describe container instances")
+							}
+
+							for _, containerInstance := range describeContainerInstancesOutput.ContainerInstances {
+								instanceID := containerInstance.Ec2InstanceId
+								describeInstancesInput := &ec2.DescribeInstancesInput{
+									InstanceIds: []*string{instanceID},
 								}
 
-								for _, networkInterface := range networkInterfaceOutput.NetworkInterfaces {
-									resource := &schema.Resource{
-										Provider:    "aws",
-										ID:          networkInterfaceId,
-										PublicIPv4:  aws.StringValue(networkInterface.Association.PublicIp),
-										PrivateIpv4: aws.StringValue(networkInterface.PrivateIpAddress),
-										DNSName:     aws.StringValue(networkInterface.Association.PublicDnsName),
-										Public:      aws.StringValue(networkInterface.Association.PublicIp) != "",
+								describeInstancesOutput, err := ec2Client.DescribeInstances(describeInstancesInput)
+								if err != nil {
+									return errors.Wrap(err, "could not describe EC2 instances")
+								}
+
+								for _, reservation := range describeInstancesOutput.Reservations {
+									for _, instance := range reservation.Instances {
+										privateIP := aws.StringValue(instance.PrivateIpAddress)
+										publicIP := aws.StringValue(instance.PublicIpAddress)
+
+										if privateIP != "" {
+											resource := &schema.Resource{
+												ID:          aws.StringValue(instance.InstanceId),
+												Provider:    "aws",
+												PrivateIpv4: privateIP,
+												Public:      false,
+											}
+											list.Append(resource)
+											// fmt.Printf("Private Resource: %+v\n", resource)
+										}
+
+										if publicIP != "" {
+											resource := &schema.Resource{
+												ID:         aws.StringValue(instance.InstanceId),
+												Provider:   "aws",
+												PublicIPv4: publicIP,
+												Public:     true,
+											}
+											list.Append(resource)
+											// fmt.Printf("Public Resource: %+v\n", resource)
+										}
 									}
-									list.Append(resource)
 								}
 							}
 						}
+
+						if aws.StringValue(listTasksInputReq.NextToken) == "" {
+							break
+						}
+						listTasksInputReq.SetNextToken(*listTasksInputReq.NextToken)
 					}
 				}
+
+				if aws.StringValue(servicesOutput.NextToken) == "" {
+					break
+				}
+				listServicesInputReq.SetNextToken(*servicesOutput.NextToken)
 			}
 		}
 		if aws.StringValue(clustersOutput.NextToken) == "" {

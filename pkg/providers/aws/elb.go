@@ -25,19 +25,9 @@ func (ep *elbProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 
 	for _, region := range ep.regions.Regions {
 		regionName := *region.RegionName
-		sess, err := session.NewSession(&aws.Config{
-			// Endpoint: aws.String("http://localhost:4566"),
-			Region: aws.String(regionName)},
-		)
-		if err != nil {
-			return nil, errors.Wrapf(err, "could not create session for region %s", regionName)
-		}
-		elbClient := elb.New(sess)
-		ec2Client := ec2.New(sess)
-		err = listELBResources(elbClient, ec2Client, list)
-		if err != nil {
-			return nil, errors.Wrapf(err, "could not list ELB resources for region %s", regionName)
-		}
+		elbClient := elb.New(ep.session, aws.NewConfig().WithRegion(regionName))
+		ec2Client := ec2.New(ep.session, aws.NewConfig().WithRegion(regionName))
+		_ = listELBResources(elbClient, ec2Client, list)
 	}
 	return list, nil
 }

@@ -29,26 +29,14 @@ func (ap *lambdaAndapiGatewayProvider) GetResource(ctx context.Context) (*schema
 
 	for _, region := range ap.regions.Regions {
 		regionName := *region.RegionName
-		sess, err := session.NewSession(&aws.Config{
-			// Endpoint: aws.String("http://localhost:4566"),
-			Region: aws.String(regionName)},
-		)
-		if err != nil {
-			return nil, errors.Wrapf(err, "could not create session for region %s", regionName)
-		}
-
-		ap.apiGateway = apigateway.New(sess)
-		ap.lambdaClient = lambda.New(sess)
-
-		err = listAPIGatewayResources(ap.apiGateway, list, sess, ap.lambdaClient)
-		if err != nil {
-			return nil, errors.Wrapf(err, "could not list API Gateway resources for region %s", regionName)
-		}
+		ap.apiGateway = apigateway.New(ap.session, aws.NewConfig().WithRegion(regionName))
+		ap.lambdaClient = lambda.New(ap.session, aws.NewConfig().WithRegion(regionName))
+		_ = listAPIGatewayResources(ap.apiGateway, list, regionName, ap.lambdaClient)
 	}
 	return list, nil
 }
 
-func listAPIGatewayResources(apiGateway *apigateway.APIGateway, list *schema.Resources, sess *session.Session, lambdaClient *lambda.Lambda) error {
+func listAPIGatewayResources(apiGateway *apigateway.APIGateway, list *schema.Resources, regionName string, lambdaClient *lambda.Lambda) error {
 	apis, err := apiGateway.GetRestApis(&apigateway.GetRestApisInput{Limit: aws.Int64(500)})
 	if err != nil {
 		return errors.Wrap(err, "could not list APIs")
@@ -71,7 +59,7 @@ func listAPIGatewayResources(apiGateway *apigateway.APIGateway, list *schema.Res
 	}
 	// Iterate over each API Gateway resource
 	for _, api := range apis.Items {
-		apiBaseURL := fmt.Sprintf("https://%s.execute-api.%s.amazonaws.com", *api.Id, *sess.Config.Region)
+		apiBaseURL := fmt.Sprintf("https://%s.execute-api.%s.amazonaws.com", *api.Id, regionName)
 		// Get resources for the API
 		resourceReq := &apigateway.GetResourcesInput{
 			RestApiId: api.Id,
@@ -92,6 +80,9 @@ func listAPIGatewayResources(apiGateway *apigateway.APIGateway, list *schema.Res
 			for _, resource := range resources.Items {
 				// List methods for the resource
 				for _, method := range resource.ResourceMethods {
+					if method == nil || method.HttpMethod == nil{
+						continue
+					}
 					integration, err := apiGateway.GetIntegration(&apigateway.GetIntegrationInput{
 						RestApiId:  api.Id,
 						ResourceId: resource.Id,
