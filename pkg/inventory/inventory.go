@@ -29,10 +29,10 @@ type Inventory struct {
 }
 
 // New creates a new inventory of providers
-func New(options schema.Options) (*Inventory, error) {
+func New(optionBlocks schema.Options) (*Inventory, error) {
 	inventory := &Inventory{}
 
-	for _, block := range options {
+	for _, block := range optionBlocks {
 		value, ok := block.GetMetadata("provider")
 		if !ok {
 			continue

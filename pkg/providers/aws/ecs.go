@@ -65,11 +65,9 @@ func listECSResources(ecsClient *ecs.ECS, ec2Client *ec2.EC2, list *schema.Resou
 						if err != nil {
 							return errors.Wrap(err, "could not list tasks")
 						}
-
 						if len(tasksOutput.TaskArns) == 0 {
-							continue
+							break
 						}
-
 						describeTasksInput := &ecs.DescribeTasksInput{
 							Cluster: clusterArn,
 							Tasks:   tasksOutput.TaskArns,
@@ -102,7 +100,7 @@ func listECSResources(ecsClient *ecs.ECS, ec2Client *ec2.EC2, list *schema.Resou
 
 								describeInstancesOutput, err := ec2Client.DescribeInstances(describeInstancesInput)
 								if err != nil {
-									return errors.Wrap(err, "could not describe EC2 instances")
+									continue
 								}
 
 								for _, reservation := range describeInstancesOutput.Reservations {
@@ -118,7 +116,6 @@ func listECSResources(ecsClient *ecs.ECS, ec2Client *ec2.EC2, list *schema.Resou
 												Public:      false,
 											}
 											list.Append(resource)
-											// fmt.Printf("Private Resource: %+v\n", resource)
 										}
 
 										if publicIP != "" {
@@ -129,7 +126,6 @@ func listECSResources(ecsClient *ecs.ECS, ec2Client *ec2.EC2, list *schema.Resou
 												Public:     true,
 											}
 											list.Append(resource)
-											// fmt.Printf("Public Resource: %+v\n", resource)
 										}
 									}
 								}

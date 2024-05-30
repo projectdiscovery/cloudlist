@@ -37,6 +37,10 @@ func New(options *Options) (*Runner, error) {
 // Enumerate performs the cloudlist enumeration process
 func (r *Runner) Enumerate() {
 	finalConfig := schema.Options{}
+	services := []string{}
+	if r.options.Services != nil {
+		services = r.options.Services
+	}
 
 	for _, item := range r.config {
 		if item == nil {
@@ -44,6 +48,9 @@ func (r *Runner) Enumerate() {
 		}
 		if _, ok := item["id"]; !ok {
 			item["id"] = ""
+		}
+		if len(services) > 0 {
+			item["services"] = strings.Join(services, ",")
 		}
 		// Validate and only pass the correct items to input
 		if len(r.options.Provider) != 0 || len(r.options.Id) != 0 {
@@ -76,7 +83,9 @@ func (r *Runner) Enumerate() {
 	builder := &bytes.Buffer{}
 	for _, provider := range inventory.Providers {
 
-		gologger.Info().Msgf("Listing assets from %s (%s) provider\n", provider.Name(), provider.ID())
+		if provider.Name() != "aws" {
+			gologger.Info().Msgf("Listing assets from %s (%s) provider\n", provider.Name(), provider.ID())
+		}
 		instances, err := provider.Resources(context.Background())
 		if err != nil {
 			gologger.Warning().Msgf("Could not get resources for provider %s %s: %s\n", provider.Name(), provider.ID(), err)

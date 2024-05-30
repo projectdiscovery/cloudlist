@@ -153,3 +153,10 @@ func (o OptionBlock) GetMetadata(key string) (string, bool) {
 	}
 	return data, true
 }
+
+type ServiceMap map[string]struct{}
+
+func (s ServiceMap) Has(service string) bool {
+	_, ok := s[service]
+	return ok
+}
