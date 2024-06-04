@@ -49,7 +49,14 @@ func (d *vmProvider) GetResource(ctx context.Context) (*schema.Resources, error)
 					return nil, err
 				}
 				for _, ipConfig := range ipconfigList {
-					privateIP := *ipConfig.PrivateIPAddress
+					privateIP := ipConfig.PrivateIPAddress
+
+					// The PublicIPAddress field can be nil especially for SQL Server
+					// VMs that are pulled.
+					// In these cases, we just want to return an empty error
+					if ipConfig.PublicIPAddress == nil {
+						continue
+					}
 
 					res, err := azure.ParseResourceID(*ipConfig.PublicIPAddress.ID)
 					if err != nil {
@@ -61,11 +68,15 @@ func (d *vmProvider) GetResource(ctx context.Context) (*schema.Resources, error)
 						return nil, err
 					}
 
+					if publicIP.IPAddress == nil {
+						continue
+					}
+
 					list.Append(&schema.Resource{
 						Provider:    providerName,
 						PublicIPv4:  *publicIP.IPAddress,
 						ID:          d.id,
-						PrivateIpv4: privateIP,
+						PrivateIpv4: *privateIP,
 					})
 				}
 			}

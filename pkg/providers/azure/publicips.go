@@ -26,6 +26,11 @@ func (pip *publicIPProvider) GetResource(ctx context.Context) (*schema.Resources
 	}
 
 	for _, ip := range ips {
+		// The IPAddress field can be nil and so we want to prevent from dereferencing
+		// a nil field in the struct
+		if ip.IPAddress == nil {
+			continue
+		}
 		list.Append(&schema.Resource{
 			Provider:   providerName,
 			PublicIPv4: *ip.IPAddress,
