@@ -49,7 +49,7 @@ func (d *vmProvider) GetResource(ctx context.Context) (*schema.Resources, error)
 					return nil, err
 				}
 				for _, ipConfig := range ipconfigList {
-					privateIP := *ipConfig.PrivateIPAddress
+					privateIP := ipConfig.PrivateIPAddress
 
 					// The PublicIPAddress field can be nil especially for SQL Server
 					// VMs that are pulled.
@@ -69,14 +69,14 @@ func (d *vmProvider) GetResource(ctx context.Context) (*schema.Resources, error)
 					}
 
 					if publicIP.IPAddress == nil {
-						return nil, nil
+						continue
 					}
 
 					list.Append(&schema.Resource{
 						Provider:    providerName,
 						PublicIPv4:  *publicIP.IPAddress,
 						ID:          d.id,
-						PrivateIpv4: privateIP,
+						PrivateIpv4: *privateIP,
 					})
 				}
 			}
