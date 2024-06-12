@@ -10,10 +10,13 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
+var supportedServices = []string{"all"}
+
 // Provider is a data provider for nomad resources
 type Provider struct {
-	id     string
-	client *api.Client
+	id       string
+	client   *api.Client
+	services schema.ServiceMap
 }
 
 // New creates a new provider client for nomad resources API
@@ -70,7 +73,11 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		return nil, errors.Wrap(err, "could not create nomad api client")
 	}
 	id, _ := options.GetMetadata("id")
-	return &Provider{id: id, client: conn}, nil
+	services := make(schema.ServiceMap)
+	for _, s := range supportedServices {
+		services[s] = struct{}{}
+	}
+	return &Provider{id: id, client: conn, services: services}, nil
 }
 
 const providerName = "nomad"
@@ -83,6 +90,11 @@ func (p *Provider) Name() string {
 // ID returns the name of the provider id
 func (p *Provider) ID() string {
 	return p.id
+}
+
+// Services returns the provider services
+func (p *Provider) Services() []string {
+	return p.services.Keys()
 }
 
 const (

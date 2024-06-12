@@ -2,6 +2,7 @@ package gcp
 
 import (
 	"context"
+	"strings"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/projectdiscovery/gologger"
@@ -19,7 +20,10 @@ type Provider struct {
 	compute  *compute.Service
 	id       string
 	projects []string
+	services schema.ServiceMap
 }
+
+var supportedServices = []string{"dns", "gke", "compute"}
 
 const serviceAccountJSON = "gcp_service_account_key"
 const providerName = "gcp"
@@ -34,6 +38,11 @@ func (p *Provider) ID() string {
 	return p.id
 }
 
+// Services returns the provider services
+func (p *Provider) Services() []string {
+	return p.services.Keys()
+}
+
 // New creates a new provider client for gcp API
 func New(options schema.OptionBlock) (*Provider, error) {
 	JSONData, ok := options.GetMetadata(serviceAccountJSON)
@@ -42,21 +51,51 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	}
 	id, _ := options.GetMetadata("id")
 
+	provider := &Provider{id: id}
+	supportedServicesMap := make(map[string]struct{})
+	for _, s := range supportedServices {
+		supportedServicesMap[s] = struct{}{}
+	}
+	services := make(schema.ServiceMap)
+	if ss, ok := options.GetMetadata("services"); ok {
+		for _, s := range strings.Split(ss, ",") {
+			if _, ok := supportedServicesMap[s]; ok {
+				services[s] = struct{}{}
+			}
+		}
+	}
+	if len(services) == 0 {
+		for _, s := range supportedServices {
+			services[s] = struct{}{}
+		}
+	}
+	provider.services = services
+
 	creds, err := register(context.Background(), []byte(JSONData))
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).Msgf("could not register gcp service account")
 	}
-	dnsService, err := dns.NewService(context.Background(), creds)
-	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not create dns service with api key")
+	if services.Has("dns") {
+		dnsService, err := dns.NewService(context.Background(), creds)
+		if err != nil {
+			return nil, errorutil.NewWithErr(err).Msgf("could not create dns service with api key")
+		}
+		provider.dns = dnsService
 	}
-	computeService, err := compute.NewService(context.Background(), creds)
-	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not create compute service with api key")
+	if services.Has("compute") {
+		computeService, err := compute.NewService(context.Background(), creds)
+		if err != nil {
+			return nil, errorutil.NewWithErr(err).Msgf("could not create compute service with api key")
+		}
+		provider.compute = computeService
 	}
-	containerService, err := container.NewService(context.Background(), creds)
-	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not create container service with api key")
+
+	if services.Has("gke") {
+		containerService, err := container.NewService(context.Background(), creds)
+		if err != nil {
+			return nil, errorutil.NewWithErr(err).Msgf("could not create container service with api key")
+		}
+		provider.gke = containerService
 	}
 
 	projects := []string{}
@@ -71,33 +110,40 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		}
 		return nil
 	})
-	return &Provider{dns: dnsService, gke: containerService, projects: projects, id: id, compute: computeService}, err
+	provider.projects = projects
+	return provider, err
 }
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalList := schema.NewResources()
 
-	cloudDNSProvider := &cloudDNSProvider{dns: p.dns, id: p.id, projects: p.projects}
-	zones, err := cloudDNSProvider.GetResource(ctx)
-	if err != nil {
-		return nil, err
+	if p.dns != nil {
+		cloudDNSProvider := &cloudDNSProvider{dns: p.dns, id: p.id, projects: p.projects}
+		zones, err := cloudDNSProvider.GetResource(ctx)
+		if err != nil {
+			return nil, err
+		}
+		finalList.Merge(zones)
 	}
-	finalList.Merge(zones)
 
-	GKEProvider := &gkeProvider{svc: p.gke, id: p.id, projects: p.projects}
-	gkeData, err := GKEProvider.GetResource(ctx)
-	if err != nil {
-		gologger.Warning().Msgf("Could not get GKE resources: %s\n", err)
+	if p.gke != nil {
+		GKEProvider := &gkeProvider{svc: p.gke, id: p.id, projects: p.projects}
+		gkeData, err := GKEProvider.GetResource(ctx)
+		if err != nil {
+			gologger.Warning().Msgf("Could not get GKE resources: %s\n", err)
+		}
+		finalList.Merge(gkeData)
 	}
-	finalList.Merge(gkeData)
 
-	VMProvider := &cloudVMProvider{compute: p.compute, id: p.id, projects: p.projects}
-	vmData, err := VMProvider.GetResource(ctx)
-	if err != nil {
-		return nil, err
+	if p.compute != nil {
+		VMProvider := &cloudVMProvider{compute: p.compute, id: p.id, projects: p.projects}
+		vmData, err := VMProvider.GetResource(ctx)
+		if err != nil {
+			return nil, err
+		}
+		finalList.Merge(vmData)
 	}
-	finalList.Merge(vmData)
 
 	return finalList, nil
 }

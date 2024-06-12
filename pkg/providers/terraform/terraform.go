@@ -2,9 +2,12 @@ package terraform
 
 import (
 	"context"
+	"strings"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
+
+var supportedServices = []string{"instance"}
 
 const (
 	statePathFile = "tf_state_file"
@@ -13,8 +16,9 @@ const (
 
 // Provider is a data provider for Terraform
 type Provider struct {
-	id   string
-	path string
+	id       string
+	path     string
+	services schema.ServiceMap
 }
 
 // New creates a new provider client for Terraform
@@ -24,7 +28,25 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		return nil, &schema.ErrNoSuchKey{Name: statePathFile}
 	}
 	id, _ := options.GetMetadata("id")
-	return &Provider{path: StatePathFile, id: id}, nil
+
+	supportedServicesMap := make(map[string]struct{})
+	for _, s := range supportedServices {
+		supportedServicesMap[s] = struct{}{}
+	}
+	services := make(schema.ServiceMap)
+	if ss, ok := options.GetMetadata("services"); ok {
+		for _, s := range strings.Split(ss, ",") {
+			if _, ok := supportedServicesMap[s]; ok {
+				services[s] = struct{}{}
+			}
+		}
+	}
+	if len(services) == 0 {
+		for _, s := range supportedServices {
+			services[s] = struct{}{}
+		}
+	}
+	return &Provider{path: StatePathFile, id: id, services: services}, nil
 }
 
 // Name returns the name of the provider
@@ -37,8 +59,16 @@ func (p *Provider) ID() string {
 	return p.id
 }
 
+// Services returns the provider services
+func (p *Provider) Services() []string {
+	return p.services.Keys()
+}
+
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	provider := &instanceProvider{path: p.path, id: p.id}
-	return provider.GetResource(ctx)
+	if p.services.Has("instance") {
+		provider := &instanceProvider{path: p.path, id: p.id}
+		return provider.GetResource(ctx)
+	}
+	return nil, nil
 }

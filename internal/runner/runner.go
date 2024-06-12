@@ -82,10 +82,8 @@ func (r *Runner) Enumerate() {
 
 	builder := &bytes.Buffer{}
 	for _, provider := range inventory.Providers {
+		gologger.Info().Msgf("Listing assets from provider: %s services: %s id: %s", provider.Name(), strings.Join(provider.Services(), ","), provider.ID())
 
-		if provider.Name() != "aws" {
-			gologger.Info().Msgf("Listing assets from %s (%s) provider\n", provider.Name(), provider.ID())
-		}
 		instances, err := provider.Resources(context.Background())
 		if err != nil {
 			gologger.Warning().Msgf("Could not get resources for provider %s %s: %s\n", provider.Name(), provider.ID(), err)

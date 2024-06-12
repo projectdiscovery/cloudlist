@@ -28,23 +28,25 @@ type eksProvider struct {
 // GetResource returns all the resources in the store for a provider.
 func (ep *eksProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
-
 	for _, region := range ep.regions.Regions {
 		regionName := *region.RegionName
 		ep.eksClient = eks.New(ep.session, aws.NewConfig().WithRegion(regionName))
-		_ = listEKSResources(ep.eksClient, list)
+		if resources, err := listEKSResources(ep.eksClient); err == nil {
+			list.Merge(resources)
+		}
 	}
 	return list, nil
 }
 
-func listEKSResources(eksClient *eks.EKS, list *schema.Resources) error {
+func listEKSResources(eksClient *eks.EKS) (*schema.Resources, error) {
+	list := schema.NewResources()
 	req := &eks.ListClustersInput{
 		MaxResults: aws.Int64(100),
 	}
 	for {
 		clustersOutput, err := eksClient.ListClusters(req)
 		if err != nil {
-			return errors.Wrap(err, "could not list EKS clusters")
+			return nil, errors.Wrap(err, "could not list EKS clusters")
 		}
 		// Iterate over each cluster
 		for _, clusterName := range clustersOutput.Clusters {
@@ -53,15 +55,15 @@ func listEKSResources(eksClient *eks.EKS, list *schema.Resources) error {
 				Name: clusterName,
 			})
 			if err != nil {
-				return errors.Wrapf(err, "could not describe EKS cluster: %s", *clusterName)
+				return nil, errors.Wrapf(err, "could not describe EKS cluster: %s", *clusterName)
 			}
 			clientset, err := newClientset(clusterOutput.Cluster)
 			if err != nil {
-				return errors.Wrapf(err, "could not create clientset for EKS cluster: %s", *clusterName)
+				return nil, errors.Wrapf(err, "could not create clientset for EKS cluster: %s", *clusterName)
 			}
 			nodes, err := clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 			if err != nil {
-				return errors.Wrapf(err, "could not list nodes for EKS cluster: %s", *clusterName)
+				return nil, errors.Wrapf(err, "could not list nodes for EKS cluster: %s", *clusterName)
 			}
 			// Iterate over each node
 			for _, node := range nodes.Items {
@@ -71,7 +73,6 @@ func listEKSResources(eksClient *eks.EKS, list *schema.Resources) error {
 					FieldSelector: fmt.Sprintf("spec.nodeName=%s", node.GetName()),
 				})
 				if err != nil {
-					// fmt.Println("Error listing pods:", err)
 					continue
 				}
 				// Collect pod IP addresses
@@ -104,11 +105,10 @@ func listEKSResources(eksClient *eks.EKS, list *schema.Resources) error {
 		}
 		req.SetNextToken(*clustersOutput.NextToken)
 	}
-	return nil
+	return list, nil
 }
 
 func newClientset(cluster *eks.Cluster) (*kubernetes.Clientset, error) {
-	// fmt.Printf("%+v", cluster)
 	gen, err := token.NewGenerator(true, false)
 	if err != nil {
 		return nil, err
