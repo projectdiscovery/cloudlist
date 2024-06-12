@@ -31,15 +31,18 @@ func (ap *lambdaAndapiGatewayProvider) GetResource(ctx context.Context) (*schema
 		regionName := *region.RegionName
 		ap.apiGateway = apigateway.New(ap.session, aws.NewConfig().WithRegion(regionName))
 		ap.lambdaClient = lambda.New(ap.session, aws.NewConfig().WithRegion(regionName))
-		_ = listAPIGatewayResources(ap.apiGateway, list, regionName, ap.lambdaClient)
+		if resources, err := listAPIGatewayResources(ap.apiGateway, regionName, ap.lambdaClient); err == nil {
+			list.Merge(resources)
+		}
 	}
 	return list, nil
 }
 
-func listAPIGatewayResources(apiGateway *apigateway.APIGateway, list *schema.Resources, regionName string, lambdaClient *lambda.Lambda) error {
+func listAPIGatewayResources(apiGateway *apigateway.APIGateway, regionName string, lambdaClient *lambda.Lambda) (*schema.Resources, error) {
+	list := schema.NewResources()
 	apis, err := apiGateway.GetRestApis(&apigateway.GetRestApisInput{Limit: aws.Int64(500)})
 	if err != nil {
-		return errors.Wrap(err, "could not list APIs")
+		return nil, errors.Wrap(err, "could not list APIs")
 	}
 	// List Lambda functions and create a mapping of function ARN to function name
 	lambdaReq := &lambda.ListFunctionsInput{MaxItems: aws.Int64(20)}
@@ -47,7 +50,7 @@ func listAPIGatewayResources(apiGateway *apigateway.APIGateway, list *schema.Res
 	for {
 		lambdaFunctions, err := lambdaClient.ListFunctions(lambdaReq)
 		if err != nil {
-			return errors.Wrap(err, "could not list Lambda functions")
+			return nil, errors.Wrap(err, "could not list Lambda functions")
 		}
 		for _, lambdaFunction := range lambdaFunctions.Functions {
 			lambdaFunctionMapping[*lambdaFunction.FunctionArn] = *lambdaFunction.FunctionName
@@ -74,13 +77,13 @@ func listAPIGatewayResources(apiGateway *apigateway.APIGateway, list *schema.Res
 		for {
 			resources, err := apiGateway.GetResources(resourceReq)
 			if err != nil {
-				return errors.Wrapf(err, "could not get resources for API %s", *api.Id)
+				return nil, errors.Wrapf(err, "could not get resources for API %s", *api.Id)
 			}
 
 			for _, resource := range resources.Items {
 				// List methods for the resource
 				for _, method := range resource.ResourceMethods {
-					if method == nil || method.HttpMethod == nil{
+					if method == nil || method.HttpMethod == nil {
 						continue
 					}
 					integration, err := apiGateway.GetIntegration(&apigateway.GetIntegrationInput{
@@ -114,7 +117,7 @@ func listAPIGatewayResources(apiGateway *apigateway.APIGateway, list *schema.Res
 			resourceReq.SetPosition(*resources.Position)
 		}
 	}
-	return nil
+	return list, nil
 }
 
 // extract Lambda function ARN from integration URI

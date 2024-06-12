@@ -27,19 +27,22 @@ func (ep *ecsProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 		regionName := *region.RegionName
 		ecsClient := ecs.New(ep.session, aws.NewConfig().WithRegion(regionName))
 		ec2Client := ec2.New(ep.session, aws.NewConfig().WithRegion(regionName))
-		_ = listECSResources(ecsClient, ec2Client, list)
+		if resources, err := listECSResources(ecsClient, ec2Client); err == nil {
+			list.Merge(resources)
+		}
 	}
 	return list, nil
 }
 
-func listECSResources(ecsClient *ecs.ECS, ec2Client *ec2.EC2, list *schema.Resources) error {
+func listECSResources(ecsClient *ecs.ECS, ec2Client *ec2.EC2) (*schema.Resources, error) {
+	list := schema.NewResources()
 	req := &ecs.ListClustersInput{
 		MaxResults: aws.Int64(100),
 	}
 	for {
 		clustersOutput, err := ecsClient.ListClusters(req)
 		if err != nil {
-			return errors.Wrap(err, "could not list ECS clusters")
+			return nil, errors.Wrap(err, "could not list ECS clusters")
 		}
 
 		for _, clusterArn := range clustersOutput.ClusterArns {
@@ -50,7 +53,7 @@ func listECSResources(ecsClient *ecs.ECS, ec2Client *ec2.EC2, list *schema.Resou
 			for {
 				servicesOutput, err := ecsClient.ListServices(listServicesInputReq)
 				if err != nil {
-					return errors.Wrap(err, "could not list ECS services")
+					return nil, errors.Wrap(err, "could not list ECS services")
 				}
 
 				for _, serviceArn := range servicesOutput.ServiceArns {
@@ -63,7 +66,7 @@ func listECSResources(ecsClient *ecs.ECS, ec2Client *ec2.EC2, list *schema.Resou
 					for {
 						tasksOutput, err := ecsClient.ListTasks(listTasksInputReq)
 						if err != nil {
-							return errors.Wrap(err, "could not list tasks")
+							return nil, errors.Wrap(err, "could not list tasks")
 						}
 						if len(tasksOutput.TaskArns) == 0 {
 							break
@@ -75,7 +78,7 @@ func listECSResources(ecsClient *ecs.ECS, ec2Client *ec2.EC2, list *schema.Resou
 
 						describeTasksOutput, err := ecsClient.DescribeTasks(describeTasksInput)
 						if err != nil {
-							return errors.Wrap(err, "could not describe tasks")
+							return nil, errors.Wrap(err, "could not describe tasks")
 						}
 
 						for _, task := range describeTasksOutput.Tasks {
@@ -89,7 +92,7 @@ func listECSResources(ecsClient *ecs.ECS, ec2Client *ec2.EC2, list *schema.Resou
 
 							describeContainerInstancesOutput, err := ecsClient.DescribeContainerInstances(describeContainerInstancesInput)
 							if err != nil {
-								return errors.Wrap(err, "could not describe container instances")
+								return nil, errors.Wrap(err, "could not describe container instances")
 							}
 
 							for _, containerInstance := range describeContainerInstancesOutput.ContainerInstances {
@@ -150,5 +153,5 @@ func listECSResources(ecsClient *ecs.ECS, ec2Client *ec2.EC2, list *schema.Resou
 		}
 		req.SetNextToken(*clustersOutput.NextToken)
 	}
-	return nil
+	return list, nil
 }

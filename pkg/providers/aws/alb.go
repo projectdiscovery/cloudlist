@@ -27,19 +27,22 @@ func (ep *elbV2Provider) GetResource(ctx context.Context) (*schema.Resources, er
 		regionName := *region.RegionName
 		albClient := elbv2.New(ep.session, aws.NewConfig().WithRegion(regionName))
 		ec2Client := ec2.New(ep.session, aws.NewConfig().WithRegion(regionName))
-		_ = listELBV2Resources(albClient, ec2Client, list)
+		if resources, err := listELBV2Resources(albClient, ec2Client); err == nil {
+			list.Merge(resources)
+		}
 	}
 	return list, nil
 }
 
-func listELBV2Resources(albClient *elbv2.ELBV2, ec2Client *ec2.EC2, list *schema.Resources) error {
+func listELBV2Resources(albClient *elbv2.ELBV2, ec2Client *ec2.EC2) (*schema.Resources, error) {
+	list := schema.NewResources()
 	req := &elbv2.DescribeLoadBalancersInput{
 		PageSize: aws.Int64(20),
 	}
 	for {
 		lbOutput, err := albClient.DescribeLoadBalancers(req)
 		if err != nil {
-			return errors.Wrap(err, "could not describe load balancers")
+			return nil, errors.Wrap(err, "could not describe load balancers")
 		}
 
 		for _, lb := range lbOutput.LoadBalancers {
@@ -73,7 +76,7 @@ func listELBV2Resources(albClient *elbv2.ELBV2, ec2Client *ec2.EC2, list *schema
 						InstanceIds: []*string{&instanceID},
 					})
 					if err != nil {
-						return errors.Wrapf(err, "could not describe instance %s", instanceID)
+						return nil, errors.Wrapf(err, "could not describe instance %s", instanceID)
 					}
 					// Extract private IP address
 					for _, reservation := range instanceOutput.Reservations {
@@ -97,5 +100,5 @@ func listELBV2Resources(albClient *elbv2.ELBV2, ec2Client *ec2.EC2, list *schema
 		}
 		req.SetMarker(aws.StringValue(req.Marker))
 	}
-	return nil
+	return list, nil
 }

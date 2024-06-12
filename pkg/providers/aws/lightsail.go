@@ -2,7 +2,7 @@ package aws
 
 import (
 	"context"
-	"strings"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -24,14 +24,11 @@ func (d *lightsailProvider) GetResource(ctx context.Context) (*schema.Resources,
 	list := schema.NewResources()
 
 	for _, region := range d.regions {
-		endpointBuilder := &strings.Builder{}
-		endpointBuilder.WriteString("https://lightsail.")
-		endpointBuilder.WriteString(aws.StringValue(region.Name))
-		endpointBuilder.WriteString(".amazonaws.com")
+		endpoint := fmt.Sprintf("https://lightsail.%s.amazonaws.com", aws.StringValue(region.Name))
 
 		lsClient := lightsail.New(
 			d.session,
-			aws.NewConfig().WithEndpoint(endpointBuilder.String()),
+			aws.NewConfig().WithEndpoint(endpoint),
 			aws.NewConfig().WithRegion(aws.StringValue(region.Name)),
 		)
 		req := &lightsail.GetInstancesInput{}

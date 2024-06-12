@@ -19,21 +19,20 @@ type cloudfrontProvider struct {
 
 // GetResource returns all the resources in the store for a provider.
 func (cp *cloudfrontProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
-	list := schema.NewResources()
-
-	err := listCloudFrontResources(cp.cloudFrontClient, list)
+	resources, err := listCloudFrontResources(cp.cloudFrontClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not list CloudFront resources")
 	}
-	return list, nil
+	return resources, nil
 }
 
-func listCloudFrontResources(cloudFrontClient *cloudfront.CloudFront, list *schema.Resources) error {
+func listCloudFrontResources(cloudFrontClient *cloudfront.CloudFront) (*schema.Resources, error) {
+	list := schema.NewResources()
 	req := &cloudfront.ListDistributionsInput{MaxItems: aws.Int64(400)}
 	for {
 		distributions, err := cloudFrontClient.ListDistributions(req)
 		if err != nil {
-			return errors.Wrap(err, "could not list distributions")
+			return nil, errors.Wrap(err, "could not list distributions")
 		}
 
 		for _, distribution := range distributions.DistributionList.Items {
@@ -50,5 +49,5 @@ func listCloudFrontResources(cloudFrontClient *cloudfront.CloudFront, list *sche
 		}
 		req.SetMarker(aws.StringValue(distributions.DistributionList.NextMarker))
 	}
-	return nil
+	return list, nil
 }
