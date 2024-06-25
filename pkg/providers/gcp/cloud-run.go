@@ -18,7 +18,26 @@ type cloudRunProvider struct {
 // GetResource returns all the Cloud Run resources in the store for a provider.
 func (d *cloudRunProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
+	services, err := d.getServices()
+	if err != nil {
+		return nil, fmt.Errorf("could not get services: %s", err)
+	}
+	
+	for _, service := range services {
+		serviceUrl, _ := url.Parse(service.Status.Url)
+		resource := &schema.Resource{
+			ID:       d.id,
+			Provider: providerName,
+			DNSName:  serviceUrl.Hostname(),
+			Public:   d.isPublicService(service.Metadata.Name),
+		}
+		list.Append(resource)
+	}
+	return list, nil
+}
 
+func (d *cloudRunProvider) getServices() ([]*run.Service, error) {
+	var services []*run.Service
 	for _, project := range d.projects {
 		locationsService := d.run.Projects.Locations.List(fmt.Sprintf("projects/%s", project))
 		locationsResponse, err := locationsService.Do()
@@ -32,31 +51,24 @@ func (d *cloudRunProvider) GetResource(ctx context.Context) (*schema.Resources, 
 			if err != nil {
 				continue
 			}
+			services = append(services, servicesResponse.Items...)
+		}
+	}
+	return services, nil
+}
 
-			for _, service := range servicesResponse.Items {
-				serviceUrl, _ := url.Parse(service.Status.Url)
-				resource := &schema.Resource{
-					ID:       d.id,
-					Provider: providerName,
-					DNSName:  serviceUrl.Hostname(),
-				}
-
-				serviceIAMPolicy, err := d.run.Projects.Locations.Services.GetIamPolicy(service.Metadata.Name).Do()
-				if err == nil {
-					for _, binding := range serviceIAMPolicy.Bindings {
-						if binding.Role == "roles/run.invoker" {
-							for _, member := range binding.Members {
-								if member == "allUsers" || member == "allAuthenticatedUsers" {
-									resource.Public = true
-									break
-								}
-							}
-						}
+func (d *cloudRunProvider) isPublicService(serviceName string) bool {
+	serviceIAMPolicy, err := d.run.Projects.Locations.Services.GetIamPolicy(serviceName).Do()
+	if err == nil {
+		for _, binding := range serviceIAMPolicy.Bindings {
+			if binding.Role == "roles/run.invoker" {
+				for _, member := range binding.Members {
+					if member == "allUsers" || member == "allAuthenticatedUsers" {
+						return true
 					}
 				}
-				list.Append(resource)
 			}
 		}
 	}
-	return list, nil
+	return false
 }

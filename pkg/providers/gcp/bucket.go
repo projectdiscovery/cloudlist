@@ -18,35 +18,46 @@ type cloudStorageProvider struct {
 func (d *cloudStorageProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
 
-	for _, project := range d.projects {
-		bucketsService := d.storage.Buckets.List(project)
-		err := bucketsService.Pages(context.Background(), func(bal *storage.Buckets) error {
-			for _, bucket := range bal.Items {
-				resource := &schema.Resource{
-					ID:       d.id,
-					Provider: providerName,
-					DNSName:  fmt.Sprintf("%s.storage.googleapis.com", bucket.Name),
-				}
-				bucketIAMPolicy, err := d.storage.Buckets.GetIamPolicy(bucket.Name).Do()
-				if err == nil {
-					for _, binding := range bucketIAMPolicy.Bindings {
-						if binding.Role == "roles/storage.objectViewer" {
-							for _, member := range binding.Members {
-								if member == "allUsers" || member == "allAuthenticatedUsers" {
-									resource.Public = true
-									break
-								}
-							}
-						}
-					}
-				}
-				list.Append(resource)
-			}
-			return nil
-		})
-		if err != nil {
-			continue
+	buckets, err := d.getBuckets()
+	if err != nil {
+		return nil, fmt.Errorf("could not get buckets: %s", err)
+	}
+	for _, bucket := range buckets {
+		resource := &schema.Resource{
+			ID:       d.id,
+			Provider: providerName,
+			DNSName:  fmt.Sprintf("%s.storage.googleapis.com", bucket.Name),
+			Public:   d.isBucketPublic(bucket.Name),
 		}
+		list.Append(resource)
 	}
 	return list, nil
+}
+
+func (d *cloudStorageProvider) getBuckets() ([]*storage.Bucket, error) {
+	var buckets []*storage.Bucket
+	for _, project := range d.projects {
+		bucketsService := d.storage.Buckets.List(project)
+		_ = bucketsService.Pages(context.Background(), func(bal *storage.Buckets) error {
+			buckets = append(buckets, bal.Items...)
+			return nil
+		})
+	}
+	return buckets, nil
+}
+
+func (d *cloudStorageProvider) isBucketPublic(bucketName string) bool {
+	bucketIAMPolicy, err := d.storage.Buckets.GetIamPolicy(bucketName).Do()
+	if err == nil {
+		for _, binding := range bucketIAMPolicy.Bindings {
+			if binding.Role == "roles/storage.objectViewer" {
+				for _, member := range binding.Members {
+					if member == "allUsers" || member == "allAuthenticatedUsers" {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
 }
