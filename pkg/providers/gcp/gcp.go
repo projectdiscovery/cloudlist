@@ -36,16 +36,19 @@ func (p *Provider) ID() string {
 
 // New creates a new provider client for gcp API
 func New(options schema.OptionBlock) (*Provider, error) {
-	JSONData, ok := options.GetMetadata(serviceAccountJSON)
-	if !ok {
-		return nil, errorutil.New("could not get API Key")
+	var saKeyBytes []byte
+	saKeyString, ok := options.GetMetadata(serviceAccountJSON)
+	if ok {
+		saKeyBytes = []byte(saKeyString)
 	}
+
 	id, _ := options.GetMetadata("id")
 
-	creds, err := register(context.Background(), []byte(JSONData))
+	creds, err := register(context.Background(), []byte(saKeyBytes))
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).Msgf("could not register gcp service account")
 	}
+
 	dnsService, err := dns.NewService(context.Background(), creds)
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).Msgf("could not create dns service with api key")

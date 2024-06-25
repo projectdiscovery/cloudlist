@@ -33,31 +33,31 @@ func (g *googleAuthProvider) Login() error { return nil }
 
 func (g *googleAuthProvider) Name() string { return googleAuthPlugin }
 
-func register(ctx context.Context, data []byte) (option.ClientOption, error) {
-	// Register the auth plugin, it is requied for accessing GKE cluster using kubeconfig
-	creds, err := google.CredentialsFromJSON(ctx, data, scope)
-	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("failed to create google credentials")
-	}
-	token, err := creds.TokenSource.Token()
-	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("failed to create google token")
-	}
-	tokenSource := oauth2.StaticTokenSource(token)
+func register(ctx context.Context, serviceAccountKey []byte) (option.ClientOption, error) {
+	var creds *google.Credentials
 
-	// Authenticate with the token
-	// If it's nil use Google ADC
+	if serviceAccountKey == nil {
+		// If the service account key is not provided, use default credentials (https://cloud.google.com/docs/authentication/provide-credentials-adc)
+		defaultCreds, err := google.FindDefaultCredentials(ctx, scope)
+		if err != nil {
+			return nil, errorutil.NewWithErr(err).Msgf("failed to find default google credentials")
+		}
+		creds = defaultCreds
+	} else {
+		// If the service account key is not provided, use the service account key provided by the config
+		saKeyCreds, err := google.CredentialsFromJSON(ctx, serviceAccountKey, scope)
+		if err != nil {
+			return nil, errorutil.NewWithErr(err).Msgf("failed to parse specified GCP service account key")
+		}
+		creds = saKeyCreds
+	}
+
+	// Setup GKE auth using the token source from the credentials
+	tokenSource := creds.TokenSource
 	_ = rest.RegisterAuthProviderPlugin(googleAuthPlugin,
 		func(clusterAddress string, config map[string]string, persister rest.AuthProviderConfigPersister) (rest.AuthProvider, error) {
-			var err error
-			if tokenSource == nil {
-				tokenSource, err = google.DefaultTokenSource(ctx, scope)
-				if err != nil {
-					return nil, errorutil.NewWithErr(err).Msgf("failed to create google token source")
-				}
-			}
 			return &googleAuthProvider{tokenSource: tokenSource}, nil
 		})
-	// return clioptions
-	return option.WithCredentialsJSON(data), nil
+
+	return option.WithCredentials(creds), nil
 }
