@@ -31,14 +31,14 @@ func (ep *elbProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 		regionName := *region.RegionName
 		elbClient := elb.New(ep.session, aws.NewConfig().WithRegion(regionName))
 		ec2Client := ec2.New(ep.session, aws.NewConfig().WithRegion(regionName))
-		if resources, err := listELBResources(elbClient, ec2Client); err == nil {
+		if resources, err := ep.listELBResources(elbClient, ec2Client); err == nil {
 			list.Merge(resources)
 		}
 	}
 	return list, nil
 }
 
-func listELBResources(elbClient *elb.ELB, ec2Client *ec2.EC2) (*schema.Resources, error) {
+func (ep *elbProvider) listELBResources(elbClient *elb.ELB, ec2Client *ec2.EC2) (*schema.Resources, error) {
 	list := schema.NewResources()
 	req := &elb.DescribeLoadBalancersInput{}
 	for {
@@ -54,7 +54,7 @@ func listELBResources(elbClient *elb.ELB, ec2Client *ec2.EC2) (*schema.Resources
 				ID:       *lb.LoadBalancerName,
 				DNSName:  elbDNS,
 				Public:   true,
-				Service: "elb",
+				Service:  ep.name(),
 			}
 			list.Append(resource)
 			// Describe Instances for the Load Balancer
@@ -75,7 +75,7 @@ func listELBResources(elbClient *elb.ELB, ec2Client *ec2.EC2) (*schema.Resources
 								ID:          instanceID,
 								PrivateIpv4: *instance.PrivateIpAddress,
 								Public:      false,
-								Service:     "elb",
+								Service:     ep.name(),
 							}
 							list.Append(resource)
 						}
