@@ -25,20 +25,24 @@ type eksProvider struct {
 	regions   *ec2.DescribeRegionsOutput
 }
 
+func (ep *eksProvider) name() string {
+	return "eks"
+}
+
 // GetResource returns all the resources in the store for a provider.
 func (ep *eksProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
 	for _, region := range ep.regions.Regions {
 		regionName := *region.RegionName
 		ep.eksClient = eks.New(ep.session, aws.NewConfig().WithRegion(regionName))
-		if resources, err := listEKSResources(ep.eksClient); err == nil {
+		if resources, err := ep.listEKSResources(ep.eksClient); err == nil {
 			list.Merge(resources)
 		}
 	}
 	return list, nil
 }
 
-func listEKSResources(eksClient *eks.EKS) (*schema.Resources, error) {
+func (ep *eksProvider) listEKSResources(eksClient *eks.EKS) (*schema.Resources, error) {
 	list := schema.NewResources()
 	req := &eks.ListClustersInput{
 		MaxResults: aws.Int64(100),
@@ -88,6 +92,7 @@ func listEKSResources(eksClient *eks.EKS) (*schema.Resources, error) {
 					ID:         node.GetName(),
 					PublicIPv4: nodeIP,
 					Public:     true,
+					Service:   ep.name(),
 				})
 				// Pod IPs
 				for _, podIP := range podIPs {
@@ -96,6 +101,7 @@ func listEKSResources(eksClient *eks.EKS) (*schema.Resources, error) {
 						ID:          node.GetName(),
 						PrivateIpv4: podIP,
 						Public:      false,
+						Service:     ep.name(),
 					})
 				}
 			}

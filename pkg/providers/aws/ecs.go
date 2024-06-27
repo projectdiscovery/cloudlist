@@ -19,6 +19,10 @@ type ecsProvider struct {
 	regions   *ec2.DescribeRegionsOutput
 }
 
+func (ep *ecsProvider) name() string {
+	return "ecs"
+}
+
 // GetResource returns all the resources in the store for a provider.
 func (ep *ecsProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
@@ -27,14 +31,14 @@ func (ep *ecsProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 		regionName := *region.RegionName
 		ecsClient := ecs.New(ep.session, aws.NewConfig().WithRegion(regionName))
 		ec2Client := ec2.New(ep.session, aws.NewConfig().WithRegion(regionName))
-		if resources, err := listECSResources(ecsClient, ec2Client); err == nil {
+		if resources, err := ep.listECSResources(ecsClient, ec2Client); err == nil {
 			list.Merge(resources)
 		}
 	}
 	return list, nil
 }
 
-func listECSResources(ecsClient *ecs.ECS, ec2Client *ec2.EC2) (*schema.Resources, error) {
+func (ep *ecsProvider) listECSResources(ecsClient *ecs.ECS, ec2Client *ec2.EC2) (*schema.Resources, error) {
 	list := schema.NewResources()
 	req := &ecs.ListClustersInput{
 		MaxResults: aws.Int64(100),
@@ -117,6 +121,7 @@ func listECSResources(ecsClient *ecs.ECS, ec2Client *ec2.EC2) (*schema.Resources
 												Provider:    "aws",
 												PrivateIpv4: privateIP,
 												Public:      false,
+												Service:     ep.name(),
 											}
 											list.Append(resource)
 										}
@@ -127,6 +132,7 @@ func listECSResources(ecsClient *ecs.ECS, ec2Client *ec2.EC2) (*schema.Resources
 												Provider:   "aws",
 												PublicIPv4: publicIP,
 												Public:     true,
+												Service:    ep.name(),
 											}
 											list.Append(resource)
 										}

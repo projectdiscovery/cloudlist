@@ -19,6 +19,10 @@ type elbV2Provider struct {
 	regions   *ec2.DescribeRegionsOutput
 }
 
+func (ep *elbV2Provider) name() string {
+	return "alb"
+}
+
 // GetResource returns all the resources in the store for a provider.
 func (ep *elbV2Provider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
@@ -27,14 +31,14 @@ func (ep *elbV2Provider) GetResource(ctx context.Context) (*schema.Resources, er
 		regionName := *region.RegionName
 		albClient := elbv2.New(ep.session, aws.NewConfig().WithRegion(regionName))
 		ec2Client := ec2.New(ep.session, aws.NewConfig().WithRegion(regionName))
-		if resources, err := listELBV2Resources(albClient, ec2Client); err == nil {
+		if resources, err := ep.listELBV2Resources(albClient, ec2Client); err == nil {
 			list.Merge(resources)
 		}
 	}
 	return list, nil
 }
 
-func listELBV2Resources(albClient *elbv2.ELBV2, ec2Client *ec2.EC2) (*schema.Resources, error) {
+func (ep *elbV2Provider) listELBV2Resources(albClient *elbv2.ELBV2, ec2Client *ec2.EC2) (*schema.Resources, error) {
 	list := schema.NewResources()
 	req := &elbv2.DescribeLoadBalancersInput{
 		PageSize: aws.Int64(20),
@@ -52,6 +56,7 @@ func listELBV2Resources(albClient *elbv2.ELBV2, ec2Client *ec2.EC2) (*schema.Res
 				ID:       *lb.LoadBalancerName,
 				DNSName:  albDNS,
 				Public:   true,
+				Service:  ep.name(),
 			}
 			list.Append(resource)
 			// Describe targets for the Load Balancer
@@ -87,6 +92,7 @@ func listELBV2Resources(albClient *elbv2.ELBV2, ec2Client *ec2.EC2) (*schema.Res
 									ID:          instanceID,
 									PrivateIpv4: *instance.PrivateIpAddress,
 									Public:      false,
+									Service:     ep.name(),
 								}
 								list.Append(resource)
 							}

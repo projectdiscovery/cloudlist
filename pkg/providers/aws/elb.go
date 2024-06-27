@@ -19,6 +19,10 @@ type elbProvider struct {
 	regions   *ec2.DescribeRegionsOutput
 }
 
+func (ep *elbProvider) name() string {
+	return "elb"
+}
+
 // GetResource returns all the resources in the store for a provider.
 func (ep *elbProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
@@ -50,6 +54,7 @@ func listELBResources(elbClient *elb.ELB, ec2Client *ec2.EC2) (*schema.Resources
 				ID:       *lb.LoadBalancerName,
 				DNSName:  elbDNS,
 				Public:   true,
+				Service: "elb",
 			}
 			list.Append(resource)
 			// Describe Instances for the Load Balancer
@@ -70,6 +75,7 @@ func listELBResources(elbClient *elb.ELB, ec2Client *ec2.EC2) (*schema.Resources
 								ID:          instanceID,
 								PrivateIpv4: *instance.PrivateIpAddress,
 								Public:      false,
+								Service:     "elb",
 							}
 							list.Append(resource)
 						}

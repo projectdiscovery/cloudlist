@@ -19,6 +19,10 @@ type lightsailProvider struct {
 	regions  []*lightsail.Region
 }
 
+func (d *lightsailProvider) name() string {
+	return "lightsail"
+}
+
 // GetResource returns all the resources in the store for a provider.
 func (d *lightsailProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
@@ -47,6 +51,7 @@ func (d *lightsailProvider) GetResource(ctx context.Context) (*schema.Resources,
 					PrivateIpv4: privateIPv4,
 					PublicIPv4:  publicIPv4,
 					Public:      publicIPv4 != "",
+					Service:     d.name(),
 				}
 				list.Append(resource)
 			}

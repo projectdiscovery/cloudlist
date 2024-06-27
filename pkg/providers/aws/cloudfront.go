@@ -17,16 +17,20 @@ type cloudfrontProvider struct {
 	session          *session.Session
 }
 
+func (cp *cloudfrontProvider) name() string {
+	return "cloudfront"
+}
+
 // GetResource returns all the resources in the store for a provider.
 func (cp *cloudfrontProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
-	resources, err := listCloudFrontResources(cp.cloudFrontClient)
+	resources, err := cp.listCloudFrontResources(cp.cloudFrontClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not list CloudFront resources")
 	}
 	return resources, nil
 }
 
-func listCloudFrontResources(cloudFrontClient *cloudfront.CloudFront) (*schema.Resources, error) {
+func (cp *cloudfrontProvider) listCloudFrontResources(cloudFrontClient *cloudfront.CloudFront) (*schema.Resources, error) {
 	list := schema.NewResources()
 	req := &cloudfront.ListDistributionsInput{MaxItems: aws.Int64(400)}
 	for {
@@ -41,6 +45,7 @@ func listCloudFrontResources(cloudFrontClient *cloudfront.CloudFront) (*schema.R
 				ID:       aws.StringValue(distribution.Id),
 				DNSName:  aws.StringValue(distribution.DomainName),
 				Public:   true,
+				Service:  cp.name(),
 			}
 			list.Append(resource)
 		}

@@ -31,49 +31,43 @@ func (ap *lambdaAndapiGatewayProvider) GetResource(ctx context.Context) (*schema
 		regionName := *region.RegionName
 		ap.apiGateway = apigateway.New(ap.session, aws.NewConfig().WithRegion(regionName))
 		ap.lambdaClient = lambda.New(ap.session, aws.NewConfig().WithRegion(regionName))
-		if resources, err := listAPIGatewayResources(ap.apiGateway, regionName, ap.lambdaClient); err == nil {
+		if resources, err := ap.listAPIGatewayResources(ap.apiGateway, regionName, ap.lambdaClient); err == nil {
 			list.Merge(resources)
 		}
 	}
 	return list, nil
 }
 
-func listAPIGatewayResources(apiGateway *apigateway.APIGateway, regionName string, lambdaClient *lambda.Lambda) (*schema.Resources, error) {
+func (ap *lambdaAndapiGatewayProvider) listAPIGatewayResources(apiGateway *apigateway.APIGateway, regionName string, lambdaClient *lambda.Lambda) (*schema.Resources, error) {
 	list := schema.NewResources()
 	apis, err := apiGateway.GetRestApis(&apigateway.GetRestApisInput{Limit: aws.Int64(500)})
 	if err != nil {
 		return nil, errors.Wrap(err, "could not list APIs")
 	}
 	// List Lambda functions and create a mapping of function ARN to function name
-	lambdaReq := &lambda.ListFunctionsInput{MaxItems: aws.Int64(20)}
+	lambdaFunctions, err := ap.getLambdaFunctions(lambdaClient)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not list Lambda functions")
+	}
 	lambdaFunctionMapping := make(map[string]string)
-	for {
-		lambdaFunctions, err := lambdaClient.ListFunctions(lambdaReq)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not list Lambda functions")
-		}
-		for _, lambdaFunction := range lambdaFunctions.Functions {
-			lambdaFunctionMapping[*lambdaFunction.FunctionArn] = *lambdaFunction.FunctionName
-		}
-		if aws.StringValue(lambdaFunctions.NextMarker) == "" {
-			break
-		}
-		lambdaReq.SetMarker(*lambdaFunctions.NextMarker)
+	for _, lambdaFunction := range lambdaFunctions {
+		lambdaFunctionMapping[*lambdaFunction.FunctionArn] = *lambdaFunction.FunctionName
 	}
 	// Iterate over each API Gateway resource
 	for _, api := range apis.Items {
 		apiBaseURL := fmt.Sprintf("https://%s.execute-api.%s.amazonaws.com", *api.Id, regionName)
-		// Get resources for the API
-		resourceReq := &apigateway.GetResourcesInput{
-			RestApiId: api.Id,
-			Limit:     aws.Int64(100),
-		}
 		list.Append(&schema.Resource{
 			Provider: "aws",
 			ID:       *api.Id,
 			DNSName:  apiBaseURL,
 			Public:   true,
+			Service:  "apigateway",
 		})
+		// Get resources for the API
+		resourceReq := &apigateway.GetResourcesInput{
+			RestApiId: api.Id,
+			Limit:     aws.Int64(100),
+		}
 		for {
 			resources, err := apiGateway.GetResources(resourceReq)
 			if err != nil {
@@ -97,14 +91,14 @@ func listAPIGatewayResources(apiGateway *apigateway.APIGateway, regionName strin
 					// Check if the integration type is AWS_PROXY (indicating Lambda integration)
 					if integration.Type != nil && *integration.Type == "AWS_PROXY" {
 						functionARN := extractLambdaARN(*integration.Uri)
-						functionName := lambdaFunctionMapping[functionARN]
-						if functionName != "" {
+						if functionName, ok := lambdaFunctionMapping[functionARN]; ok {
 							apiURLWithLambda := fmt.Sprintf("%s/lambda/%s", apiBaseURL, functionName)
 							list.Append(&schema.Resource{
 								Provider: "aws",
 								ID:       *api.Id,
 								DNSName:  apiURLWithLambda,
 								Public:   true,
+								Service:  "lambda",
 							})
 						}
 					}
@@ -118,6 +112,23 @@ func listAPIGatewayResources(apiGateway *apigateway.APIGateway, regionName strin
 		}
 	}
 	return list, nil
+}
+
+func (ap *lambdaAndapiGatewayProvider) getLambdaFunctions(lambdaClient *lambda.Lambda) ([]*lambda.FunctionConfiguration, error) {
+	var lambdaFunctions []*lambda.FunctionConfiguration
+	lambdaReq := &lambda.ListFunctionsInput{MaxItems: aws.Int64(20)}
+	for {
+		lambdaFuncs, err := lambdaClient.ListFunctions(lambdaReq)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not list Lambda functions")
+		}
+		lambdaFunctions = append(lambdaFunctions, lambdaFuncs.Functions...)
+		if aws.StringValue(lambdaFuncs.NextMarker) == "" {
+			break
+		}
+		lambdaReq.SetMarker(*lambdaFuncs.NextMarker)
+	}
+	return lambdaFunctions, nil
 }
 
 // extract Lambda function ARN from integration URI
