@@ -15,6 +15,10 @@ type cloudRunProvider struct {
 	projects []string
 }
 
+func (d *cloudRunProvider) name() string {
+	return "cloud-run"
+}
+
 // GetResource returns all the Cloud Run resources in the store for a provider.
 func (d *cloudRunProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
@@ -30,6 +34,7 @@ func (d *cloudRunProvider) GetResource(ctx context.Context) (*schema.Resources, 
 			Provider: providerName,
 			DNSName:  serviceUrl.Hostname(),
 			Public:   d.isPublicService(service.Metadata.Name),
+			Service:  d.name(),
 		}
 		list.Append(resource)
 	}

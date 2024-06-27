@@ -15,6 +15,10 @@ type publicIPProvider struct {
 	Authorizer     autorest.Authorizer
 }
 
+func (pip *publicIPProvider) name() string {
+	return "publicip"
+}
+
 // GetResource returns all the resources in the store for a provider.
 func (pip *publicIPProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 
@@ -36,6 +40,7 @@ func (pip *publicIPProvider) GetResource(ctx context.Context) (*schema.Resources
 			PublicIPv4: *ip.IPAddress,
 			ID:         pip.id,
 			Public:     true,
+			Service:    pip.name(),
 		})
 	}
 	return list, nil

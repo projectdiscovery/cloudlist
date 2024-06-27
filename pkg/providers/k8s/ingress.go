@@ -20,6 +20,10 @@ func NewK8sIngressProvider(id string, ingress *v1.IngressList) *K8sIngressProvid
 	}
 }
 
+func (k *K8sIngressProvider) name() string {
+	return "ingress"
+}
+
 // GetResource returns all the resources in the store for a provider.
 func (k *K8sIngressProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
@@ -39,6 +43,7 @@ func (k *K8sIngressProvider) GetResource(ctx context.Context) (*schema.Resources
 					Provider:   providerName,
 					ID:         k.id,
 					PublicIPv4: ip.IP,
+					Service:   k.name(),
 				})
 			}
 			if ip.Hostname == "" {
@@ -47,6 +52,7 @@ func (k *K8sIngressProvider) GetResource(ctx context.Context) (*schema.Resources
 					Provider: providerName,
 					ID:       k.id,
 					DNSName:  ip.Hostname,
+					Service:  k.name(),
 				})
 			}
 		}

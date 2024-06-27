@@ -15,6 +15,10 @@ type cloudFunctionsProvider struct {
 	projects  []string
 }
 
+func (d *cloudFunctionsProvider) name() string {
+	return "cloud-functions"
+}
+
 // GetResource returns all the Cloud Function resources in the store for a provider.
 func (d *cloudFunctionsProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
@@ -29,6 +33,7 @@ func (d *cloudFunctionsProvider) GetResource(ctx context.Context) (*schema.Resou
 			Provider: providerName,
 			DNSName:  funcUrl.Hostname(),
 			Public:   d.isPublicFunction(function.Name),
+			Service:  d.name(),
 		}
 		list.Append(resource)
 	}

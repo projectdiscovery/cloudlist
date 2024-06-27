@@ -33,6 +33,7 @@ func (d *serviceProvider) GetResource(ctx context.Context) (*schema.Resources, e
 				Provider: providerName,
 				DNSName:  domain.Name,
 				ID:       d.id,
+				Service: service.Name,
 			})
 		}
 	}

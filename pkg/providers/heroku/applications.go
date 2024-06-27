@@ -13,6 +13,10 @@ type instanceProvider struct {
 	client *heroku.Service
 }
 
+func (d *instanceProvider) name() string {
+	return "application"
+}
+
 // GetResource returns all the applications for the Heroku provider.
 func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
@@ -35,6 +39,7 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 			Public:   isPublic,
 			ID:       d.id,
 			Provider: providerName,
+			Service:  d.name(),
 		})
 	}
 

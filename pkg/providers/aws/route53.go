@@ -18,6 +18,10 @@ type route53Provider struct {
 	session *session.Session
 }
 
+func (d *route53Provider) name() string {
+	return "route53"
+}
+
 // GetResource returns all the resources in the store for a provider.
 func (d *route53Provider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
@@ -69,12 +73,14 @@ func (d *route53Provider) listResourceRecords(zone *route53.HostedZone) (*schema
 				Public:   public,
 				DNSName:  name,
 				Provider: providerName,
+				Service: d.name(),
 			})
 			list.Append(&schema.Resource{
 				ID:         d.id,
 				Public:     public,
 				PublicIPv4: ip4,
 				Provider:   providerName,
+				Service:    d.name(),
 			})
 		}
 		if aws.BoolValue(sets.IsTruncated) && *sets.NextRecordName != "" {

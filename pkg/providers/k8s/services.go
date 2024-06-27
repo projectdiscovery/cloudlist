@@ -13,6 +13,10 @@ type K8sServiceProvider struct {
 	serviceClient *v1.ServiceList
 }
 
+func (k *K8sServiceProvider) name() string {
+	return "service"
+}
+
 // GetResource returns all the resources in the store for a provider.
 func (k *K8sServiceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
@@ -23,6 +27,7 @@ func (k *K8sServiceProvider) GetResource(ctx context.Context) (*schema.Resources
 				Provider:   providerName,
 				ID:         k.id,
 				PublicIPv4: service.Spec.LoadBalancerIP,
+				Service:    k.name(),
 			})
 		}
 		if service.Spec.Type == "LoadBalancer" {
@@ -33,6 +38,7 @@ func (k *K8sServiceProvider) GetResource(ctx context.Context) (*schema.Resources
 					ID:         k.id,
 					PublicIPv4: ip.IP,
 					DNSName:    ip.Hostname,
+					Service:    "load_balancer",
 				})
 			}
 		}
@@ -44,6 +50,7 @@ func (k *K8sServiceProvider) GetResource(ctx context.Context) (*schema.Resources
 				PublicIPv4:  ip,
 				PrivateIpv4: "",
 				DNSName:     "",
+				Service:     "external_ip",
 			})
 		}
 		for _, ip := range service.Spec.ClusterIPs {
@@ -55,6 +62,7 @@ func (k *K8sServiceProvider) GetResource(ctx context.Context) (*schema.Resources
 				Provider:    providerName,
 				ID:          k.id,
 				PrivateIpv4: ip,
+				Service:     "cluster_ip",
 			})
 		}
 	}

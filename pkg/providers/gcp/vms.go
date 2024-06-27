@@ -14,6 +14,10 @@ type cloudVMProvider struct {
 	projects []string
 }
 
+func (d *cloudVMProvider) name() string {
+	return "vms"
+}
+
 // GetResource returns all the resources in the store for a provider.
 func (d *cloudVMProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
@@ -39,6 +43,7 @@ func (d *cloudVMProvider) GetResource(ctx context.Context) (*schema.Resources, e
 						Public:     true,
 						Provider:   providerName,
 						PublicIPv4: cfg.NatIP,
+						Service:   d.name(),
 					})
 				}
 			}

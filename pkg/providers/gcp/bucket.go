@@ -14,6 +14,10 @@ type cloudStorageProvider struct {
 	projects []string
 }
 
+func (d *cloudStorageProvider) name() string {
+	return "s3"
+}
+
 // GetResource returns all the storage resources in the store for a provider.
 func (d *cloudStorageProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
@@ -28,6 +32,7 @@ func (d *cloudStorageProvider) GetResource(ctx context.Context) (*schema.Resourc
 			Provider: providerName,
 			DNSName:  fmt.Sprintf("%s.storage.googleapis.com", bucket.Name),
 			Public:   d.isBucketPublic(bucket.Name),
+			Service:  d.name(),
 		}
 		list.Append(resource)
 	}

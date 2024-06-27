@@ -14,6 +14,10 @@ type dnsProvider struct {
 	client *cloudflare.API
 }
 
+func (d *dnsProvider) name() string {
+	return "dns"
+}
+
 // GetResource returns all the resources in the store for a provider.
 func (d *dnsProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
@@ -37,6 +41,7 @@ func (d *dnsProvider) GetResource(ctx context.Context) (*schema.Resources, error
 				Provider: providerName,
 				DNSName:  record.Name,
 				ID:       d.id,
+				Service: d.name(),
 			})
 			// Skip CNAME records values to discard duplidate data
 			if record.Type == "CNAME" {
@@ -47,6 +52,7 @@ func (d *dnsProvider) GetResource(ctx context.Context) (*schema.Resources, error
 				Provider:   providerName,
 				PublicIPv4: record.Content,
 				ID:         d.id,
+				Service:   d.name(),
 			})
 		}
 	}

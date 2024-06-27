@@ -19,6 +19,10 @@ type instanceProvider struct {
 	regions   *ec2.DescribeRegionsOutput
 }
 
+func (d *instanceProvider) name() string {
+	return "instance"
+}
+
 // GetResource returns all the resources in the store for a provider.
 func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
@@ -53,6 +57,7 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 							Provider:    providerName,
 							PrivateIpv4: privateIp4,
 							Public:      false,
+							Service:    d.name(),
 						})
 					}
 					list.Append(&schema.Resource{
@@ -60,6 +65,7 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 						Provider:   providerName,
 						PublicIPv4: ip4,
 						Public:     true,
+						Service:   d.name(),
 					})
 				}
 			}

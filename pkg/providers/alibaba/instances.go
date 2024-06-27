@@ -13,6 +13,10 @@ type instanceProvider struct {
 	client *ecs.Client
 }
 
+func (d *instanceProvider) name() string {
+	return "instance"
+}
+
 // GetResource returns all the resources in the store for a provider.
 func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
@@ -39,6 +43,7 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 			PublicIPv4:  ipv4,
 			PrivateIpv4: privateIPv4,
 			Public:      ipv4 != "",
+			Service:     d.name(),
 		})
 	}
 

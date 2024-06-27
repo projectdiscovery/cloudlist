@@ -16,6 +16,10 @@ type instanceProvider struct {
 	id   string
 }
 
+func (d *instanceProvider) name() string {
+	return "instance"
+}
+
 // GetInstances returns all the instances in the store for a provider.
 func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	file, err := os.Open(d.path)
@@ -44,6 +48,7 @@ func (d *instanceProvider) extractIPsFromText(text string) *schema.Resources {
 			Provider:   providerName,
 			ID:         d.id,
 			PublicIPv4: match[0],
+			Service:   d.name(),
 		})
 	}
 	return resources
