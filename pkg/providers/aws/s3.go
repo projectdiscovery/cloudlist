@@ -18,6 +18,10 @@ type s3Provider struct {
 	session *session.Session
 }
 
+func (d *s3Provider) name() string {
+	return "s3"
+}
+
 // GetResource returns all the resources in the store for a provider.
 func (d *s3Provider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
@@ -38,6 +42,7 @@ func (d *s3Provider) GetResource(ctx context.Context) (*schema.Resources, error)
 			Public:   true,
 			DNSName:  endpointBuilder.String(),
 			Provider: providerName,
+			Service:  d.name(),
 		})
 	}
 

@@ -36,6 +36,7 @@ func (d *resourceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 			list.Append(&schema.Resource{
 				Provider:   providerName,
 				ID:         d.id,
+				Service:    "consul_node",
 				PublicIPv4: node.Address,
 			})
 		}
@@ -63,6 +64,7 @@ func (d *resourceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 				list.Append(&schema.Resource{
 					Provider:   providerName,
 					ID:         d.id,
+					Service:    item.ServiceName,
 					PublicIPv4: net.JoinHostPort(nodeIP, strconv.Itoa(port)),
 				})
 			}

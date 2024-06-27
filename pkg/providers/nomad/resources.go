@@ -41,6 +41,7 @@ func (d *resourceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 				Provider:   providerName,
 				ID:         d.id,
 				PublicIPv4: node.Address,
+				Service:    "nomad_node",
 			})
 			nodeAddressMap[node.ID] = node.Address
 		}
@@ -71,6 +72,7 @@ func (d *resourceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 					for _, port := range network.ReservedPorts {
 						list.Append(&schema.Resource{
 							Provider:   providerName,
+							Service:    job.Name,
 							ID:         d.id,
 							PublicIPv4: net.JoinHostPort(nodeAddress, strconv.Itoa(port.Value)),
 						})
@@ -78,6 +80,7 @@ func (d *resourceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 					for _, port := range network.DynamicPorts {
 						list.Append(&schema.Resource{
 							Provider:   providerName,
+							Service:    job.Name,
 							ID:         d.id,
 							PublicIPv4: net.JoinHostPort(nodeAddress, strconv.Itoa(port.Value)),
 						})

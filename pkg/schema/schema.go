@@ -55,10 +55,11 @@ func init() {
 }
 
 // appendResourceWithTypeAndMeta appends a resource with a type and metadata
-func (r *Resources) appendResourceWithTypeAndMeta(resourceType validate.ResourceType, item, id, provider string) {
+func (r *Resources) appendResourceWithTypeAndMeta(resourceType validate.ResourceType, item, id, provider, service string) {
 	resource := &Resource{
 		Provider: provider,
 		ID:       id,
+		Service:  service,
 	}
 	switch resourceType {
 	case validate.DNSName:
@@ -79,17 +80,17 @@ func (r *Resources) appendResourceWithTypeAndMeta(resourceType validate.Resource
 func (r *Resources) appendResource(resource *Resource, uniqueMap *sync.Map) {
 	if _, ok := uniqueMap.Load(resource.DNSName); !ok && resource.DNSName != "" {
 		resourceType := validator.Identify(resource.DNSName)
-		r.appendResourceWithTypeAndMeta(resourceType, resource.DNSName, resource.ID, resource.Provider)
+		r.appendResourceWithTypeAndMeta(resourceType, resource.DNSName, resource.ID, resource.Provider, resource.Service)
 		uniqueMap.Store(resource.DNSName, struct{}{})
 	}
 	if _, ok := uniqueMap.Load(resource.PublicIPv4); !ok && resource.PublicIPv4 != "" {
 		resourceType := validator.Identify(resource.PublicIPv4)
-		r.appendResourceWithTypeAndMeta(resourceType, resource.PublicIPv4, resource.ID, resource.Provider)
+		r.appendResourceWithTypeAndMeta(resourceType, resource.PublicIPv4, resource.ID, resource.Provider, resource.Service)
 		uniqueMap.Store(resource.PublicIPv4, struct{}{})
 	}
 	if _, ok := uniqueMap.Load(resource.PrivateIpv4); !ok && resource.PrivateIpv4 != "" {
 		resourceType := validator.Identify(resource.PrivateIpv4)
-		r.appendResourceWithTypeAndMeta(resourceType, resource.PrivateIpv4, resource.ID, resource.Provider)
+		r.appendResourceWithTypeAndMeta(resourceType, resource.PrivateIpv4, resource.ID, resource.Provider, resource.Service)
 		uniqueMap.Store(resource.PrivateIpv4, struct{}{})
 	}
 }
@@ -116,6 +117,8 @@ type Resource struct {
 	Public bool `json:"public"`
 	// Provider is the name of provider for instance
 	Provider string `json:"provider"`
+	// Service is the name of the service under the provider
+	Service string `json:"service,omitempty"`
 	// ID is the id name of the resource provider
 	ID string `json:"id,omitempty"`
 	// PublicIPv4 is the public ipv4 address of the instance.

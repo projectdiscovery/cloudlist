@@ -7,23 +7,29 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/projectdiscovery/gologger"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	"google.golang.org/api/cloudfunctions/v1"
 	"google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/compute/v1"
 	container "google.golang.org/api/container/v1beta1"
 	"google.golang.org/api/dns/v1"
+	run "google.golang.org/api/run/v1"
+	"google.golang.org/api/storage/v1"
 )
 
 // Provider is a data provider for gcp API
 type Provider struct {
-	dns      *dns.Service
-	gke      *container.Service
-	compute  *compute.Service
-	id       string
-	projects []string
-	services schema.ServiceMap
+	dns       *dns.Service
+	gke       *container.Service
+	compute   *compute.Service
+	storage   *storage.Service
+	functions *cloudfunctions.Service
+	run       *run.APIService
+	services  schema.ServiceMap
+	id        string
+	projects  []string
 }
 
-var Services = []string{"dns", "gke", "compute"}
+var Services = []string{"dns", "gke", "compute", "s3", "cloud-function", "cloud-run"}
 
 const serviceAccountJSON = "gcp_service_account_key"
 const providerName = "gcp"
@@ -98,6 +104,29 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		provider.gke = containerService
 	}
 
+	if services.Has("s3") {
+		storageService, err := storage.NewService(context.Background(), creds)
+		if err != nil {
+			return nil, errorutil.NewWithErr(err).Msgf("could not create storage service with api key")
+		}
+		provider.storage = storageService
+	}
+	if services.Has("cloud-function") {
+		functionsService, err := cloudfunctions.NewService(context.Background(), creds)
+		if err != nil {
+			return nil, errorutil.NewWithErr(err).Msgf("could not create functions service with api key")
+		}
+		provider.functions = functionsService
+	}
+
+	if services.Has("cloud-run") {
+		cloudRunService, err := run.NewService(context.Background(), creds)
+		if err != nil {
+			return nil, errorutil.NewWithErr(err).Msgf("could not create cloud run service with api key")
+		}
+		provider.run = cloudRunService
+	}
+
 	projects := []string{}
 	manager, err := cloudresourcemanager.NewService(context.Background(), creds)
 	if err != nil {
@@ -143,6 +172,33 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			return nil, err
 		}
 		finalList.Merge(vmData)
+	}
+
+	if p.storage != nil {
+		cloudStorageProvider := &cloudStorageProvider{id: p.id, storage: p.storage, projects: p.projects}
+		storageData, err := cloudStorageProvider.GetResource(ctx)
+		if err != nil {
+			return nil, err
+		}
+		finalList.Merge(storageData)
+	}
+
+	if p.functions != nil {
+		cloudFunctionsProvider := &cloudFunctionsProvider{id: p.id, functions: p.functions, projects: p.projects}
+		functionsData, err := cloudFunctionsProvider.GetResource(ctx)
+		if err != nil {
+			return nil, err
+		}
+		finalList.Merge(functionsData)
+	}
+
+	if p.run != nil {
+		cloudRunProvider := &cloudRunProvider{id: p.id, run: p.run, projects: p.projects}
+		cloudRunData, err := cloudRunProvider.GetResource(ctx)
+		if err != nil {
+			return nil, err
+		}
+		finalList.Merge(cloudRunData)
 	}
 
 	return finalList, nil

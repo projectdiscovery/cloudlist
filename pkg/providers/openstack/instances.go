@@ -16,6 +16,10 @@ type instanceProvider struct {
 	client *gophercloud.ServiceClient
 }
 
+func (d *instanceProvider) name() string {
+	return "instance"
+}
+
 // GetResource returns all the instances in the store for a provider.
 func (p *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
@@ -35,6 +39,7 @@ func (p *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 							Provider:    providerName,
 							ID:          p.id,
 							PrivateIpv4: address["addr"].(string),
+							Service:     p.name(),
 						})
 					}
 				}

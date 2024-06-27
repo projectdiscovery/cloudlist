@@ -201,6 +201,14 @@ const defaultProviderConfigFile = `#  #Provider configuration file for cloudlist
 #  aws_session_token: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 #- # provider is the name of the provider
+#  provider: gcp
+#  # id is the name of the provider id
+#  id: staging
+#  # gcp_service_account_key is the service account key for gcp account
+#  gcp_service_account_key: |
+#    json data here
+
+#- # provider is the name of the provider
 #  provider: azure
 #  # id is the name of the provider id
 #  id: staging

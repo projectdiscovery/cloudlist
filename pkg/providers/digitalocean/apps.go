@@ -13,6 +13,10 @@ type appsProvider struct {
 	client *godo.Client
 }
 
+func (d *appsProvider) name() string {
+	return "app"
+}
+
 // GetInstances returns all the instances in the store for a provider.
 func (d *appsProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	opt := &godo.ListOptions{PerPage: 200}
@@ -32,6 +36,7 @@ func (d *appsProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 				ID:       d.id,
 				DNSName:  dnsname,
 				Public:   true,
+				Service:  d.name(),
 			})
 		}
 		if resp.Links == nil || resp.Links.IsLastPage() {

@@ -15,6 +15,10 @@ type publicIPProvider struct {
 	Authorizer     autorest.Authorizer
 }
 
+func (pip *publicIPProvider) name() string {
+	return "publicip"
+}
+
 // GetResource returns all the resources in the store for a provider.
 func (pip *publicIPProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 
@@ -26,11 +30,17 @@ func (pip *publicIPProvider) GetResource(ctx context.Context) (*schema.Resources
 	}
 
 	for _, ip := range ips {
+		// The IPAddress field can be nil and so we want to prevent from dereferencing
+		// a nil field in the struct
+		if ip.IPAddress == nil {
+			continue
+		}
 		list.Append(&schema.Resource{
 			Provider:   providerName,
 			PublicIPv4: *ip.IPAddress,
 			ID:         pip.id,
 			Public:     true,
+			Service:    pip.name(),
 		})
 	}
 	return list, nil

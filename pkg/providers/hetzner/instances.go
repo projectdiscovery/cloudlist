@@ -12,6 +12,10 @@ type instanceProvider struct {
 	client *hetzner.Client
 }
 
+func (d *instanceProvider) name() string {
+	return "instance"
+}
+
 // GetResource returns all the instances in the store for a provider.
 func (p *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
@@ -28,6 +32,7 @@ func (p *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 				ID:         p.id,
 				PublicIPv4: server.PublicNet.IPv4.IP.String(),
 				Public:     true,
+				Service:   p.name(),
 			})
 		}
 		for _, privateNet := range server.PrivateNet {
@@ -35,6 +40,7 @@ func (p *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 				Provider:    providerName,
 				ID:          p.id,
 				PrivateIpv4: privateNet.IP.String(),
+				Service:     p.name(),
 			})
 		}
 	}
