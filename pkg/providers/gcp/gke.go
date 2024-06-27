@@ -23,6 +23,10 @@ type gkeProvider struct {
 	projects []string
 }
 
+func (d *gkeProvider) name() string {
+	return "gke"
+}
+
 // GetResource returns all the resources in the store for a provider.
 func (d *gkeProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
@@ -52,6 +56,9 @@ func (d *gkeProvider) GetResource(ctx context.Context) (*schema.Resources, error
 			}
 			k8sIngressProvider := k8s.NewK8sIngressProvider(d.id, ingress)
 			ingressHosts, _ := k8sIngressProvider.GetResource(ctx)
+			for _, ingressHost := range ingressHosts.Items {
+				ingressHost.Service = d.name()
+			}
 			list.Merge(ingressHosts)
 		}
 	}

@@ -13,6 +13,10 @@ type instanceProvider struct {
 	client *linodego.Client
 }
 
+func (d *instanceProvider) name() string {
+	return "instance"
+}
+
 // GetResource returns all the instance resources for a provider.
 func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 
@@ -34,6 +38,7 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 			PublicIPv4: ip4,
 			ID:         d.id,
 			Public:     ip4 != "",
+			Service:    d.name(),
 		})
 	}
 

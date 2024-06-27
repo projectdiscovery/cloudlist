@@ -19,6 +19,10 @@ type vmProvider struct {
 	Authorizer     autorest.Authorizer
 }
 
+func (d *vmProvider) name() string {
+	return "vm"
+}
+
 // GetResource returns all the resources in the store for a provider.
 func (d *vmProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 
@@ -77,6 +81,7 @@ func (d *vmProvider) GetResource(ctx context.Context) (*schema.Resources, error)
 						PublicIPv4:  *publicIP.IPAddress,
 						ID:          d.id,
 						PrivateIpv4: *privateIP,
+						Service:    d.name(),
 					})
 				}
 			}

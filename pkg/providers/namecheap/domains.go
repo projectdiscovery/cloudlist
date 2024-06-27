@@ -13,6 +13,10 @@ type domainProvider struct {
 	client *namecheap.Client
 }
 
+func (d *domainProvider) name() string {
+	return "domain"
+}
+
 // GetResource returns all the applications for the NameCheap provider.
 func (d *domainProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
@@ -35,6 +39,7 @@ func (d *domainProvider) GetResource(ctx context.Context) (*schema.Resources, er
 				Provider: providerName,
 				DNSName:  *domain.Name,
 				ID:       d.id,
+				Service:  d.name(),
 			})
 		}
 		if *domainList.Paging.TotalItems <= (*domainList.Paging.PageSize * *domainList.Paging.CurrentPage) {

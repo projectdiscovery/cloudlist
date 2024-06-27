@@ -14,6 +14,10 @@ type instanceProvider struct {
 	instanceAPI *instance.API
 }
 
+func (d *instanceProvider) name() string {
+	return "instance"
+}
+
 // GetInstances returns all the instances in the store for a provider.
 func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
@@ -44,6 +48,7 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 						Provider:    providerName,
 						ID:          d.id,
 						PrivateIpv4: privateIP4,
+						Service:     d.name(),
 					})
 				}
 				list.Append(&schema.Resource{
@@ -51,6 +56,7 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 					ID:         d.id,
 					PublicIPv4: ip4,
 					Public:     true,
+					Service:    d.name(),
 				})
 			}
 			if resp.TotalCount == totalResults {

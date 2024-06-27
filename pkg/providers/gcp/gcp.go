@@ -6,19 +6,25 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/projectdiscovery/gologger"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	"google.golang.org/api/cloudfunctions/v1"
 	"google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/compute/v1"
 	container "google.golang.org/api/container/v1beta1"
 	"google.golang.org/api/dns/v1"
+	run "google.golang.org/api/run/v1"
+	"google.golang.org/api/storage/v1"
 )
 
 // Provider is a data provider for gcp API
 type Provider struct {
-	dns      *dns.Service
-	gke      *container.Service
-	compute  *compute.Service
-	id       string
-	projects []string
+	dns       *dns.Service
+	gke       *container.Service
+	compute   *compute.Service
+	storage   *storage.Service
+	functions *cloudfunctions.Service
+	run       *run.APIService
+	id        string
+	projects  []string
 }
 
 const serviceAccountJSON = "gcp_service_account_key"
@@ -61,6 +67,18 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).Msgf("could not create container service with api key")
 	}
+	storageService, err := storage.NewService(context.Background(), creds)
+	if err != nil {
+		return nil, errorutil.NewWithErr(err).Msgf("could not create storage service with api key")
+	}
+	functionsService, err := cloudfunctions.NewService(context.Background(), creds)
+	if err != nil {
+		return nil, errorutil.NewWithErr(err).Msgf("could not create functions service with api key")
+	}
+	cloudRunService, err := run.NewService(context.Background(), creds)
+	if err != nil {
+		return nil, errorutil.NewWithErr(err).Msgf("could not create cloud run service with api key")
+	}
 
 	projects := []string{}
 	manager, err := cloudresourcemanager.NewService(context.Background(), creds)
@@ -74,7 +92,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		}
 		return nil
 	})
-	return &Provider{dns: dnsService, gke: containerService, projects: projects, id: id, compute: computeService}, err
+	return &Provider{dns: dnsService, gke: containerService, projects: projects, id: id, compute: computeService, storage: storageService, functions: functionsService, run: cloudRunService}, err
 }
 
 // Resources returns the provider for an resource deployment source.
@@ -101,6 +119,27 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		return nil, err
 	}
 	finalList.Merge(vmData)
+
+	cloudStorageProvider := &cloudStorageProvider{id: p.id, storage: p.storage, projects: p.projects}
+	storageData, err := cloudStorageProvider.GetResource(ctx)
+	if err != nil {
+		return nil, err
+	}
+	finalList.Merge(storageData)
+
+	cloudFunctionsProvider := &cloudFunctionsProvider{id: p.id, functions: p.functions, projects: p.projects}
+	functionsData, err := cloudFunctionsProvider.GetResource(ctx)
+	if err != nil {
+		return nil, err
+	}
+	finalList.Merge(functionsData)
+
+	cloudRunProvider := &cloudRunProvider{id: p.id, run: p.run, projects: p.projects}
+	cloudRunData, err := cloudRunProvider.GetResource(ctx)
+	if err != nil {
+		return nil, err
+	}
+	finalList.Merge(cloudRunData)
 
 	return finalList, nil
 }

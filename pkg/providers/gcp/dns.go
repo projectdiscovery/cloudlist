@@ -15,6 +15,10 @@ type cloudDNSProvider struct {
 	projects []string
 }
 
+func (d *cloudDNSProvider) name() string {
+	return "dns"
+}
+
 // GetResource returns all the resources in the store for a provider.
 func (d *cloudDNSProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
@@ -60,6 +64,7 @@ func (d *cloudDNSProvider) parseRecordsForResourceSet(r *dns.ResourceRecordSetsL
 				PublicIPv4: data,
 				ID:         d.id,
 				Provider:   providerName,
+				Service:    d.name(),
 			})
 		}
 	}
