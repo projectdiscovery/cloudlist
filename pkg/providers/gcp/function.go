@@ -16,7 +16,7 @@ type cloudFunctionsProvider struct {
 }
 
 func (d *cloudFunctionsProvider) name() string {
-	return "cloud-functions"
+	return "cloud-function"
 }
 
 // GetResource returns all the Cloud Function resources in the store for a provider.

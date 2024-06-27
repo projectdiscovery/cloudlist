@@ -7,6 +7,7 @@ import (
 	"os/user"
 	"path/filepath"
 
+	"github.com/projectdiscovery/cloudlist/pkg/inventory"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/gologger"
@@ -27,16 +28,31 @@ type Options struct {
 	Config             string              // Config is the location of the config file.
 	Output             string              // Output is the file to write found results too.
 	ExcludePrivate     bool                // ExcludePrivate excludes private IPs from results
-	Provider           goflags.StringSlice // Provider specifies what providers to fetch assets for.
+	Provider           []string            // Provider specifies what providers to fetch assets for.
 	Id                 goflags.StringSlice // Id specifies what id's to fetch assets for.
+	Services           []string            // Services specifies what services to fetch assets for a provider.
 	ProviderConfig     string              // ProviderConfig is the location of the provider config file.
 	DisableUpdateCheck bool                // DisableUpdateCheck disable automatic update check
 }
 
 var (
-	defaultConfigLocation         = filepath.Join(userHomeDir(), ".config/cloudlist/config.yaml")
-	defaultProviderConfigLocation = filepath.Join(userHomeDir(), ".config/cloudlist/provider-config.yaml")
+	defaultConfigLocation             = filepath.Join(userHomeDir(), ".config/cloudlist/config.yaml")
+	defaultProviderConfigLocation     = filepath.Join(userHomeDir(), ".config/cloudlist/provider-config.yaml")
+	defaultProviders, defaultServies  = []goflags.EnumVariable{}, []goflags.EnumVariable{}
+	allowedProviders, allowedServices = goflags.AllowdTypes{}, goflags.AllowdTypes{}
 )
+
+func init() {
+	for i, provider := range inventory.GetProviders() {
+		allowedProviders[provider] = goflags.EnumVariable(i)
+		defaultProviders = append(defaultProviders, goflags.EnumVariable(i))
+	}
+
+	for i, service := range inventory.GetServices() {
+		defaultServies = append(defaultServies, goflags.EnumVariable(i))
+		allowedServices[service] = goflags.EnumVariable(i)
+	}
+}
 
 // ParseOptions parses the command line flags provided by a user
 func ParseOptions() *Options {
@@ -61,10 +77,11 @@ func ParseOptions() *Options {
 		flagSet.StringVarP(&options.ProviderConfig, "provider-config", "pc", defaultProviderConfigLocation, "provider config file"),
 	)
 	flagSet.CreateGroup("filter", "Filters",
-		flagSet.StringSliceVarP(&options.Provider, "provider", "p", nil, "display results for given providers (comma-separated)", goflags.NormalizedStringSliceOptions),
+		flagSet.EnumSliceVarP(&options.Provider, "provider", "p", defaultProviders, "display results for given providers (comma-separated)", allowedProviders),
 		flagSet.StringSliceVar(&options.Id, "id", nil, "display results for given ids (comma-separated)", goflags.NormalizedStringSliceOptions),
 		flagSet.BoolVar(&options.Hosts, "host", false, "display only hostnames in results"),
 		flagSet.BoolVar(&options.IPAddress, "ip", false, "display only ips in results"),
+		flagSet.EnumSliceVarP(&options.Services, "service", "s", defaultServies, "query and display results from given service (comma-separated))", allowedServices),
 		flagSet.BoolVarP(&options.ExcludePrivate, "exclude-private", "ep", false, "exclude private ips in cli output"),
 	)
 	flagSet.CreateGroup("update", "Update",

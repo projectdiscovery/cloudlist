@@ -3,6 +3,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
@@ -21,11 +22,14 @@ const (
 	providerName = "azure"
 )
 
+var Services = []string{"vm", "publicip"}
+
 // Provider is a data provider for Azure API
 type Provider struct {
 	id             string
 	SubscriptionID string
 	Authorizer     autorest.Authorizer
+	services       schema.ServiceMap
 }
 
 // New creates a new provider client for Azure API
@@ -69,7 +73,24 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		}
 	}
 
-	return &Provider{Authorizer: authorizer, SubscriptionID: SubscriptionID, id: ID}, nil
+	supportedServicesMap := make(map[string]struct{})
+	for _, s := range Services {
+		supportedServicesMap[s] = struct{}{}
+	}
+	services := make(schema.ServiceMap)
+	if ss, ok := options.GetMetadata("services"); ok {
+		for _, s := range strings.Split(ss, ",") {
+			if _, ok := supportedServicesMap[s]; ok {
+				services[s] = struct{}{}
+			}
+		}
+	}
+	if len(services) == 0 {
+		for _, s := range Services {
+			services[s] = struct{}{}
+		}
+	}
+	return &Provider{Authorizer: authorizer, SubscriptionID: SubscriptionID, id: ID, services: services}, nil
 
 }
 
@@ -83,24 +104,32 @@ func (p *Provider) ID() string {
 	return p.id
 }
 
+// Services returns the provider services
+func (p *Provider) Services() []string {
+	return p.services.Keys()
+}
+
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	vmp := &vmProvider{Authorizer: p.Authorizer, SubscriptionID: p.SubscriptionID, id: p.id}
-
-	vmIPs, err := vmp.GetResource(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error listing VM public ips: %s", err)
-	}
-
-	publicIPp := &publicIPProvider{Authorizer: p.Authorizer, SubscriptionID: p.SubscriptionID, id: p.id}
-	publicIPs, err := publicIPp.GetResource(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error listing public ips: %s", err)
-	}
-
 	resources := &schema.Resources{}
-	resources.Merge(vmIPs)
-	resources.Merge(publicIPs)
 
-	return resources, err
+	if p.services.Has("vm") {
+		vmp := &vmProvider{Authorizer: p.Authorizer, SubscriptionID: p.SubscriptionID, id: p.id}
+		vmIPs, err := vmp.GetResource(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error listing VM public ips: %s", err)
+		}
+		resources.Merge(vmIPs)
+	}
+
+	if p.services.Has("publicip") {
+
+		publicIPp := &publicIPProvider{Authorizer: p.Authorizer, SubscriptionID: p.SubscriptionID, id: p.id}
+		publicIPs, err := publicIPp.GetResource(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error listing public ips: %s", err)
+		}
+		resources.Merge(publicIPs)
+	}
+	return resources, nil
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/providers/scaleway"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/terraform"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	mapsutil "github.com/projectdiscovery/utils/maps"
 )
 
 // Inventory is an inventory of providers
@@ -29,10 +30,10 @@ type Inventory struct {
 }
 
 // New creates a new inventory of providers
-func New(options schema.Options) (*Inventory, error) {
+func New(optionBlocks schema.Options) (*Inventory, error) {
 	inventory := &Inventory{}
 
-	for _, block := range options {
+	for _, block := range optionBlocks {
 		value, ok := block.GetMetadata("provider")
 		if !ok {
 			continue
@@ -44,6 +45,41 @@ func New(options schema.Options) (*Inventory, error) {
 		inventory.Providers = append(inventory.Providers, provider)
 	}
 	return inventory, nil
+}
+
+var Providers = map[string][]string{
+	"aws":          aws.Services,
+	"do":           digitalocean.Services,
+	"digitalocean": digitalocean.Services,
+	"gcp":          gcp.Services,
+	"scw":          scaleway.Services,
+	"azure":        azure.Services,
+	"cloudflare":   cloudflare.Services,
+	"heroku":       heroku.Services,
+	"linode":       linode.Services,
+	"fastly":       fastly.Services,
+	"alibaba":      alibaba.Services,
+	"namecheap":    namecheap.Services,
+	"terraform":    terraform.Services,
+	"consul":       consul.Services,
+	"nomad":        nomad.Services,
+	"hetzner":      hetzner.Services,
+	"openstack":    openstack.Services,
+	"kubernetes":   k8s.Services,
+}
+
+func GetProviders() []string {
+	return mapsutil.GetKeys(Providers)
+}
+
+func GetServices() []string {
+	services := make(map[string]struct{})
+	for _, s := range Providers {
+		for _, service := range s {
+			services[service] = struct{}{}
+		}
+	}
+	return mapsutil.GetKeys(services)
 }
 
 // nameToProvider returns the provider for a name

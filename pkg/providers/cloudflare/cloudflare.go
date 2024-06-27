@@ -2,15 +2,19 @@ package cloudflare
 
 import (
 	"context"
+	"strings"
 
 	"github.com/cloudflare/cloudflare-go"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
+var Services = []string{"dns"}
+
 // Provider is a data provider for cloudflare API
 type Provider struct {
-	id     string
-	client *cloudflare.API
+	id       string
+	client   *cloudflare.API
+	services schema.ServiceMap
 }
 
 // New creates a new provider client for cloudflare API
@@ -41,7 +45,27 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Provider{id: id, client: api}, nil
+
+	supportedServicesMap := make(map[string]struct{})
+	for _, s := range Services {
+		supportedServicesMap[s] = struct{}{}
+	}
+
+	services := make(schema.ServiceMap)
+	if ss, ok := options.GetMetadata("services"); ok {
+		for _, s := range strings.Split(ss, ",") {
+			if _, ok := supportedServicesMap[s]; ok {
+				services[s] = struct{}{}
+			}
+		}
+	}
+	if len(services) == 0 {
+		for _, s := range Services {
+			services[s] = struct{}{}
+		}
+	}
+
+	return &Provider{id: id, client: api, services: services}, nil
 }
 
 // apiToken is a cloudflare scoped API token
@@ -60,12 +84,16 @@ func (p *Provider) ID() string {
 	return p.id
 }
 
+// Services returns the provider services
+func (p *Provider) Services() []string {
+	return p.services.Keys()
+}
+
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	dnsProvider := &dnsProvider{id: p.id, client: p.client}
-	list, err := dnsProvider.GetResource(ctx)
-	if err != nil {
-		return nil, err
+	if p.services.Has("dns") {
+		dnsProvider := &dnsProvider{id: p.id, client: p.client}
+		return dnsProvider.GetResource(ctx)
 	}
-	return list, nil
+	return nil, nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"strings"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	errorutil "github.com/projectdiscovery/utils/errors"
@@ -13,10 +14,13 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+var Services = []string{"service", "ingress"}
+
 // Provider is a data provider for gcp API
 type Provider struct {
 	id        string
 	clientSet *kubernetes.Clientset
+	services  schema.ServiceMap
 }
 
 const (
@@ -58,7 +62,25 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).Msgf("could not create kubernetes clientset")
 	}
-	return &Provider{id: id, clientSet: clientset}, nil
+
+	supportedServicesMap := make(map[string]struct{})
+	for _, s := range Services {
+		supportedServicesMap[s] = struct{}{}
+	}
+	services := make(schema.ServiceMap)
+	if ss, ok := options.GetMetadata("services"); ok {
+		for _, s := range strings.Split(ss, ",") {
+			if _, ok := supportedServicesMap[s]; ok {
+				services[s] = struct{}{}
+			}
+		}
+	}
+	if len(services) == 0 {
+		for _, s := range Services {
+			services[s] = struct{}{}
+		}
+	}
+	return &Provider{id: id, clientSet: clientset, services: services}, nil
 }
 
 // Name returns the name of the provider
@@ -71,6 +93,11 @@ func (p *Provider) ID() string {
 	return p.id
 }
 
+// Services returns the provider services
+func (p *Provider) Services() []string {
+	return p.services.Keys()
+}
+
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalList := schema.NewResources()
@@ -78,17 +105,21 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).Msgf("could not list kubernetes services")
 	}
-	k8sServiceProvider := K8sServiceProvider{serviceClient: services, id: p.id}
-	serviceIPs, _ := k8sServiceProvider.GetResource(ctx)
-	finalList.Merge(serviceIPs)
-
-	ingress, err := p.clientSet.NetworkingV1().Ingresses("").List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not list kubernetes ingress")
+	if p.services.Has("service") {
+		k8sServiceProvider := K8sServiceProvider{serviceClient: services, id: p.id}
+		serviceIPs, _ := k8sServiceProvider.GetResource(ctx)
+		finalList.Merge(serviceIPs)
 	}
-	k8sIngressProvider := K8sIngressProvider{ingress: ingress, id: p.id}
-	ingressHosts, _ := k8sIngressProvider.GetResource(ctx)
-	finalList.Merge(ingressHosts)
+
+	if p.services.Has("ingress") {
+		ingress, err := p.clientSet.NetworkingV1().Ingresses("").List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, errorutil.NewWithErr(err).Msgf("could not list kubernetes ingress")
+		}
+		k8sIngressProvider := K8sIngressProvider{ingress: ingress, id: p.id}
+		ingressHosts, _ := k8sIngressProvider.GetResource(ctx)
+		finalList.Merge(ingressHosts)
+	}
 	return finalList, nil
 }
 

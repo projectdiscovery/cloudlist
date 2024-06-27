@@ -8,6 +8,8 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
+var Services = []string{"fastly"}
+
 const (
 	apiKey       = "fastly_api_key"
 	providerName = "fastly"
@@ -15,8 +17,9 @@ const (
 
 // Provider is a data provider for fastly API
 type Provider struct {
-	client *fastly.Client
-	id     string
+	client   *fastly.Client
+	id       string
+	services schema.ServiceMap
 }
 
 // New creates a new provider client for fastly API
@@ -31,7 +34,17 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Provider{client: client, id: id}, err
+	supportedServicesMap := make(map[string]struct{})
+	for _, s := range Services {
+		supportedServicesMap[s] = struct{}{}
+	}
+
+	services := make(schema.ServiceMap)
+	for _, s := range Services {
+		services[s] = struct{}{}
+	}
+
+	return &Provider{client: client, id: id, services: services}, err
 }
 
 // Name returns the name of the provider
@@ -42,6 +55,11 @@ func (p *Provider) Name() string {
 // ID returns the name of the provider id
 func (p *Provider) ID() string {
 	return p.id
+}
+
+// Services returns the provider services
+func (p *Provider) Services() []string {
+	return p.services.Keys()
 }
 
 // Resources returns the provider for an resource deployment source.

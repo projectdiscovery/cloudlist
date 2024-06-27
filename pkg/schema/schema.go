@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema/validate"
+	mapsutil "github.com/projectdiscovery/utils/maps"
 )
 
 // Provider is an interface implemented by any cloud service provider.
@@ -20,6 +21,9 @@ type Provider interface {
 	ID() string
 	// Resources returns the provider for an resource deployment source.
 	Resources(ctx context.Context) (*Resources, error)
+	// Services returns the services provided by the Provider.
+	// If no services set, it will return all the supported services.
+	Services() []string
 }
 
 // Resources is a container of multiple resource returned from providers
@@ -155,4 +159,15 @@ func (o OptionBlock) GetMetadata(key string) (string, bool) {
 		}
 	}
 	return data, true
+}
+
+type ServiceMap map[string]struct{}
+
+func (s ServiceMap) Has(service string) bool {
+	_, ok := s[service]
+	return ok
+}
+
+func (s ServiceMap) Keys() []string {
+	return mapsutil.GetKeys(s)
 }
