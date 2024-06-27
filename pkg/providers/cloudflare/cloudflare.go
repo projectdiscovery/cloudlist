@@ -8,7 +8,7 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
-var supportedServices = []string{"dns"}
+var Services = []string{"dns"}
 
 // Provider is a data provider for cloudflare API
 type Provider struct {
@@ -47,7 +47,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	}
 
 	supportedServicesMap := make(map[string]struct{})
-	for _, s := range supportedServices {
+	for _, s := range Services {
 		supportedServicesMap[s] = struct{}{}
 	}
 
@@ -60,7 +60,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		}
 	}
 	if len(services) == 0 {
-		for _, s := range supportedServices {
+		for _, s := range Services {
 			services[s] = struct{}{}
 		}
 	}

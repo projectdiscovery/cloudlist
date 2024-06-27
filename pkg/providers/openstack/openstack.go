@@ -21,7 +21,7 @@ const (
 	providerName = "openstack"
 )
 
-var supportedServices = []string{"instance"}
+var Services = []string{"instance"}
 
 // Provider is a data provider for Openstack API
 type Provider struct {
@@ -83,7 +83,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	}
 
 	supportedServicesMap := make(map[string]struct{})
-	for _, s := range supportedServices {
+	for _, s := range Services {
 		supportedServicesMap[s] = struct{}{}
 	}
 	services := make(schema.ServiceMap)
@@ -95,7 +95,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		}
 	}
 	if len(services) == 0 {
-		for _, s := range supportedServices {
+		for _, s := range Services {
 			services[s] = struct{}{}
 		}
 	}

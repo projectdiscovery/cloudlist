@@ -22,7 +22,7 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
-var supportedServices = []string{"ec2", "route53", "s3", "ecs", "eks", "lambda", "apigateway", "alb", "elb", "lightsail", "cloudfront"}
+var Services = []string{"ec2", "route53", "s3", "ecs", "eks", "lambda", "apigateway", "alb", "elb", "lightsail", "cloudfront"}
 
 // Provider is a data provider for aws API
 type Provider struct {
@@ -73,7 +73,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	}
 	provider.regions = regions
 	supportedServicesMap := make(map[string]struct{})
-	for _, s := range supportedServices {
+	for _, s := range Services {
 		supportedServicesMap[s] = struct{}{}
 	}
 	services := make(schema.ServiceMap)
@@ -85,7 +85,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		}
 	}
 	if len(services) == 0 {
-		for _, s := range supportedServices {
+		for _, s := range Services {
 			services[s] = struct{}{}
 		}
 	}

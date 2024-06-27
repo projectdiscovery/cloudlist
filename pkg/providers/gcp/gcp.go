@@ -23,7 +23,7 @@ type Provider struct {
 	services schema.ServiceMap
 }
 
-var supportedServices = []string{"dns", "gke", "compute"}
+var Services = []string{"dns", "gke", "compute"}
 
 const serviceAccountJSON = "gcp_service_account_key"
 const providerName = "gcp"
@@ -53,7 +53,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 
 	provider := &Provider{id: id}
 	supportedServicesMap := make(map[string]struct{})
-	for _, s := range supportedServices {
+	for _, s := range Services {
 		supportedServicesMap[s] = struct{}{}
 	}
 	services := make(schema.ServiceMap)
@@ -65,7 +65,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		}
 	}
 	if len(services) == 0 {
-		for _, s := range supportedServices {
+		for _, s := range Services {
 			services[s] = struct{}{}
 		}
 	}

@@ -10,7 +10,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-var supportedServices = []string{"instance"}
+var Services = []string{"instance"}
 
 const (
 	apiKey       = "linode_personal_access_token"
@@ -43,7 +43,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	client := linodego.NewClient(oc)
 
 	supportedServicesMap := make(map[string]struct{})
-	for _, s := range supportedServices {
+	for _, s := range Services {
 		supportedServicesMap[s] = struct{}{}
 	}
 	services := make(schema.ServiceMap)
@@ -55,7 +55,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		}
 	}
 	if len(services) == 0 {
-		for _, s := range supportedServices {
+		for _, s := range Services {
 			services[s] = struct{}{}
 		}
 	}

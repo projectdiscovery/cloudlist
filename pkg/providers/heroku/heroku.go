@@ -9,7 +9,7 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
-var supportedServices = []string{"app"}
+var Services = []string{"app"}
 
 const (
 	apiKey       = "heroku_api_token"
@@ -34,7 +34,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	heroku.DefaultTransport.BearerToken = token
 
 	supportedServicesMap := make(map[string]struct{})
-	for _, s := range supportedServices {
+	for _, s := range Services {
 		supportedServicesMap[s] = struct{}{}
 	}
 	services := make(schema.ServiceMap)
@@ -46,7 +46,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		}
 	}
 	if len(services) == 0 {
-		for _, s := range supportedServices {
+		for _, s := range Services {
 			services[s] = struct{}{}
 		}
 	}

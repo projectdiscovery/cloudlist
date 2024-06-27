@@ -14,7 +14,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-var supportedServices = []string{"service", "ingress"}
+var Services = []string{"service", "ingress"}
 
 // Provider is a data provider for gcp API
 type Provider struct {
@@ -64,7 +64,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	}
 
 	supportedServicesMap := make(map[string]struct{})
-	for _, s := range supportedServices {
+	for _, s := range Services {
 		supportedServicesMap[s] = struct{}{}
 	}
 	services := make(schema.ServiceMap)
@@ -76,7 +76,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		}
 	}
 	if len(services) == 0 {
-		for _, s := range supportedServices {
+		for _, s := range Services {
 			services[s] = struct{}{}
 		}
 	}

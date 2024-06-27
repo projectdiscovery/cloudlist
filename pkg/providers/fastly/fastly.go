@@ -8,7 +8,7 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
-var supportedServices = []string{"all"}
+var Services = []string{"fastly"}
 
 const (
 	apiKey       = "fastly_api_key"
@@ -35,12 +35,12 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		return nil, err
 	}
 	supportedServicesMap := make(map[string]struct{})
-	for _, s := range supportedServices {
+	for _, s := range Services {
 		supportedServicesMap[s] = struct{}{}
 	}
 
 	services := make(schema.ServiceMap)
-	for _, s := range supportedServices {
+	for _, s := range Services {
 		services[s] = struct{}{}
 	}
 

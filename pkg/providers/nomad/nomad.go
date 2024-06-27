@@ -10,7 +10,7 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
-var supportedServices = []string{"all"}
+var Services = []string{"nomad"}
 
 // Provider is a data provider for nomad resources
 type Provider struct {
@@ -74,7 +74,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	}
 	id, _ := options.GetMetadata("id")
 	services := make(schema.ServiceMap)
-	for _, s := range supportedServices {
+	for _, s := range Services {
 		services[s] = struct{}{}
 	}
 	return &Provider{id: id, client: conn, services: services}, nil

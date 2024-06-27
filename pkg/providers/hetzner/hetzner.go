@@ -8,7 +8,7 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
-var supportedServices = []string{"instance"}
+var Services = []string{"instance"}
 
 const (
 	authToken    = "auth_token"
@@ -33,7 +33,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	opts := hetzner.WithToken(token)
 
 	supportedServicesMap := make(map[string]struct{})
-	for _, s := range supportedServices {
+	for _, s := range Services {
 		supportedServicesMap[s] = struct{}{}
 	}
 	services := make(schema.ServiceMap)
@@ -45,7 +45,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		}
 	}
 	if len(services) == 0 {
-		for _, s := range supportedServices {
+		for _, s := range Services {
 			services[s] = struct{}{}
 		}
 	}
