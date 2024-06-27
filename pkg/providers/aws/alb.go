@@ -40,6 +40,69 @@ func (ep *elbV2Provider) GetResource(ctx context.Context) (*schema.Resources, er
 
 func (ep *elbV2Provider) listELBV2Resources(albClient *elbv2.ELBV2, ec2Client *ec2.EC2) (*schema.Resources, error) {
 	list := schema.NewResources()
+
+	loadBalancers, err := ep.getLoadBalancers(albClient)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not list load balancers")
+	}
+
+	for _, lb := range loadBalancers {
+		albDNS := *lb.DNSName
+		resource := &schema.Resource{
+			Provider: "aws",
+			ID:       *lb.LoadBalancerName,
+			DNSName:  albDNS,
+			Public:   true,
+			Service:  ep.name(),
+		}
+		list.Append(resource)
+		// Describe targets for the Load Balancer
+		targetsOutput, err := albClient.DescribeTargetGroups(&elbv2.DescribeTargetGroupsInput{
+			LoadBalancerArn: lb.LoadBalancerArn,
+		})
+		if err != nil {
+			continue
+		}
+
+		for _, tg := range targetsOutput.TargetGroups {
+			targets, err := albClient.DescribeTargetHealth(&elbv2.DescribeTargetHealthInput{
+				TargetGroupArn: tg.TargetGroupArn,
+			})
+			if err != nil {
+				continue
+			}
+
+			for _, target := range targets.TargetHealthDescriptions {
+				instanceID := *target.Target.Id
+				instanceOutput, err := ec2Client.DescribeInstances(&ec2.DescribeInstancesInput{
+					InstanceIds: []*string{&instanceID},
+				})
+				if err != nil {
+					return nil, errors.Wrapf(err, "could not describe instance %s", instanceID)
+				}
+				// Extract private IP address
+				for _, reservation := range instanceOutput.Reservations {
+					for _, instance := range reservation.Instances {
+						if instance.PrivateIpAddress != nil {
+							resource := &schema.Resource{
+								Provider:    "aws",
+								ID:          instanceID,
+								PrivateIpv4: *instance.PrivateIpAddress,
+								Public:      false,
+								Service:     ep.name(),
+							}
+							list.Append(resource)
+						}
+					}
+				}
+			}
+		}
+	}
+	return list, nil
+}
+
+func (ep *elbV2Provider) getLoadBalancers(albClient *elbv2.ELBV2) ([]*elbv2.LoadBalancer, error) {
+	var loadBalancers []*elbv2.LoadBalancer
 	req := &elbv2.DescribeLoadBalancersInput{
 		PageSize: aws.Int64(20),
 	}
@@ -48,63 +111,11 @@ func (ep *elbV2Provider) listELBV2Resources(albClient *elbv2.ELBV2, ec2Client *e
 		if err != nil {
 			return nil, errors.Wrap(err, "could not describe load balancers")
 		}
-
-		for _, lb := range lbOutput.LoadBalancers {
-			albDNS := *lb.DNSName
-			resource := &schema.Resource{
-				Provider: "aws",
-				ID:       *lb.LoadBalancerName,
-				DNSName:  albDNS,
-				Public:   true,
-				Service:  ep.name(),
-			}
-			list.Append(resource)
-			// Describe targets for the Load Balancer
-			targetsOutput, err := albClient.DescribeTargetGroups(&elbv2.DescribeTargetGroupsInput{
-				LoadBalancerArn: lb.LoadBalancerArn,
-			})
-			if err != nil {
-				continue
-			}
-
-			for _, tg := range targetsOutput.TargetGroups {
-				targets, err := albClient.DescribeTargetHealth(&elbv2.DescribeTargetHealthInput{
-					TargetGroupArn: tg.TargetGroupArn,
-				})
-				if err != nil {
-					continue
-				}
-
-				for _, target := range targets.TargetHealthDescriptions {
-					instanceID := *target.Target.Id
-					instanceOutput, err := ec2Client.DescribeInstances(&ec2.DescribeInstancesInput{
-						InstanceIds: []*string{&instanceID},
-					})
-					if err != nil {
-						return nil, errors.Wrapf(err, "could not describe instance %s", instanceID)
-					}
-					// Extract private IP address
-					for _, reservation := range instanceOutput.Reservations {
-						for _, instance := range reservation.Instances {
-							if instance.PrivateIpAddress != nil {
-								resource := &schema.Resource{
-									Provider:    "aws",
-									ID:          instanceID,
-									PrivateIpv4: *instance.PrivateIpAddress,
-									Public:      false,
-									Service:     ep.name(),
-								}
-								list.Append(resource)
-							}
-						}
-					}
-				}
-			}
-		}
+		loadBalancers = append(loadBalancers, lbOutput.LoadBalancers...)
 		if aws.StringValue(req.Marker) == "" {
 			break
 		}
 		req.SetMarker(aws.StringValue(req.Marker))
 	}
-	return list, nil
+	return loadBalancers, nil
 }

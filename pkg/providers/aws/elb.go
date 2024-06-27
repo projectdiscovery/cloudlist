@@ -40,53 +40,65 @@ func (ep *elbProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 
 func (ep *elbProvider) listELBResources(elbClient *elb.ELB, ec2Client *ec2.EC2) (*schema.Resources, error) {
 	list := schema.NewResources()
+
+	loadBalancerDescriptions, err := ep.getLoadBalancers(elbClient)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not list load balancers")
+	}
+
+	for _, lb := range loadBalancerDescriptions {
+		elbDNS := *lb.DNSName
+		resource := &schema.Resource{
+			Provider: "aws",
+			ID:       *lb.LoadBalancerName,
+			DNSName:  elbDNS,
+			Public:   true,
+			Service:  ep.name(),
+		}
+		list.Append(resource)
+		// Describe Instances for the Load Balancer
+		for _, instance := range lb.Instances {
+			instanceID := *instance.InstanceId
+			instanceOutput, err := ec2Client.DescribeInstances(&ec2.DescribeInstancesInput{
+				InstanceIds: []*string{&instanceID},
+			})
+			if err != nil {
+				return nil, errors.Wrapf(err, "could not describe instance %s", instanceID)
+			}
+			// Extract private IP address
+			for _, reservation := range instanceOutput.Reservations {
+				for _, instance := range reservation.Instances {
+					if instance.PrivateIpAddress != nil {
+						resource := &schema.Resource{
+							Provider:    "aws",
+							ID:          instanceID,
+							PrivateIpv4: *instance.PrivateIpAddress,
+							Public:      false,
+							Service:     ep.name(),
+						}
+						list.Append(resource)
+					}
+				}
+			}
+		}
+	}
+
+	return list, nil
+}
+
+func (ep *elbProvider) getLoadBalancers(elbClient *elb.ELB) ([]*elb.LoadBalancerDescription, error) {
+	var loadBalancers []*elb.LoadBalancerDescription
 	req := &elb.DescribeLoadBalancersInput{}
 	for {
 		lbOutput, err := elbClient.DescribeLoadBalancers(req)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not describe load balancers")
 		}
-
-		for _, lb := range lbOutput.LoadBalancerDescriptions {
-			elbDNS := *lb.DNSName
-			resource := &schema.Resource{
-				Provider: "aws",
-				ID:       *lb.LoadBalancerName,
-				DNSName:  elbDNS,
-				Public:   true,
-				Service:  ep.name(),
-			}
-			list.Append(resource)
-			// Describe Instances for the Load Balancer
-			for _, instance := range lb.Instances {
-				instanceID := *instance.InstanceId
-				instanceOutput, err := ec2Client.DescribeInstances(&ec2.DescribeInstancesInput{
-					InstanceIds: []*string{&instanceID},
-				})
-				if err != nil {
-					return nil, errors.Wrapf(err, "could not describe instance %s", instanceID)
-				}
-				// Extract private IP address
-				for _, reservation := range instanceOutput.Reservations {
-					for _, instance := range reservation.Instances {
-						if instance.PrivateIpAddress != nil {
-							resource := &schema.Resource{
-								Provider:    "aws",
-								ID:          instanceID,
-								PrivateIpv4: *instance.PrivateIpAddress,
-								Public:      false,
-								Service:     ep.name(),
-							}
-							list.Append(resource)
-						}
-					}
-				}
-			}
-		}
+		loadBalancers = append(loadBalancers, lbOutput.LoadBalancerDescriptions...)
 		if aws.StringValue(lbOutput.NextMarker) == "" {
 			break
 		}
 		req.SetMarker(aws.StringValue(lbOutput.NextMarker))
 	}
-	return list, nil
+	return loadBalancers, nil
 }
