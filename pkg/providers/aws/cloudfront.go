@@ -12,7 +12,7 @@ import (
 
 // cloudfrontProvider is a provider for AWS CloudFront API
 type cloudfrontProvider struct {
-	id               string
+	options          ProviderOptions
 	cloudFrontClient *cloudfront.CloudFront
 	session          *session.Session
 }

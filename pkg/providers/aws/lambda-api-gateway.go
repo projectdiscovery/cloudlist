@@ -16,7 +16,7 @@ import (
 
 // apiGatewayProvider is a provider for AWS API Gateway resources
 type lambdaAndapiGatewayProvider struct {
-	id           string
+	options      ProviderOptions
 	lambdaClient *lambda.Lambda
 	apiGateway   *apigateway.APIGateway
 	session      *session.Session

@@ -13,7 +13,7 @@ import (
 
 // ecsProvider is a provider for aws ecs API
 type ecsProvider struct {
-	id        string
+	options   ProviderOptions
 	ecsClient *ecs.ECS
 	session   *session.Session
 	regions   *ec2.DescribeRegionsOutput

@@ -13,27 +13,27 @@ import (
 
 // route53Provider is a provider for aws Route53 API
 type route53Provider struct {
-	id      string
+	options ProviderOptions
 	route53 *route53.Route53
 	session *session.Session
 }
 
-func (d *route53Provider) name() string {
+func (r *route53Provider) name() string {
 	return "route53"
 }
 
 // GetResource returns all the resources in the store for a provider.
-func (d *route53Provider) GetResource(ctx context.Context) (*schema.Resources, error) {
+func (r *route53Provider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
 
 	req := &route53.ListHostedZonesInput{}
 	for {
-		zoneOutput, err := d.route53.ListHostedZones(req)
+		zoneOutput, err := r.route53.ListHostedZones(req)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not list hosted zones")
 		}
 		for _, zone := range zoneOutput.HostedZones {
-			items, err := d.listResourceRecords(zone)
+			items, err := r.listResourceRecords(zone)
 			if err != nil {
 				return nil, errors.Wrap(err, "could not list hosted zones records")
 			}
@@ -48,13 +48,13 @@ func (d *route53Provider) GetResource(ctx context.Context) (*schema.Resources, e
 }
 
 // listResourceRecords lists the resource records for a hosted route53 zone.
-func (d *route53Provider) listResourceRecords(zone *route53.HostedZone) (*schema.Resources, error) {
+func (r *route53Provider) listResourceRecords(zone *route53.HostedZone) (*schema.Resources, error) {
 	public := !*zone.Config.PrivateZone
 	req := &route53.ListResourceRecordSetsInput{HostedZoneId: aws.String(*zone.Id)}
 	list := schema.NewResources()
 
 	for {
-		sets, err := d.route53.ListResourceRecordSets(req)
+		sets, err := r.route53.ListResourceRecordSets(req)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not list resource_record set")
 		}
@@ -69,18 +69,18 @@ func (d *route53Provider) listResourceRecords(zone *route53.HostedZone) (*schema
 				ip4 = aws.StringValue(item.ResourceRecords[0].Value)
 			}
 			list.Append(&schema.Resource{
-				ID:       d.id,
+				ID:       r.options.Id,
 				Public:   public,
 				DNSName:  name,
 				Provider: providerName,
-				Service: d.name(),
+				Service:  r.name(),
 			})
 			list.Append(&schema.Resource{
-				ID:         d.id,
+				ID:         r.options.Id,
 				Public:     public,
 				PublicIPv4: ip4,
 				Provider:   providerName,
-				Service:    d.name(),
+				Service:    r.name(),
 			})
 		}
 		if aws.BoolValue(sets.IsTruncated) && *sets.NextRecordName != "" {

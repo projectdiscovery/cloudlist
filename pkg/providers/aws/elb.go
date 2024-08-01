@@ -13,7 +13,7 @@ import (
 
 // elbProvider is a provider for AWS Elastic Load Balancing (ELB) resources
 type elbProvider struct {
-	id        string
+	options   ProviderOptions
 	elbClient *elb.ELB
 	session   *session.Session
 	regions   *ec2.DescribeRegionsOutput

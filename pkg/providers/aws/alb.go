@@ -13,7 +13,7 @@ import (
 
 // elbV2Provider is a provider for AWS Application Load Balancing (ELBV2) resources
 type elbV2Provider struct {
-	id        string
+	options   ProviderOptions
 	albClient *elbv2.ELBV2
 	session   *session.Session
 	regions   *ec2.DescribeRegionsOutput

@@ -19,7 +19,7 @@ import (
 
 // eksProvider is a provider for AWS EKS API.
 type eksProvider struct {
-	id        string
+	options   ProviderOptions
 	eksClient *eks.EKS
 	session   *session.Session
 	regions   *ec2.DescribeRegionsOutput
@@ -92,7 +92,7 @@ func (ep *eksProvider) listEKSResources(eksClient *eks.EKS) (*schema.Resources, 
 					ID:         node.GetName(),
 					PublicIPv4: nodeIP,
 					Public:     true,
-					Service:   ep.name(),
+					Service:    ep.name(),
 				})
 				// Pod IPs
 				for _, podIP := range podIPs {

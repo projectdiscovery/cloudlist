@@ -13,25 +13,25 @@ import (
 
 // lightsailProvider is an instance provider for AWS Lightsail API
 type lightsailProvider struct {
-	id       string
+	options  ProviderOptions
 	lsClient *lightsail.Lightsail
 	session  *session.Session
 	regions  []*lightsail.Region
 }
 
-func (d *lightsailProvider) name() string {
+func (l *lightsailProvider) name() string {
 	return "lightsail"
 }
 
 // GetResource returns all the resources in the store for a provider.
-func (d *lightsailProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
+func (l *lightsailProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
 
-	for _, region := range d.regions {
+	for _, region := range l.regions {
 		endpoint := fmt.Sprintf("https://lightsail.%s.amazonaws.com", aws.StringValue(region.Name))
 
 		lsClient := lightsail.New(
-			d.session,
+			l.session,
 			aws.NewConfig().WithEndpoint(endpoint),
 			aws.NewConfig().WithRegion(aws.StringValue(region.Name)),
 		)
@@ -46,12 +46,12 @@ func (d *lightsailProvider) GetResource(ctx context.Context) (*schema.Resources,
 				privateIPv4 := aws.StringValue(instance.PrivateIpAddress)
 				publicIPv4 := aws.StringValue(instance.PublicIpAddress)
 				resource := &schema.Resource{
-					ID:          d.id,
+					ID:          l.options.Id,
 					Provider:    providerName,
 					PrivateIpv4: privateIPv4,
 					PublicIPv4:  publicIPv4,
 					Public:      publicIPv4 != "",
-					Service:     d.name(),
+					Service:     l.name(),
 				}
 				list.Append(resource)
 			}
