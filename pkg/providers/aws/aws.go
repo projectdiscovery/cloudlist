@@ -3,6 +3,7 @@ package aws
 import (
 	"context"
 	"strings"
+	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -23,7 +24,7 @@ import (
 	sliceutil "github.com/projectdiscovery/utils/slice"
 )
 
-var Services = []string{"ec2", "instance","route53", "s3", "ecs", "eks", "lambda", "apigateway", "alb", "elb", "lightsail", "cloudfront"}
+var Services = []string{"ec2", "instance", "route53", "s3", "ecs", "eks", "lambda", "apigateway", "alb", "elb", "lightsail", "cloudfront"}
 
 type ProviderOptions struct {
 	Id             string
@@ -182,72 +183,86 @@ func (p *Provider) Services() []string {
 	return p.options.Services.Keys()
 }
 
-// Resources returns the provider for an resource deployment source.
+type result struct {
+	resources *schema.Resources
+	err       error
+}
+
+type getResourcesFunc func(context.Context) (*schema.Resources, error)
+
+func worker(ctx context.Context, fn getResourcesFunc, ch chan<- result) {
+	resources, err := fn(ctx)
+	ch <- result{resources, err}
+}
+
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalList := schema.NewResources()
+
+	var workersWaitGroup sync.WaitGroup
+	results := make(chan result)
+
+	assignWorker := func(fn getResourcesFunc) {
+		workersWaitGroup.Add(1)
+		go func() {
+			defer workersWaitGroup.Done()
+			worker(ctx, fn, results)
+		}()
+	}
+
 	if p.ec2Client != nil {
 		ec2provider := &instanceProvider{ec2Client: p.ec2Client, options: *p.options, session: p.session, regions: p.regions}
-		if list, err := ec2provider.GetResource(ctx); err == nil {
-			finalList.Merge(list)
-		}
+		assignWorker(ec2provider.GetResource)
 	}
 	if p.route53Client != nil {
 		route53Provider := &route53Provider{route53: p.route53Client, options: *p.options, session: p.session}
-		if zones, err := route53Provider.GetResource(ctx); err == nil {
-			finalList.Merge(zones)
-		}
+		assignWorker(route53Provider.GetResource)
 	}
 	if p.s3Client != nil {
 		s3Provider := &s3Provider{s3: p.s3Client, options: *p.options, session: p.session}
-		if buckets, err := s3Provider.GetResource(ctx); err == nil {
-			finalList.Merge(buckets)
-		}
+		assignWorker(s3Provider.GetResource)
 	}
 	if p.ecsClient != nil {
 		ecsProvider := &ecsProvider{ecsClient: p.ecsClient, options: *p.options, session: p.session, regions: p.regions}
-		if ecsResources, err := ecsProvider.GetResource(ctx); err == nil {
-			finalList.Merge(ecsResources)
-		}
+		assignWorker(ecsProvider.GetResource)
 	}
 	if p.eksClient != nil {
 		eksProvider := &eksProvider{eksClient: p.eksClient, options: *p.options, session: p.session, regions: p.regions}
-		if eksResources, err := eksProvider.GetResource(ctx); err == nil {
-			finalList.Merge(eksResources)
-		}
+		assignWorker(eksProvider.GetResource)
 	}
 	if p.apiGateway != nil && p.lambdaClient != nil {
 		lamdaAndApiGatewayProvider := &lambdaAndapiGatewayProvider{apiGateway: p.apiGateway, lambdaClient: p.lambdaClient, options: *p.options, session: p.session, regions: p.regions}
-		if lambdaAndApiGateways, err := lamdaAndApiGatewayProvider.GetResource(ctx); err == nil {
-			finalList.Merge(lambdaAndApiGateways)
-		}
+		assignWorker(lamdaAndApiGatewayProvider.GetResource)
 	}
 	if p.albClient != nil {
 		albProvider := &elbV2Provider{albClient: p.albClient, options: *p.options, session: p.session, regions: p.regions}
-		if albs, err := albProvider.GetResource(ctx); err == nil {
-			finalList.Merge(albs)
-
-		}
+		assignWorker(albProvider.GetResource)
 	}
 	if p.elbClient != nil {
 		elbProvider := &elbProvider{elbClient: p.elbClient, options: *p.options, session: p.session, regions: p.regions}
-		if elbs, err := elbProvider.GetResource(ctx); err == nil {
-			finalList.Merge(elbs)
-		}
+		assignWorker(elbProvider.GetResource)
 	}
 	if p.lightsailClient != nil {
 		lsRegions, err := p.lightsailClient.GetRegions(&lightsail.GetRegionsInput{})
 		if err == nil {
 			lightsailProvider := &lightsailProvider{lsClient: p.lightsailClient, options: *p.options, session: p.session, regions: lsRegions.Regions}
-			if lsInstances, err := lightsailProvider.GetResource(ctx); err == nil {
-				finalList.Merge(lsInstances)
-			}
+			assignWorker(lightsailProvider.GetResource)
 		}
 	}
 	if p.cloudFrontClient != nil {
 		cloudfrontProvider := &cloudfrontProvider{cloudFrontClient: p.cloudFrontClient, options: *p.options, session: p.session}
-		if cloudfrontResources, err := cloudfrontProvider.GetResource(ctx); err == nil {
-			finalList.Merge(cloudfrontResources)
+		assignWorker(cloudfrontProvider.GetResource)
+	}
+
+	go func() {
+		workersWaitGroup.Wait()
+		close(results)
+	}()
+
+	for result := range results {
+		if result.err != nil {
+			continue
 		}
+		finalList.Merge(result.resources)
 	}
 	return finalList, nil
 }
