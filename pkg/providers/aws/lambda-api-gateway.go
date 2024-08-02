@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/apigateway"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -26,19 +28,29 @@ type lambdaAndapiGatewayProvider struct {
 // GetResource returns all the resources in the store for a provider.
 func (ap *lambdaAndapiGatewayProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 
 	for _, region := range ap.regions.Regions {
-		regionName := *region.RegionName
-		ap.apiGateway = apigateway.New(ap.session, aws.NewConfig().WithRegion(regionName))
-		ap.lambdaClient = lambda.New(ap.session, aws.NewConfig().WithRegion(regionName))
-		if resources, err := ap.listAPIGatewayResources(ap.apiGateway, regionName, ap.lambdaClient); err == nil {
-			list.Merge(resources)
+		apigatewayClients, lambdaClients := ap.getApiGatewayAndLamdaClients(region.RegionName)
+		for index := range len(apigatewayClients) {
+			wg.Add(1)
+
+			go func(regionName string, gatewayClient *apigateway.APIGateway, lambdaClient *lambda.Lambda) {
+				defer wg.Done()
+				if resources, err := ap.listAPIGatewayResources(regionName, gatewayClient, lambdaClient); err == nil {
+					mu.Lock()
+					list.Merge(resources)
+					mu.Unlock()
+				}
+			}(*region.RegionName, apigatewayClients[index], lambdaClients[index])
 		}
 	}
+	wg.Wait()
 	return list, nil
 }
 
-func (ap *lambdaAndapiGatewayProvider) listAPIGatewayResources(apiGateway *apigateway.APIGateway, regionName string, lambdaClient *lambda.Lambda) (*schema.Resources, error) {
+func (ap *lambdaAndapiGatewayProvider) listAPIGatewayResources(regionName string, apiGateway *apigateway.APIGateway, lambdaClient *lambda.Lambda) (*schema.Resources, error) {
 	list := schema.NewResources()
 	apis, err := apiGateway.GetRestApis(&apigateway.GetRestApisInput{Limit: aws.Int64(500)})
 	if err != nil {
@@ -129,6 +141,37 @@ func (ap *lambdaAndapiGatewayProvider) getLambdaFunctions(lambdaClient *lambda.L
 		lambdaReq.SetMarker(*lambdaFuncs.NextMarker)
 	}
 	return lambdaFunctions, nil
+}
+
+func (ap *lambdaAndapiGatewayProvider) getApiGatewayAndLamdaClients(region *string) ([]*apigateway.APIGateway, []*lambda.Lambda) {
+	apiGatewayClients := make([]*apigateway.APIGateway, 0)
+	lambdaClients := make([]*lambda.Lambda, 0)
+
+	albClient := apigateway.New(ap.session, aws.NewConfig().WithRegion(*region))
+	apiGatewayClients = append(apiGatewayClients, albClient)
+
+	lambdaClient := lambda.New(ap.session, aws.NewConfig().WithRegion(*region))
+	lambdaClients = append(lambdaClients, lambdaClient)
+
+	if ap.options.AssumeRoleName == "" || len(ap.options.AccountIds) < 1 {
+		return apiGatewayClients, lambdaClients
+	}
+
+	for _, accountId := range ap.options.AccountIds {
+		roleARN := fmt.Sprintf("arn:aws:iam::%s:role/%s", accountId, ap.options.AssumeRoleName)
+		creds := stscreds.NewCredentials(ap.session, roleARN)
+
+		assumeSession, err := session.NewSession(&aws.Config{
+			Region:      region,
+			Credentials: creds,
+		})
+		if err != nil {
+			continue
+		}
+		apiGatewayClients = append(apiGatewayClients, apigateway.New(assumeSession))
+		lambdaClients = append(lambdaClients, lambda.New(assumeSession))
+	}
+	return apiGatewayClients, lambdaClients
 }
 
 // extract Lambda function ARN from integration URI

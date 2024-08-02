@@ -20,9 +20,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	sliceutil "github.com/projectdiscovery/utils/slice"
 )
 
-var Services = []string{"ec2", "route53", "s3", "ecs", "eks", "lambda", "apigateway", "alb", "elb", "lightsail", "cloudfront"}
+var Services = []string{"ec2", "instance","route53", "s3", "ecs", "eks", "lambda", "apigateway", "alb", "elb", "lightsail", "cloudfront"}
 
 type ProviderOptions struct {
 	Id             string
@@ -74,7 +75,7 @@ func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
 	}
 
 	if accountIds, ok := block.GetMetadata(accountIds); ok {
-		p.AccountIds = strings.Split(accountIds, ",")
+		p.AccountIds = sliceutil.Dedupe(strings.Split(accountIds, ","))
 	}
 	return nil
 }
@@ -123,7 +124,7 @@ func New(block schema.OptionBlock) (*Provider, error) {
 	provider.regions = regions
 
 	services := provider.options.Services
-	if services.Has("ec2") {
+	if services.Has("ec2") || services.Has("instance") {
 		provider.ec2Client = ec2.New(session)
 	}
 	if services.Has("route53") {

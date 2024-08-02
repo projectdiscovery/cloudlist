@@ -3,9 +3,9 @@ package aws
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -14,11 +14,10 @@ import (
 
 // awsInstanceProvider is an instance provider for aws API
 type instanceProvider struct {
-	options                ProviderOptions
-	ec2Client              *ec2.EC2
-	session                *session.Session
-	regions                *ec2.DescribeRegionsOutput
-	assumeRoleCanAccessEc2 bool
+	options   ProviderOptions
+	ec2Client *ec2.EC2
+	session   *session.Session
+	regions   *ec2.DescribeRegionsOutput
 }
 
 func (d *instanceProvider) name() string {
@@ -28,61 +27,67 @@ func (d *instanceProvider) name() string {
 // GetResource returns all the resources in the store for a provider.
 func (i *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
-	i.assumeRoleCanAccessEc2 = true
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 
 	for _, region := range i.regions.Regions {
-		for index, ec2Client := range i.getEc2Clients(region.RegionName) {
-			req := &ec2.DescribeInstancesInput{
-				MaxResults: aws.Int64(1000),
-			}
-			for {
-				resp, err := ec2Client.DescribeInstances(req)
+		for _, ec2Client := range i.getEc2Clients(region.RegionName) {
+			wg.Add(1)
 
-				if err != nil {
-					if awsErr, ok := err.(awserr.Error); ok {
-						// primary account does not have access to ec2, return error
-						if awsErr.Code() == "UnauthorizedOperation" && index == 0 {
-							return nil, err
-						}
-						// assume role account does not have access to ec2
-						if awsErr.Code() == "UnauthorizedOperation" && index == 1 {
-							i.assumeRoleCanAccessEc2 = false
-							break
-						}
-					} else {
-						break
-					}
-				}
+			go func(ec2Client *ec2.EC2) {
+				defer wg.Done()
 
-				for _, reservation := range resp.Reservations {
-					for _, instance := range reservation.Instances {
-						ip4 := aws.StringValue(instance.PublicIpAddress)
-						privateIp4 := aws.StringValue(instance.PrivateIpAddress)
+				if resources, err := i.getEC2Resources(ec2Client); err == nil {
+					mu.Lock()
+					list.Merge(resources)
+					mu.Unlock()
+				}
+			}(ec2Client)
+		}
+	}
+	wg.Wait()
+	return list, nil
+}
 
-						if privateIp4 != "" {
-							list.Append(&schema.Resource{
-								ID:          i.options.Id,
-								Provider:    providerName,
-								PrivateIpv4: privateIp4,
-								Public:      false,
-								Service:     i.name(),
-							})
-						}
-						list.Append(&schema.Resource{
-							ID:         i.options.Id,
-							Provider:   providerName,
-							PublicIPv4: ip4,
-							Public:     true,
-							Service:    i.name(),
-						})
-					}
+func (i *instanceProvider) getEC2Resources(ec2Client *ec2.EC2) (*schema.Resources, error) {
+	list := schema.NewResources()
+
+	req := &ec2.DescribeInstancesInput{
+		MaxResults: aws.Int64(1000),
+	}
+	for {
+		resp, err := ec2Client.DescribeInstances(req)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, reservation := range resp.Reservations {
+			for _, instance := range reservation.Instances {
+				ip4 := aws.StringValue(instance.PublicIpAddress)
+				privateIp4 := aws.StringValue(instance.PrivateIpAddress)
+
+				if privateIp4 != "" {
+					list.Append(&schema.Resource{
+						ID:          i.options.Id,
+						Provider:    providerName,
+						PrivateIpv4: privateIp4,
+						Public:      false,
+						Service:     i.name(),
+					})
 				}
-				if aws.StringValue(resp.NextToken) == "" {
-					break
-				}
-				req.SetNextToken(aws.StringValue(resp.NextToken))
+				list.Append(&schema.Resource{
+					ID:         i.options.Id,
+					Provider:   providerName,
+					PublicIPv4: ip4,
+					Public:     true,
+					Service:    i.name(),
+				})
 			}
 		}
+		if aws.StringValue(resp.NextToken) == "" {
+			break
+		}
+		req.SetNextToken(aws.StringValue(resp.NextToken))
 	}
 	return list, nil
 }
@@ -98,7 +103,7 @@ func (i *instanceProvider) getEc2Clients(region *string) []*ec2.EC2 {
 	)
 	ec2Clients = append(ec2Clients, ec2Client)
 
-	if i.options.AssumeRoleName == "" || len(i.options.AccountIds) < 1 || !i.assumeRoleCanAccessEc2 {
+	if i.options.AssumeRoleName == "" || len(i.options.AccountIds) < 1 {
 		return ec2Clients
 	}
 
@@ -110,14 +115,11 @@ func (i *instanceProvider) getEc2Clients(region *string) []*ec2.EC2 {
 			Region:      region,
 			Credentials: creds,
 		})
-
 		if err != nil {
-			break
+			continue
 		}
 
 		ec2Clients = append(ec2Clients, ec2.New(assumeSession))
-
 	}
-
 	return ec2Clients
 }

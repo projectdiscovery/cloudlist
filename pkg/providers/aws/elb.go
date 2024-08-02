@@ -2,12 +2,14 @@ package aws
 
 import (
 	"context"
+	"fmt"
+	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elb"
-	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
@@ -26,15 +28,27 @@ func (ep *elbProvider) name() string {
 // GetResource returns all the resources in the store for a provider.
 func (ep *elbProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 
 	for _, region := range ep.regions.Regions {
-		regionName := *region.RegionName
-		elbClient := elb.New(ep.session, aws.NewConfig().WithRegion(regionName))
-		ec2Client := ec2.New(ep.session, aws.NewConfig().WithRegion(regionName))
-		if resources, err := ep.listELBResources(elbClient, ec2Client); err == nil {
-			list.Merge(resources)
+		elbClients, ec2Clients := ep.getElbAndEc2Clients(region.RegionName)
+
+		for index := range len(elbClients) {
+			wg.Add(1)
+
+			go func(elbClient *elb.ELB, ec2Client *ec2.EC2) {
+				defer wg.Done()
+
+				if resources, err := ep.listELBResources(elbClient, ec2Client); err == nil {
+					mu.Lock()
+					list.Merge(resources)
+					mu.Unlock()
+				}
+			}(elbClients[index], ec2Clients[index])
 		}
 	}
+	wg.Wait()
 	return list, nil
 }
 
@@ -43,7 +57,7 @@ func (ep *elbProvider) listELBResources(elbClient *elb.ELB, ec2Client *ec2.EC2) 
 
 	loadBalancerDescriptions, err := ep.getLoadBalancers(elbClient)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not list load balancers")
+		return nil, err
 	}
 
 	for _, lb := range loadBalancerDescriptions {
@@ -56,6 +70,10 @@ func (ep *elbProvider) listELBResources(elbClient *elb.ELB, ec2Client *ec2.EC2) 
 			Service:  ep.name(),
 		}
 		list.Append(resource)
+
+		if ep.elbClient == nil {
+			continue
+		}
 		// Describe Instances for the Load Balancer
 		for _, instance := range lb.Instances {
 			instanceID := *instance.InstanceId
@@ -63,7 +81,7 @@ func (ep *elbProvider) listELBResources(elbClient *elb.ELB, ec2Client *ec2.EC2) 
 				InstanceIds: []*string{&instanceID},
 			})
 			if err != nil {
-				return nil, errors.Wrapf(err, "could not describe instance %s", instanceID)
+				return nil, err
 			}
 			// Extract private IP address
 			for _, reservation := range instanceOutput.Reservations {
@@ -92,7 +110,7 @@ func (ep *elbProvider) getLoadBalancers(elbClient *elb.ELB) ([]*elb.LoadBalancer
 	for {
 		lbOutput, err := elbClient.DescribeLoadBalancers(req)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not describe load balancers")
+			return nil, err
 		}
 		loadBalancers = append(loadBalancers, lbOutput.LoadBalancerDescriptions...)
 		if aws.StringValue(lbOutput.NextMarker) == "" {
@@ -101,4 +119,35 @@ func (ep *elbProvider) getLoadBalancers(elbClient *elb.ELB) ([]*elb.LoadBalancer
 		req.SetMarker(aws.StringValue(lbOutput.NextMarker))
 	}
 	return loadBalancers, nil
+}
+
+func (ep *elbProvider) getElbAndEc2Clients(region *string) ([]*elb.ELB, []*ec2.EC2) {
+	elbClients := make([]*elb.ELB, 0)
+	ec2Clients := make([]*ec2.EC2, 0)
+
+	albClient := elb.New(ep.session, aws.NewConfig().WithRegion(*region))
+	elbClients = append(elbClients, albClient)
+
+	ec2Client := ec2.New(ep.session, aws.NewConfig().WithRegion(*region))
+	ec2Clients = append(ec2Clients, ec2Client)
+
+	if ep.options.AssumeRoleName == "" || len(ep.options.AccountIds) < 1 {
+		return elbClients, ec2Clients
+	}
+
+	for _, accountId := range ep.options.AccountIds {
+		roleARN := fmt.Sprintf("arn:aws:iam::%s:role/%s", accountId, ep.options.AssumeRoleName)
+		creds := stscreds.NewCredentials(ep.session, roleARN)
+
+		assumeSession, err := session.NewSession(&aws.Config{
+			Region:      region,
+			Credentials: creds,
+		})
+		if err != nil {
+			continue
+		}
+		elbClients = append(elbClients, elb.New(assumeSession))
+		ec2Clients = append(ec2Clients, ec2.New(assumeSession))
+	}
+	return elbClients, ec2Clients
 }

@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/eks"
@@ -32,13 +34,23 @@ func (ep *eksProvider) name() string {
 // GetResource returns all the resources in the store for a provider.
 func (ep *eksProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 	for _, region := range ep.regions.Regions {
-		regionName := *region.RegionName
-		ep.eksClient = eks.New(ep.session, aws.NewConfig().WithRegion(regionName))
-		if resources, err := ep.listEKSResources(ep.eksClient); err == nil {
-			list.Merge(resources)
+		for _, eksClient := range ep.getEksClients(region.RegionName) {
+			wg.Add(1)
+
+			go func(client *eks.EKS) {
+				defer wg.Done()
+				if resources, err := ep.listEKSResources(client); err == nil {
+					mu.Lock()
+					list.Merge(resources)
+					mu.Unlock()
+				}
+			}(eksClient)
 		}
 	}
+	wg.Wait()
 	return list, nil
 }
 
@@ -112,6 +124,36 @@ func (ep *eksProvider) listEKSResources(eksClient *eks.EKS) (*schema.Resources, 
 		req.SetNextToken(*clustersOutput.NextToken)
 	}
 	return list, nil
+}
+
+func (ep *eksProvider) getEksClients(region *string) []*eks.EKS {
+	eksClients := make([]*eks.EKS, 0)
+
+	eksClient := eks.New(
+		ep.session,
+		aws.NewConfig().WithRegion(aws.StringValue(region)),
+	)
+	eksClients = append(eksClients, eksClient)
+
+	if ep.options.AssumeRoleName == "" || len(ep.options.AccountIds) < 1 {
+		return eksClients
+	}
+
+	for _, accountId := range ep.options.AccountIds {
+		roleARN := fmt.Sprintf("arn:aws:iam::%s:role/%s", accountId, ep.options.AssumeRoleName)
+		creds := stscreds.NewCredentials(ep.session, roleARN)
+
+		assumeSession, err := session.NewSession(&aws.Config{
+			Region:      region,
+			Credentials: creds,
+		})
+		if err != nil {
+			continue
+		}
+
+		eksClients = append(eksClients, eks.New(assumeSession))
+	}
+	return eksClients
 }
 
 func newClientset(cluster *eks.Cluster) (*kubernetes.Clientset, error) {
