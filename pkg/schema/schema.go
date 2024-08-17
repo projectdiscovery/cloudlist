@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema/validate"
@@ -144,6 +145,39 @@ type Options []OptionBlock
 
 // OptionBlock is a single option on which operation is possible
 type OptionBlock map[string]string
+
+func (ob *OptionBlock) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	// Unmarshal into a raw map
+	var rawMap map[string]interface{}
+	if err := unmarshal(&rawMap); err != nil {
+		return err
+	}
+	// Initialize the OptionBlock
+	*ob = make(OptionBlock)
+	// Convert raw map to OptionBlock and handle special cases
+	for key, value := range rawMap {
+		switch key {
+		case "account_ids":
+			if valueArr, ok := value.([]interface{}); ok {
+				var strArr []string
+				for _, v := range valueArr {
+					switch v := v.(type) {
+					case string:
+						strArr = append(strArr, v)
+					case int:
+						strArr = append(strArr, fmt.Sprint(v))
+					default:
+						return fmt.Errorf("unsupported type %T in account_ids", v)
+					}
+				}
+				(*ob)[key] = strings.Join(strArr, ",")
+			}
+		default:
+			(*ob)[key] = fmt.Sprint(value)
+		}
+	}
+	return nil
+}
 
 // GetMetadata returns the value for a key if it exists.
 func (o OptionBlock) GetMetadata(key string) (string, bool) {

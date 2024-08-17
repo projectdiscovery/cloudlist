@@ -2,8 +2,11 @@ package aws
 
 import (
 	"context"
+	"fmt"
+	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ecs"
@@ -13,7 +16,7 @@ import (
 
 // ecsProvider is a provider for aws ecs API
 type ecsProvider struct {
-	id        string
+	options   ProviderOptions
 	ecsClient *ecs.ECS
 	session   *session.Session
 	regions   *ec2.DescribeRegionsOutput
@@ -26,15 +29,25 @@ func (ep *ecsProvider) name() string {
 // GetResource returns all the resources in the store for a provider.
 func (ep *ecsProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 
 	for _, region := range ep.regions.Regions {
-		regionName := *region.RegionName
-		ecsClient := ecs.New(ep.session, aws.NewConfig().WithRegion(regionName))
-		ec2Client := ec2.New(ep.session, aws.NewConfig().WithRegion(regionName))
-		if resources, err := ep.listECSResources(ecsClient, ec2Client); err == nil {
-			list.Merge(resources)
+		ecsCleints, ec2Clients := ep.getEcsAndEc2Clients(region.RegionName)
+		for index := range len(ecsCleints) {
+			wg.Add(1)
+
+			go func(ecsClient *ecs.ECS, ec2Client *ec2.EC2) {
+				defer wg.Done()
+				if resources, err := ep.listECSResources(ecsClient, ec2Client); err == nil {
+					mu.Lock()
+					list.Merge(resources)
+					mu.Unlock()
+				}
+			}(ecsCleints[index], ec2Clients[index])
 		}
 	}
+	wg.Wait()
 	return list, nil
 }
 
@@ -46,7 +59,7 @@ func (ep *ecsProvider) listECSResources(ecsClient *ecs.ECS, ec2Client *ec2.EC2) 
 	for {
 		clustersOutput, err := ecsClient.ListClusters(req)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not list ECS clusters")
+			return nil, err
 		}
 
 		for _, clusterArn := range clustersOutput.ClusterArns {
@@ -160,4 +173,35 @@ func (ep *ecsProvider) listECSResources(ecsClient *ecs.ECS, ec2Client *ec2.EC2) 
 		req.SetNextToken(*clustersOutput.NextToken)
 	}
 	return list, nil
+}
+
+func (ep *ecsProvider) getEcsAndEc2Clients(region *string) ([]*ecs.ECS, []*ec2.EC2) {
+	ecsClients := make([]*ecs.ECS, 0)
+	ec2Clients := make([]*ec2.EC2, 0)
+
+	albClient := ecs.New(ep.session, aws.NewConfig().WithRegion(*region))
+	ecsClients = append(ecsClients, albClient)
+
+	ec2Client := ec2.New(ep.session, aws.NewConfig().WithRegion(*region))
+	ec2Clients = append(ec2Clients, ec2Client)
+
+	if ep.options.AssumeRoleName == "" || len(ep.options.AccountIds) < 1 {
+		return ecsClients, ec2Clients
+	}
+
+	for _, accountId := range ep.options.AccountIds {
+		roleARN := fmt.Sprintf("arn:aws:iam::%s:role/%s", accountId, ep.options.AssumeRoleName)
+		creds := stscreds.NewCredentials(ep.session, roleARN)
+
+		assumeSession, err := session.NewSession(&aws.Config{
+			Region:      region,
+			Credentials: creds,
+		})
+		if err != nil {
+			continue
+		}
+		ecsClients = append(ecsClients, ecs.New(assumeSession))
+		ec2Clients = append(ec2Clients, ec2.New(assumeSession))
+	}
+	return ecsClients, ec2Clients
 }

@@ -199,7 +199,13 @@ const defaultProviderConfigFile = `#  #Provider configuration file for cloudlist
 #  aws_secret_key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 #  # aws_session_token session token for temporary security credentials retrieved via STS (optional)
 #  aws_session_token: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
+#  # assume_role_name is the name of the role to assume (optional)
+#  assume_role_name: xxxxxxxx
+#  # account_ids is the aws account ids which has similar assumed role name (optional)
+#  account_ids:
+#    - xxxxxxxxxxx
+#    - xxxxxxxxxxx
+#
 #- # provider is the name of the provider
 #  provider: gcp
 #  # id is the name of the provider id

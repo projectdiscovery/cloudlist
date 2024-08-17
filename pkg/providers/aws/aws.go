@@ -3,6 +3,7 @@ package aws
 import (
 	"context"
 	"strings"
+	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -20,13 +21,69 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	sliceutil "github.com/projectdiscovery/utils/slice"
 )
 
-var Services = []string{"ec2", "route53", "s3", "ecs", "eks", "lambda", "apigateway", "alb", "elb", "lightsail", "cloudfront"}
+var Services = []string{"ec2", "instance", "route53", "s3", "ecs", "eks", "lambda", "apigateway", "alb", "elb", "lightsail", "cloudfront"}
+
+type ProviderOptions struct {
+	Id             string
+	AccessKey      string
+	SecretKey      string
+	Token          string
+	AssumeRoleName string
+	AccountIds     []string
+	Services       schema.ServiceMap
+}
+
+func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
+	accessKey, ok := block.GetMetadata(apiAccessKey)
+	if !ok {
+		return &schema.ErrNoSuchKey{Name: apiAccessKey}
+	}
+	accessToken, ok := block.GetMetadata(apiSecretKey)
+	if !ok {
+		return &schema.ErrNoSuchKey{Name: apiSecretKey}
+	}
+	p.Token, _ = block.GetMetadata(sessionToken)
+	p.Id, _ = block.GetMetadata("id")
+
+	supportedServicesMap := make(map[string]struct{})
+	for _, s := range Services {
+		supportedServicesMap[s] = struct{}{}
+	}
+	services := make(schema.ServiceMap)
+	if ss, ok := block.GetMetadata("services"); ok {
+		for _, s := range strings.Split(ss, ",") {
+			if _, ok := supportedServicesMap[s]; ok {
+				services[s] = struct{}{}
+			}
+		}
+	}
+	// if no services provided from -service flag, includes all services
+	if len(services) == 0 {
+		for _, s := range Services {
+			services[s] = struct{}{}
+		}
+	}
+
+	p.AccessKey = accessKey
+	p.SecretKey = accessToken
+	p.Services = services
+
+	if assumeRoleName, ok := block.GetMetadata(assumeRoleName); ok {
+		p.AssumeRoleName = assumeRoleName
+	}
+
+	if accountIds, ok := block.GetMetadata(accountIds); ok {
+		p.AccountIds = sliceutil.Dedupe(strings.Split(accountIds, ","))
+	}
+	return nil
+}
 
 // Provider is a data provider for aws API
 type Provider struct {
-	id               string
+	options          *ProviderOptions
 	ec2Client        *ec2.EC2
 	route53Client    *route53.Route53
 	s3Client         *s3.S3
@@ -40,58 +97,35 @@ type Provider struct {
 	cloudFrontClient *cloudfront.CloudFront
 	regions          *ec2.DescribeRegionsOutput
 	session          *session.Session
-	services         schema.ServiceMap
 }
 
 // New creates a new provider client for aws API
-func New(options schema.OptionBlock) (*Provider, error) {
-	accessKey, ok := options.GetMetadata(apiAccessKey)
-	if !ok {
-		return nil, &schema.ErrNoSuchKey{Name: apiAccessKey}
-	}
-	accessToken, ok := options.GetMetadata(apiSecretKey)
-	if !ok {
-		return nil, &schema.ErrNoSuchKey{Name: apiSecretKey}
+func New(block schema.OptionBlock) (*Provider, error) {
+	options := &ProviderOptions{}
+	if err := options.ParseOptionBlock(block); err != nil {
+		return nil, err
 	}
 
-	provider := &Provider{}
-	token, _ := options.GetMetadata(sessionToken)
-	provider.id, _ = options.GetMetadata("id")
+	provider := &Provider{options: options}
 	config := aws.NewConfig()
 	config.WithRegion("us-east-1")
-	config.WithCredentials(credentials.NewStaticCredentials(accessKey, accessToken, token))
+	config.WithCredentials(credentials.NewStaticCredentials(options.AccessKey, options.SecretKey, options.Token))
 
 	session, err := session.NewSession(config)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not extablish a session")
 	}
 	provider.session = session
+
 	rc := ec2.New(session)
 	regions, err := rc.DescribeRegions(&ec2.DescribeRegionsInput{})
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get list of regions")
 	}
 	provider.regions = regions
-	supportedServicesMap := make(map[string]struct{})
-	for _, s := range Services {
-		supportedServicesMap[s] = struct{}{}
-	}
-	services := make(schema.ServiceMap)
-	if ss, ok := options.GetMetadata("services"); ok {
-		for _, s := range strings.Split(ss, ",") {
-			if _, ok := supportedServicesMap[s]; ok {
-				services[s] = struct{}{}
-			}
-		}
-	}
-	if len(services) == 0 {
-		for _, s := range Services {
-			services[s] = struct{}{}
-		}
-	}
-	provider.services = services
 
-	if services.Has("ec2") {
+	services := provider.options.Services
+	if services.Has("ec2") || services.Has("instance") {
 		provider.ec2Client = ec2.New(session)
 	}
 	if services.Has("route53") {
@@ -127,10 +161,12 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	return provider, nil
 }
 
+const providerName = "aws"
 const apiAccessKey = "aws_access_key"
 const apiSecretKey = "aws_secret_key"
 const sessionToken = "aws_session_token"
-const providerName = "aws"
+const assumeRoleName = "assume_role_name"
+const accountIds = "account_ids"
 
 // Name returns the name of the provider
 func (p *Provider) Name() string {
@@ -139,80 +175,94 @@ func (p *Provider) Name() string {
 
 // ID returns the name of the provider id
 func (p *Provider) ID() string {
-	return p.id
+	return p.options.Id
 }
 
 // Services returns the provider services
 func (p *Provider) Services() []string {
-	return p.services.Keys()
+	return p.options.Services.Keys()
 }
 
-// Resources returns the provider for an resource deployment source.
+type result struct {
+	resources *schema.Resources
+	err       error
+}
+
+type getResourcesFunc func(context.Context) (*schema.Resources, error)
+
+func worker(ctx context.Context, fn getResourcesFunc, ch chan<- result) {
+	resources, err := fn(ctx)
+	ch <- result{resources, err}
+}
+
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalList := schema.NewResources()
+
+	var workersWaitGroup sync.WaitGroup
+	results := make(chan result)
+
+	assignWorker := func(fn getResourcesFunc) {
+		workersWaitGroup.Add(1)
+		go func() {
+			defer workersWaitGroup.Done()
+			worker(ctx, fn, results)
+		}()
+	}
+
 	if p.ec2Client != nil {
-		ec2provider := &instanceProvider{ec2Client: p.ec2Client, id: p.id, session: p.session, regions: p.regions}
-		if list, err := ec2provider.GetResource(ctx); err == nil {
-			finalList.Merge(list)
-		}
+		ec2provider := &instanceProvider{ec2Client: p.ec2Client, options: *p.options, session: p.session, regions: p.regions}
+		assignWorker(ec2provider.GetResource)
 	}
 	if p.route53Client != nil {
-		route53Provider := &route53Provider{route53: p.route53Client, id: p.id, session: p.session}
-		if zones, err := route53Provider.GetResource(ctx); err == nil {
-			finalList.Merge(zones)
-		}
+		route53Provider := &route53Provider{route53: p.route53Client, options: *p.options, session: p.session}
+		assignWorker(route53Provider.GetResource)
 	}
 	if p.s3Client != nil {
-		s3Provider := &s3Provider{s3: p.s3Client, id: p.id, session: p.session}
-		if buckets, err := s3Provider.GetResource(ctx); err == nil {
-			finalList.Merge(buckets)
-		}
+		s3Provider := &s3Provider{s3: p.s3Client, options: *p.options, session: p.session}
+		assignWorker(s3Provider.GetResource)
 	}
 	if p.ecsClient != nil {
-		ecsProvider := &ecsProvider{ecsClient: p.ecsClient, id: p.id, session: p.session, regions: p.regions}
-		if ecsResources, err := ecsProvider.GetResource(ctx); err == nil {
-			finalList.Merge(ecsResources)
-		}
+		ecsProvider := &ecsProvider{ecsClient: p.ecsClient, options: *p.options, session: p.session, regions: p.regions}
+		assignWorker(ecsProvider.GetResource)
 	}
 	if p.eksClient != nil {
-		eksProvider := &eksProvider{eksClient: p.eksClient, id: p.id, session: p.session, regions: p.regions}
-		if eksResources, err := eksProvider.GetResource(ctx); err == nil {
-			finalList.Merge(eksResources)
-		}
+		eksProvider := &eksProvider{eksClient: p.eksClient, options: *p.options, session: p.session, regions: p.regions}
+		assignWorker(eksProvider.GetResource)
 	}
 	if p.apiGateway != nil && p.lambdaClient != nil {
-		lamdaAndApiGatewayProvider := &lambdaAndapiGatewayProvider{apiGateway: p.apiGateway, lambdaClient: p.lambdaClient, id: p.id, session: p.session, regions: p.regions}
-		if lambdaAndApiGateways, err := lamdaAndApiGatewayProvider.GetResource(ctx); err == nil {
-			finalList.Merge(lambdaAndApiGateways)
-		}
+		lamdaAndApiGatewayProvider := &lambdaAndapiGatewayProvider{apiGateway: p.apiGateway, lambdaClient: p.lambdaClient, options: *p.options, session: p.session, regions: p.regions}
+		assignWorker(lamdaAndApiGatewayProvider.GetResource)
 	}
 	if p.albClient != nil {
-		albProvider := &elbV2Provider{albClient: p.albClient, id: p.id, session: p.session, regions: p.regions}
-		if albs, err := albProvider.GetResource(ctx); err == nil {
-			finalList.Merge(albs)
-
-		}
+		albProvider := &elbV2Provider{albClient: p.albClient, options: *p.options, session: p.session, regions: p.regions}
+		assignWorker(albProvider.GetResource)
 	}
 	if p.elbClient != nil {
-		elbProvider := &elbProvider{elbClient: p.elbClient, id: p.id, session: p.session, regions: p.regions}
-		if elbs, err := elbProvider.GetResource(ctx); err == nil {
-			finalList.Merge(elbs)
-		}
+		elbProvider := &elbProvider{elbClient: p.elbClient, options: *p.options, session: p.session, regions: p.regions}
+		assignWorker(elbProvider.GetResource)
 	}
 	if p.lightsailClient != nil {
 		lsRegions, err := p.lightsailClient.GetRegions(&lightsail.GetRegionsInput{})
 		if err == nil {
-			lightsailProvider := &lightsailProvider{lsClient: p.lightsailClient, id: p.id, session: p.session, regions: lsRegions.Regions}
-			if lsInstances, err := lightsailProvider.GetResource(ctx); err == nil {
-				finalList.Merge(lsInstances)
-			}
+			lightsailProvider := &lightsailProvider{lsClient: p.lightsailClient, options: *p.options, session: p.session, regions: lsRegions.Regions}
+			assignWorker(lightsailProvider.GetResource)
 		}
 	}
 	if p.cloudFrontClient != nil {
-		cloudfrontProvider := &cloudfrontProvider{cloudFrontClient: p.cloudFrontClient, id: p.id, session: p.session}
-		if cloudfrontResources, err := cloudfrontProvider.GetResource(ctx); err == nil {
-			finalList.Merge(cloudfrontResources)
+		cloudfrontProvider := &cloudfrontProvider{cloudFrontClient: p.cloudFrontClient, options: *p.options, session: p.session}
+		assignWorker(cloudfrontProvider.GetResource)
+	}
+
+	go func() {
+		workersWaitGroup.Wait()
+		close(results)
+	}()
+
+	for result := range results {
+		if result.err != nil {
+			continue
 		}
+		finalList.Merge(result.resources)
 	}
 	return finalList, nil
 }
