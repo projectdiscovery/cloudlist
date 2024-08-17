@@ -52,6 +52,8 @@ cloudlist -h
 This will display help for the tool. Here are all the switches it supports.
 
 ```yaml
+Cloudlist is a tool for listing Assets from multiple cloud providers.
+
 Usage:
   ./cloudlist [flags]
 
@@ -61,11 +63,16 @@ CONFIGURATION:
    -pc, -provider-config string  provider config file (default "$HOME/.config/cloudlist/provider-config.yaml")
 
 FILTERS:
-   -p, -provider string[]  display results for given providers (comma-separated)
-   -id string[]            display results for given ids (comma-separated)
-   -host                   display only hostnames in results
-   -ip                     display only ips in results
-   -ep, -exclude-private   exclude private ips in cli output
+   -p, -provider value    display results for given providers (comma-separated) (default linode,fastly,heroku,terraform,digitalocean,consul,cloudflare,hetzner,nomad,do,scw,openstack,alibaba,aws,gcp,namecheap,kubernetes,azure)
+   -id string[]           display results for given ids (comma-separated)
+   -host                  display only hostnames in results
+   -ip                    display only ips in results
+   -s, -service value     query and display results from given service (comma-separated)) (default cloudfront,gke,domain,compute,ec2,instance,cloud-function,app,eks,consul,droplet,vm,ecs,fastly,alb,s3,lambda,elb,cloud-run,route53,publicip,dns,service,nomad,lightsail,ingress,apigateway)
+   -ep, -exclude-private  exclude private ips in cli output
+
+UPDATE:
+   -up, -update                 update cloudlist to latest version
+   -duc, -disable-update-check  disable automatic cloudlist update check
 
 OUTPUT:
    -o, -output string  output file to write results
