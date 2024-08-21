@@ -108,6 +108,12 @@ const (
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	provider := &resourceProvider{client: p.client, id: p.id}
-	return provider.GetResource(ctx)
+	finalResources := schema.NewResources()
+	if p.services.Has("nomad") {
+		provider := &resourceProvider{client: p.client, id: p.id}
+		if resources, err := provider.GetResource(ctx); err == nil {
+			finalResources.Merge(resources)
+		}
+	}
+	return finalResources, nil
 }

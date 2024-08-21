@@ -111,7 +111,7 @@ func (p *Provider) Services() []string {
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	resources := &schema.Resources{}
+	resources := schema.NewResources()
 
 	if p.services.Has("vm") {
 		vmp := &vmProvider{Authorizer: p.Authorizer, SubscriptionID: p.SubscriptionID, id: p.id}

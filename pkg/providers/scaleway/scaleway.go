@@ -76,9 +76,12 @@ const apiAccessToken = "scaleway_access_token"
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
+	finalResources := schema.NewResources()
 	if p.services.Has("instance") {
 		provider := &instanceProvider{instanceAPI: instance.NewAPI(p.client), id: p.id}
-		return provider.GetResource(ctx)
+		if resources, err := provider.GetResource(ctx); err == nil {
+			finalResources.Merge(resources)
+		}
 	}
-	return nil, nil
+	return finalResources, nil
 }

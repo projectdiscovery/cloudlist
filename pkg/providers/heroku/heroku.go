@@ -71,9 +71,12 @@ func (p *Provider) Services() []string {
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
+	finalResources := schema.NewResources()
 	if p.services.Has("app") {
 		provider := &instanceProvider{client: p.client, id: p.id}
-		return provider.GetResource(ctx)
+		if resources, err := provider.GetResource(ctx); err == nil {
+			finalResources.Merge(resources)
+		}
 	}
-	return nil, nil
+	return finalResources, nil
 }

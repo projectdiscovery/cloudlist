@@ -93,9 +93,12 @@ func (p *Provider) Services() []string {
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
+	finalResources := schema.NewResources()
 	if p.ecsClient != nil {
 		ecsprovider := &instanceProvider{client: p.ecsClient, id: p.id}
-		return ecsprovider.GetResource(ctx)
+		if resources, err := ecsprovider.GetResource(ctx); err == nil {
+			finalResources.Merge(resources)
+		}
 	}
-	return nil, nil
+	return finalResources, nil
 }
