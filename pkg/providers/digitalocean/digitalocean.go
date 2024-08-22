@@ -66,7 +66,7 @@ const apiKey = "digitalocean_token"
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	finalList := schema.NewResources()
+	finalResources := schema.NewResources()
 
 	if p.services.Has("droplet") || p.services.Has("instance") {
 		instanceprovider := &instanceProvider{client: p.client, id: p.id}
@@ -74,7 +74,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		if err != nil {
 			return nil, err
 		}
-		finalList.Merge(instances)
+		finalResources.Merge(instances)
 	}
 
 	if p.services.Has("app") {
@@ -83,8 +83,8 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		if err != nil {
 			return nil, err
 		}
-		finalList.Merge(apps)
+		finalResources.Merge(apps)
 	}
 
-	return finalList, nil
+	return finalResources, nil
 }

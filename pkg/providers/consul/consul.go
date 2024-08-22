@@ -121,10 +121,10 @@ const (
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	finalList := schema.NewResources()
+	finalResources := schema.NewResources()
 	provider := &resourceProvider{client: p.client, id: p.id}
 	if resources, err := provider.GetResource(ctx); err == nil {
-		finalList.Merge(resources)
+		finalResources.Merge(resources)
 	}
-	return finalList, nil
+	return finalResources, nil
 }

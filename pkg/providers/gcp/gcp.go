@@ -145,7 +145,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	finalList := schema.NewResources()
+	finalResources := schema.NewResources()
 
 	if p.dns != nil {
 		cloudDNSProvider := &cloudDNSProvider{dns: p.dns, id: p.id, projects: p.projects}
@@ -153,7 +153,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		if err != nil {
 			return nil, err
 		}
-		finalList.Merge(zones)
+		finalResources.Merge(zones)
 	}
 
 	if p.gke != nil {
@@ -162,7 +162,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		if err != nil {
 			gologger.Warning().Msgf("Could not get GKE resources: %s\n", err)
 		}
-		finalList.Merge(gkeData)
+		finalResources.Merge(gkeData)
 	}
 
 	if p.compute != nil {
@@ -171,7 +171,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		if err != nil {
 			return nil, err
 		}
-		finalList.Merge(vmData)
+		finalResources.Merge(vmData)
 	}
 
 	if p.storage != nil {
@@ -180,7 +180,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		if err != nil {
 			return nil, err
 		}
-		finalList.Merge(storageData)
+		finalResources.Merge(storageData)
 	}
 
 	if p.functions != nil {
@@ -189,7 +189,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		if err != nil {
 			return nil, err
 		}
-		finalList.Merge(functionsData)
+		finalResources.Merge(functionsData)
 	}
 
 	if p.run != nil {
@@ -198,8 +198,8 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		if err != nil {
 			return nil, err
 		}
-		finalList.Merge(cloudRunData)
+		finalResources.Merge(cloudRunData)
 	}
 
-	return finalList, nil
+	return finalResources, nil
 }
