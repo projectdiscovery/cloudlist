@@ -91,9 +91,13 @@ func (p *Provider) Services() []string {
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
+	finalResources := schema.NewResources()
+
 	if p.services.Has("dns") {
 		dnsProvider := &dnsProvider{id: p.id, client: p.client}
-		return dnsProvider.GetResource(ctx)
+		if resources, err := dnsProvider.GetResource(ctx); err == nil {
+			finalResources.Merge(resources)
+		}
 	}
-	return nil, nil
+	return finalResources, nil
 }

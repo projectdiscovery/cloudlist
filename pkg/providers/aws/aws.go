@@ -196,7 +196,7 @@ func worker(ctx context.Context, fn getResourcesFunc, ch chan<- result) {
 }
 
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
-	finalList := schema.NewResources()
+	finalResources := schema.NewResources()
 
 	var workersWaitGroup sync.WaitGroup
 	results := make(chan result)
@@ -262,7 +262,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		if result.err != nil {
 			continue
 		}
-		finalList.Merge(result.resources)
+		finalResources.Merge(result.resources)
 	}
-	return finalList, nil
+	return finalResources, nil
 }
