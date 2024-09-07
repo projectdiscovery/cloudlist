@@ -46,7 +46,7 @@ func (d *dnsProvider) GetResource(ctx context.Context) (*schema.Resources, error
 					list.Append(&schema.Resource{
 						Public:     true,
 						Provider:   providerName,
-						DNSName:    arrayRecord.GetName(),
+						DNSName:    fmt.Sprintf("%s.%s", arrayRecord.GetName(), domain.GetName()),
 						PublicIPv4: v["ip"].(string),
 						ID:         d.id,
 						Service:    d.name(),
