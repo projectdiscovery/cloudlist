@@ -20,6 +20,7 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/providers/openstack"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/scaleway"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/terraform"
+	"github.com/projectdiscovery/cloudlist/pkg/providers/vercel"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	mapsutil "github.com/projectdiscovery/utils/maps"
 )
@@ -66,6 +67,7 @@ var Providers = map[string][]string{
 	"hetzner":      hetzner.Services,
 	"openstack":    openstack.Services,
 	"kubernetes":   k8s.Services,
+	"vercel":       vercel.Services,
 }
 
 func GetProviders() []string {
@@ -119,6 +121,8 @@ func nameToProvider(value string, block schema.OptionBlock) (schema.Provider, er
 		return openstack.New(block)
 	case "kubernetes":
 		return k8s.New(block)
+	case "vercel":
+		return vercel.New(block)
 	default:
 		return nil, fmt.Errorf("invalid provider name found: %s", value)
 	}
