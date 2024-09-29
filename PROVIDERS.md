@@ -15,6 +15,12 @@ Amazon Web Services can be integrated by using the following configuration block
   aws_secret_key: $AWS_SECRET_KEY
   # aws_session_token session token for temporary security credentials retrieved via STS (optional)
   aws_session_token: $AWS_SESSION_TOKEN
+ # assume_role_name is the name of the role to assume (optional)
+ assume_role_name: $AWS_ASSUME_ROLE_NAME
+ # account_ids is the aws account ids which has similar assumed role name (optional)
+ account_ids:
+   - $AWS_ACCOUNT_ID_1
+   - $AWS_ACCOUNT_ID_2
 ```
 
 `aws_access_key` and `aws_secret_key` can be generated in the IAM console. We recommend creating a new IAM user with `Read Only` permissions and providing the access token for the user.
@@ -27,6 +33,11 @@ References -
 1. https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_examples_iam_read-only-console.html
 2. https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
 3. https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_request.html
+
+- Aws Assume Role:
+
+  - https://docs.aws.amazon.com/sdkref/latest/guide/feature-assume-role-credentials.html
+  - https://docs.logrhythm.com/OCbeats/docs/aws-cross-account-access-using-sts-assume-role
    
 ### Google Cloud Platform (GCP)
 
