@@ -21,30 +21,6 @@ type Provider struct {
 // Here api_token overrides api_key
 func New(options schema.OptionBlock) (*Provider, error) {
 	id, _ := options.GetMetadata("id")
-	apiToken, ok := options.GetMetadata(apiToken)
-	if ok {
-		// Construct a new API object with scoped api token
-		api, err := cloudflare.NewWithAPIToken(apiToken)
-		if err != nil {
-			return nil, err
-		}
-		return &Provider{id: id, client: api}, nil
-	}
-
-	accessKey, ok := options.GetMetadata(apiAccessKey)
-	if !ok {
-		return nil, &schema.ErrNoSuchKey{Name: apiAccessKey}
-	}
-	apiEmail, ok := options.GetMetadata(apiEmail)
-	if !ok {
-		return nil, &schema.ErrNoSuchKey{Name: apiEmail}
-	}
-
-	// Construct a new API object
-	api, err := cloudflare.New(accessKey, apiEmail)
-	if err != nil {
-		return nil, err
-	}
 
 	supportedServicesMap := make(map[string]struct{})
 	for _, s := range Services {
@@ -63,6 +39,31 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		for _, s := range Services {
 			services[s] = struct{}{}
 		}
+	}
+
+	apiToken, ok := options.GetMetadata(apiToken)
+	if ok {
+		// Construct a new API object with scoped api token
+		api, err := cloudflare.NewWithAPIToken(apiToken)
+		if err != nil {
+			return nil, err
+		}
+		return &Provider{id: id, client: api, services: services}, nil
+	}
+
+	accessKey, ok := options.GetMetadata(apiAccessKey)
+	if !ok {
+		return nil, &schema.ErrNoSuchKey{Name: apiAccessKey}
+	}
+	apiEmail, ok := options.GetMetadata(apiEmail)
+	if !ok {
+		return nil, &schema.ErrNoSuchKey{Name: apiEmail}
+	}
+
+	// Construct a new API object
+	api, err := cloudflare.New(accessKey, apiEmail)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Provider{id: id, client: api, services: services}, nil
