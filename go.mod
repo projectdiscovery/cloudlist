@@ -5,6 +5,7 @@ go 1.22.2
 toolchain go1.22.3
 
 require (
+	git.arvancloud.ir/arvancloud/cdn-go-sdk v0.12.1
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.28
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.12

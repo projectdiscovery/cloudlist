@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/projectdiscovery/cloudlist/pkg/providers/alibaba"
+	"github.com/projectdiscovery/cloudlist/pkg/providers/arvancloud"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/aws"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/azure"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/cloudflare"
@@ -48,6 +49,8 @@ func New(optionBlocks schema.Options) (*Inventory, error) {
 }
 
 var Providers = map[string][]string{
+	"r1c":          arvancloud.Services,
+	"arvancloud":   arvancloud.Services,
 	"aws":          aws.Services,
 	"do":           digitalocean.Services,
 	"digitalocean": digitalocean.Services,
@@ -85,6 +88,8 @@ func GetServices() []string {
 // nameToProvider returns the provider for a name
 func nameToProvider(value string, block schema.OptionBlock) (schema.Provider, error) {
 	switch value {
+	case "r1c", "arvancloud":
+		return arvancloud.New(block)
 	case "aws":
 		return aws.New(block)
 	case "do", "digitalocean":
