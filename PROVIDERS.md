@@ -134,6 +134,24 @@ Scaleway can be integrated by using the following configuration block.
 References - 
 1. https://www.scaleway.com/en/docs/generate-api-keys/
    
+### ArvanCloud
+
+ArvanCloud can be integrated by using the following configuration block.
+
+```yaml
+- # provider is the name of the provider
+  provider: arvancloud # or r1c
+  # api_key is the api_key for arvancloud
+  api_key: $R1C_API_KEY
+```
+
+The `api_key` can be generated from ArvanCloud Machine User manager.
+
+References - 
+1. https://www.arvancloud.ir/en/dev/api
+2. https://docs.arvancloud.ir/en/developer-tools/api/api-usage
+3. https://panel.arvancloud.ir/profile/machine-user
+
 ### Cloudflare 
 
 Cloudflare can be integrated by using the following configuration block.
