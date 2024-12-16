@@ -336,4 +336,17 @@ const defaultProviderConfigFile = `#  #Provider configuration file for cloudlist
 #  # username is Openstack username used to authenticate
 #  username: <openstack-username>
 #  # password is Openstack password used to authenticate
-#  password: <openstack-password>`
+#  password: <openstack-password>
+
+# - # provider is the name of the provider
+#   provider: custom
+#   id: test
+#   # urls is a list of API endpoints or resources to be accessed
+#   urls:
+#     - https://api.example.com/resource1
+#     - https://api.example.com/resource2
+#   # headers is a map of custom headers to be included in requests
+#   headers:
+#     Authorization: $CUSTOM_AUTH_TOKEN
+#     Content-Type: application/json
+#     X-Custom-Header: $CUSTOM_HEADER`
