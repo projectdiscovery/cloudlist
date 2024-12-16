@@ -157,7 +157,7 @@ func (ob *OptionBlock) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	// Convert raw map to OptionBlock and handle special cases
 	for key, value := range rawMap {
 		switch key {
-		case "account_ids":
+		case "account_ids", "urls":
 			if valueArr, ok := value.([]interface{}); ok {
 				var strArr []string
 				for _, v := range valueArr {
@@ -169,6 +169,14 @@ func (ob *OptionBlock) UnmarshalYAML(unmarshal func(interface{}) error) error {
 					default:
 						return fmt.Errorf("unsupported type %T in account_ids", v)
 					}
+				}
+				(*ob)[key] = strings.Join(strArr, ",")
+			}
+		case "headers":
+			if valueMap, ok := value.(map[interface{}]interface{}); ok {
+				var strArr []string
+				for k, v := range valueMap {
+					strArr = append(strArr, fmt.Sprintf("%s: %s", k, v))
 				}
 				(*ob)[key] = strings.Join(strArr, ",")
 			}
