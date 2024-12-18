@@ -2,9 +2,12 @@ package custom
 
 import (
 	"context"
+	"net/url"
 	"strings"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/networkpolicy"
 	"github.com/projectdiscovery/retryablehttp-go"
 	sliceutil "github.com/projectdiscovery/utils/slice"
 )
@@ -100,8 +103,19 @@ func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
 		}
 	}
 
+	np, err := networkpolicy.New(networkpolicy.DefaultOptions)
+	if err != nil {
+		return err
+	}
+
 	if urlListStr, ok := block.GetMetadata(urls); ok {
-		p.URLs = sliceutil.Dedupe(strings.Split(urlListStr, ","))
+		for _, urlStr := range sliceutil.Dedupe(strings.Split(urlListStr, ",")) {
+			if parsedUrl, err := url.Parse(urlStr); err != nil || !np.Validate(parsedUrl.Hostname()) {
+				gologger.Warning().Msgf("Invalid URL: %s\n", urlStr)
+				continue
+			}
+			p.URLs = append(p.URLs, urlStr)
+		}
 	}
 
 	if headerListStr, ok := block.GetMetadata(headers); ok {
