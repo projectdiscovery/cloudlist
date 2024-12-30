@@ -12,13 +12,17 @@ func TestValidateIdentify(t *testing.T) {
 		resource ResourceType
 	}{
 		{"www.example.com", DNSName},
-		{"17.5.7.8", PublicIP},
-		{"1.1.1.1", PublicIP},
-		{"192.168.1.10", PrivateIP},
-		{"185.199.110.153", PublicIP},
+		{"17.5.7.8", PublicIPv4},
+		{"1.1.1.1", PublicIPv4},
+		{"192.168.1.10", PrivateIPv4},
+		{"185.199.110.153", PublicIPv4},
 		{"www.example.com:22", DNSName},
-		{"17.5.7.8:443", PublicIP},
-		{"192.168.1.10:80", PrivateIP},
+		{"17.5.7.8:443", PublicIPv4},
+		{"192.168.1.10:80", PrivateIPv4},
+		{"2a0c:5a80::1", PublicIPv6},
+		{"[2a0c:5a80::1]:80", PublicIPv6},
+		{"2001:db8::1", PrivateIPv6},
+		{"[2001:db8::a]:443", PrivateIPv6},
 	}
 
 	validator, err := NewValidator()

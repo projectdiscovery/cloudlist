@@ -108,7 +108,13 @@ func (r *Runner) Enumerate() {
 					if instance.PrivateIpv4 != "" {
 						ipCount++
 					}
+					if instance.PrivateIpv6 != "" {
+						ipCount++
+					}
 					if instance.PublicIPv4 != "" {
+						ipCount++
+					}
+					if instance.PublicIPv6 != "" {
 						ipCount++
 					}
 					gologger.Silent().Msgf("%s", builder.String())
@@ -137,6 +143,14 @@ func (r *Runner) Enumerate() {
 					builder.Reset()
 					gologger.Silent().Msgf("%s", instance.PublicIPv4)
 				}
+				if instance.PublicIPv6 != "" {
+					ipCount++
+					builder.WriteString(instance.PublicIPv6)
+					builder.WriteRune('\n')
+					output.WriteString(builder.String()) //nolint
+					builder.Reset()
+					gologger.Silent().Msgf("%s", instance.PublicIPv6)
+				}
 				if instance.PrivateIpv4 != "" && !r.options.ExcludePrivate {
 					ipCount++
 					builder.WriteString(instance.PrivateIpv4)
@@ -144,6 +158,14 @@ func (r *Runner) Enumerate() {
 					output.WriteString(builder.String()) //nolint
 					builder.Reset()
 					gologger.Silent().Msgf("%s", instance.PrivateIpv4)
+				}
+				if instance.PrivateIpv6 != "" && !r.options.ExcludePrivate {
+					ipCount++
+					builder.WriteString(instance.PrivateIpv6)
+					builder.WriteRune('\n')
+					output.WriteString(builder.String()) //nolint
+					builder.Reset()
+					gologger.Silent().Msgf("%s", instance.PrivateIpv6)
 				}
 				continue
 			}
@@ -164,6 +186,14 @@ func (r *Runner) Enumerate() {
 				builder.Reset()
 				gologger.Silent().Msgf("%s", instance.PublicIPv4)
 			}
+			if instance.PublicIPv6 != "" {
+				ipCount++
+				builder.WriteString(instance.PublicIPv6)
+				builder.WriteRune('\n')
+				output.WriteString(builder.String()) //nolint
+				builder.Reset()
+				gologger.Silent().Msgf("%s", instance.PublicIPv6)
+			}
 			if instance.PrivateIpv4 != "" && !r.options.ExcludePrivate {
 				ipCount++
 				builder.WriteString(instance.PrivateIpv4)
@@ -171,6 +201,14 @@ func (r *Runner) Enumerate() {
 				output.WriteString(builder.String()) //nolint
 				builder.Reset()
 				gologger.Silent().Msgf("%s", instance.PrivateIpv4)
+			}
+			if instance.PrivateIpv6 != "" && !r.options.ExcludePrivate {
+				ipCount++
+				builder.WriteString(instance.PrivateIpv6)
+				builder.WriteRune('\n')
+				output.WriteString(builder.String()) //nolint
+				builder.Reset()
+				gologger.Silent().Msgf("%s", instance.PrivateIpv6)
 			}
 		}
 		logBuilder := &strings.Builder{}
