@@ -88,9 +88,9 @@ func (r *route53Provider) listResourcesByZone(zones []*route53.HostedZone, clien
 				}
 				name := strings.TrimSuffix(*item.Name, ".")
 
-				var ip4 string
+				var record string
 				if len(item.ResourceRecords) >= 1 {
-					ip4 = aws.StringValue(item.ResourceRecords[0].Value)
+					record = aws.StringValue(item.ResourceRecords[0].Value)
 				}
 				list.Append(&schema.Resource{
 					ID:       r.options.Id,
@@ -99,13 +99,21 @@ func (r *route53Provider) listResourcesByZone(zones []*route53.HostedZone, clien
 					Provider: providerName,
 					Service:  r.name(),
 				})
-				list.Append(&schema.Resource{
-					ID:         r.options.Id,
-					Public:     public,
-					PublicIPv4: ip4,
-					Provider:   providerName,
-					Service:    r.name(),
-				})
+
+				resource := &schema.Resource{
+					ID:       r.options.Id,
+					Public:   public,
+					Provider: providerName,
+					Service:  r.name(),
+				}
+
+				if *item.Type == "A" {
+					resource.PublicIPv4 = record
+				} else if *item.Type == "AAAA" {
+					resource.PublicIPv6 = record
+				}
+
+				list.Append(resource)
 			}
 			if aws.BoolValue(sets.IsTruncated) && *sets.NextRecordName != "" {
 				req.SetStartRecordName(*sets.NextRecordName)

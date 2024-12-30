@@ -47,13 +47,21 @@ func (d *dnsProvider) GetResource(ctx context.Context) (*schema.Resources, error
 			if record.Type == "CNAME" {
 				continue
 			}
-			list.Append(&schema.Resource{
-				Public:     true,
-				Provider:   providerName,
-				PublicIPv4: record.Content,
-				ID:         d.id,
-				Service:   d.name(),
-			})
+
+			resource := &schema.Resource{
+				Public:   true,
+				Provider: providerName,
+				ID:       d.id,
+				Service:  d.name(),
+			}
+
+			if record.Type == "A" {
+				resource.PublicIPv4 = record.Content
+			} else {
+				resource.PublicIPv6 = record.Content
+			}
+
+			list.Append(resource)
 		}
 	}
 	return list, nil

@@ -36,9 +36,12 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 			for _, server := range resp.Servers {
 				totalResults++
 
-				var ip4, privateIP4 string
+				var ip4, ip6, privateIP4 string
 				if server.PublicIP != nil && server.PublicIP.Address != nil {
 					ip4 = server.PublicIP.Address.String()
+				}
+				if server.IPv6 != nil && server.IPv6.Address != nil {
+					ip6 = server.IPv6.Address.String()
 				}
 				if server.PrivateIP != nil {
 					privateIP4 = *server.PrivateIP
@@ -55,6 +58,7 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 					Provider:   providerName,
 					ID:         d.id,
 					PublicIPv4: ip4,
+					PublicIPv6: ip6,
 					Public:     true,
 					Service:    d.name(),
 				})

@@ -64,6 +64,7 @@ func (i *instanceProvider) getEC2Resources(ec2Client *ec2.EC2) (*schema.Resource
 		for _, reservation := range resp.Reservations {
 			for _, instance := range reservation.Instances {
 				ip4 := aws.StringValue(instance.PublicIpAddress)
+				ip6 := aws.StringValue(instance.Ipv6Address)
 				privateIp4 := aws.StringValue(instance.PrivateIpAddress)
 
 				if privateIp4 != "" {
@@ -79,6 +80,7 @@ func (i *instanceProvider) getEC2Resources(ec2Client *ec2.EC2) (*schema.Resource
 					ID:         i.options.Id,
 					Provider:   providerName,
 					PublicIPv4: ip4,
+					PublicIPv6: ip6,
 					Public:     true,
 					Service:    i.name(),
 				})
