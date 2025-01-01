@@ -22,7 +22,7 @@ func (d *cloudFunctionsProvider) name() string {
 // GetResource returns all the Cloud Function resources in the store for a provider.
 func (d *cloudFunctionsProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
-	functions, err := d.getFunctions()
+	functions, err := d.getFunctions(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("could not get functions: %s", err)
 	}
@@ -40,11 +40,11 @@ func (d *cloudFunctionsProvider) GetResource(ctx context.Context) (*schema.Resou
 	return list, nil
 }
 
-func (d *cloudFunctionsProvider) getFunctions() ([]*cloudfunctions.CloudFunction, error) {
+func (d *cloudFunctionsProvider) getFunctions(ctx context.Context) ([]*cloudfunctions.CloudFunction, error) {
 	var functions []*cloudfunctions.CloudFunction
 	for _, project := range d.projects {
 		functionsService := d.functions.Projects.Locations.Functions.List(fmt.Sprintf("projects/%s/locations/-", project))
-		_ = functionsService.Pages(context.Background(), func(fal *cloudfunctions.ListFunctionsResponse) error {
+		_ = functionsService.Pages(ctx, func(fal *cloudfunctions.ListFunctionsResponse) error {
 			functions = append(functions, fal.Functions...)
 			return nil
 		})

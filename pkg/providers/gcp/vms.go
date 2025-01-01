@@ -24,7 +24,7 @@ func (d *cloudVMProvider) GetResource(ctx context.Context) (*schema.Resources, e
 
 	for _, project := range d.projects {
 		instances := d.compute.Instances.AggregatedList(project)
-		err := instances.Pages(context.Background(), func(ial *compute.InstanceAggregatedList) error {
+		err := instances.Pages(ctx, func(ial *compute.InstanceAggregatedList) error {
 			for _, instancesScopedList := range ial.Items {
 				for _, instance := range instancesScopedList.Instances {
 					instance := instance
@@ -43,7 +43,7 @@ func (d *cloudVMProvider) GetResource(ctx context.Context) (*schema.Resources, e
 						Public:     true,
 						Provider:   providerName,
 						PublicIPv4: cfg.NatIP,
-						Service:   d.name(),
+						Service:    d.name(),
 					})
 				}
 			}

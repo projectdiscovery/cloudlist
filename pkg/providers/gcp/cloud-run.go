@@ -22,11 +22,11 @@ func (d *cloudRunProvider) name() string {
 // GetResource returns all the Cloud Run resources in the store for a provider.
 func (d *cloudRunProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
-	services, err := d.getServices()
+	services, err := d.getServices(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("could not get services: %s", err)
 	}
-	
+
 	for _, service := range services {
 		serviceUrl, _ := url.Parse(service.Status.Url)
 		resource := &schema.Resource{
@@ -41,9 +41,15 @@ func (d *cloudRunProvider) GetResource(ctx context.Context) (*schema.Resources, 
 	return list, nil
 }
 
-func (d *cloudRunProvider) getServices() ([]*run.Service, error) {
+func (d *cloudRunProvider) getServices(ctx context.Context) ([]*run.Service, error) {
 	var services []*run.Service
 	for _, project := range d.projects {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
 		locationsService := d.run.Projects.Locations.List(fmt.Sprintf("projects/%s", project))
 		locationsResponse, err := locationsService.Do()
 		if err != nil {

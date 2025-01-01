@@ -25,10 +25,10 @@ func (d *cloudDNSProvider) GetResource(ctx context.Context) (*schema.Resources, 
 
 	for _, project := range d.projects {
 		zone := d.dns.ManagedZones.List(project)
-		err := zone.Pages(context.Background(), func(resp *dns.ManagedZonesListResponse) error {
+		err := zone.Pages(ctx, func(resp *dns.ManagedZonesListResponse) error {
 			for _, z := range resp.ManagedZones {
 				resources := d.dns.ResourceRecordSets.List(project, z.Name)
-				err := resources.Pages(context.Background(), func(r *dns.ResourceRecordSetsListResponse) error {
+				err := resources.Pages(ctx, func(r *dns.ResourceRecordSetsListResponse) error {
 					items := d.parseRecordsForResourceSet(r)
 					list.Merge(items)
 					return nil

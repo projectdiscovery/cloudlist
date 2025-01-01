@@ -22,7 +22,7 @@ func (d *cloudStorageProvider) name() string {
 func (d *cloudStorageProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
 
-	buckets, err := d.getBuckets()
+	buckets, err := d.getBuckets(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("could not get buckets: %s", err)
 	}
@@ -39,11 +39,11 @@ func (d *cloudStorageProvider) GetResource(ctx context.Context) (*schema.Resourc
 	return list, nil
 }
 
-func (d *cloudStorageProvider) getBuckets() ([]*storage.Bucket, error) {
+func (d *cloudStorageProvider) getBuckets(ctx context.Context) ([]*storage.Bucket, error) {
 	var buckets []*storage.Bucket
 	for _, project := range d.projects {
 		bucketsService := d.storage.Buckets.List(project)
-		_ = bucketsService.Pages(context.Background(), func(bal *storage.Buckets) error {
+		_ = bucketsService.Pages(ctx, func(bal *storage.Buckets) error {
 			buckets = append(buckets, bal.Items...)
 			return nil
 		})

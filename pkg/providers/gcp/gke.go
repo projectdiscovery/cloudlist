@@ -36,6 +36,11 @@ func (d *gkeProvider) GetResource(ctx context.Context) (*schema.Resources, error
 		if err != nil {
 			return nil, err
 		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
 		// Just list all the namespaces found in the project to test the API.
 		for clusterName := range kubeConfig.Clusters {
 			cfg, err := clientcmd.NewNonInteractiveClientConfig(*kubeConfig, clusterName, &clientcmd.ConfigOverrides{CurrentContext: clusterName}, nil).ClientConfig()
