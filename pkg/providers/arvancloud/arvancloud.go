@@ -1,26 +1,39 @@
-package cloudflare
+package arvancloud
 
 import (
 	"context"
 	"strings"
 
-	"github.com/cloudflare/cloudflare-go"
+	r1c "git.arvancloud.ir/arvancloud/cdn-go-sdk"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
 var Services = []string{"dns"}
 
-// Provider is a data provider for cloudflare API
+// apiToken is a ArvanCloud user machine token
+const apiToken = "api_key"
+const providerName = "arvancloud"
+
+// Provider is a data provider for ArvanCloud API
 type Provider struct {
 	id       string
-	client   *cloudflare.API
+	client   *r1c.APIClient
 	services schema.ServiceMap
 }
 
-// New creates a new provider client for cloudflare API
-// Here api_token overrides api_key
+// New creates a new provider client for ArvanCloud API
 func New(options schema.OptionBlock) (*Provider, error) {
 	id, _ := options.GetMetadata("id")
+	apiToken, ok := options.GetMetadata(apiToken)
+	if !ok {
+		return nil, &schema.ErrNoSuchKey{Name: apiToken}
+	}
+
+	configuration := r1c.NewConfiguration()
+	configuration.AddDefaultHeader("authorization", apiToken)
+
+	// Construct a new API object
+	api := r1c.NewAPIClient(configuration)
 
 	supportedServicesMap := make(map[string]struct{})
 	for _, s := range Services {
@@ -41,39 +54,8 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		}
 	}
 
-	apiToken, ok := options.GetMetadata(apiToken)
-	if ok {
-		// Construct a new API object with scoped api token
-		api, err := cloudflare.NewWithAPIToken(apiToken)
-		if err != nil {
-			return nil, err
-		}
-		return &Provider{id: id, client: api, services: services}, nil
-	}
-
-	accessKey, ok := options.GetMetadata(apiAccessKey)
-	if !ok {
-		return nil, &schema.ErrNoSuchKey{Name: apiAccessKey}
-	}
-	apiEmail, ok := options.GetMetadata(apiEmail)
-	if !ok {
-		return nil, &schema.ErrNoSuchKey{Name: apiEmail}
-	}
-
-	// Construct a new API object
-	api, err := cloudflare.New(accessKey, apiEmail)
-	if err != nil {
-		return nil, err
-	}
-
 	return &Provider{id: id, client: api, services: services}, nil
 }
-
-// apiToken is a cloudflare scoped API token
-const apiToken = "api_token"
-const apiAccessKey = "api_key"
-const apiEmail = "email"
-const providerName = "cloudflare"
 
 // Name returns the name of the provider
 func (p *Provider) Name() string {

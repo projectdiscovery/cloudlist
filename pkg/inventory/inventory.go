@@ -4,10 +4,12 @@ import (
 	"fmt"
 
 	"github.com/projectdiscovery/cloudlist/pkg/providers/alibaba"
+	"github.com/projectdiscovery/cloudlist/pkg/providers/arvancloud"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/aws"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/azure"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/cloudflare"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/consul"
+	"github.com/projectdiscovery/cloudlist/pkg/providers/custom"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/digitalocean"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/fastly"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/gcp"
@@ -49,6 +51,8 @@ func New(optionBlocks schema.Options) (*Inventory, error) {
 }
 
 var Providers = map[string][]string{
+	"r1c":          arvancloud.Services,
+	"arvancloud":   arvancloud.Services,
 	"aws":          aws.Services,
 	"do":           digitalocean.Services,
 	"digitalocean": digitalocean.Services,
@@ -68,6 +72,7 @@ var Providers = map[string][]string{
 	"openstack":    openstack.Services,
 	"kubernetes":   k8s.Services,
 	"vercel":       vercel.Services,
+	"custom":       custom.Services,
 }
 
 func GetProviders() []string {
@@ -87,6 +92,8 @@ func GetServices() []string {
 // nameToProvider returns the provider for a name
 func nameToProvider(value string, block schema.OptionBlock) (schema.Provider, error) {
 	switch value {
+	case "r1c", "arvancloud":
+		return arvancloud.New(block)
 	case "aws":
 		return aws.New(block)
 	case "do", "digitalocean":
@@ -123,6 +130,8 @@ func nameToProvider(value string, block schema.OptionBlock) (schema.Provider, er
 		return k8s.New(block)
 	case "vercel":
 		return vercel.New(block)
+	case "custom":
+		return custom.New(block)
 	default:
 		return nil, fmt.Errorf("invalid provider name found: %s", value)
 	}
