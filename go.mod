@@ -184,6 +184,11 @@ require (
 )
 
 require (
+	github.com/projectdiscovery/networkpolicy v0.1.1
+	github.com/projectdiscovery/retryablehttp-go v1.0.91
+)
+
+require (
 	github.com/Mzack9999/gcache v0.0.0-20230410081825-519e28eab057 // indirect
 	github.com/Mzack9999/go-http-digest-auth-client v0.6.1-0.20220414142836-eb8883508809 // indirect
 	github.com/akrylysov/pogreb v0.10.1 // indirect
@@ -198,9 +203,7 @@ require (
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/projectdiscovery/fastdialer v0.2.13 // indirect
 	github.com/projectdiscovery/hmap v0.0.70 // indirect
-	github.com/projectdiscovery/networkpolicy v0.0.9 // indirect
 	github.com/projectdiscovery/retryabledns v1.0.88 // indirect
-	github.com/projectdiscovery/retryablehttp-go v1.0.91 // indirect
 	github.com/refraction-networking/utls v1.6.7 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
