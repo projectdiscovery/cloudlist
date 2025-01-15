@@ -37,19 +37,31 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 	return resources, nil
 }
 
-var ipRegex = regexp.MustCompile(`(?:[0-9]{1,3})\.(?:[0-9]{1,3})\.(?:[0-9]{1,3})\.(?:[0-9]{1,3})`)
+var ip4Regex = regexp.MustCompile(`(?:[0-9]{1,3})\.(?:[0-9]{1,3})\.(?:[0-9]{1,3})\.(?:[0-9]{1,3})`)
+var ip6Regex = regexp.MustCompile(`(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))`)
 
 func (d *instanceProvider) extractIPsFromText(text string) *schema.Resources {
 	resources := schema.NewResources()
 
-	matches := ipRegex.FindAllStringSubmatch(text, -1)
+	matches := ip4Regex.FindAllStringSubmatch(text, -1)
 	for _, match := range matches {
 		resources.Append(&schema.Resource{
 			Provider:   providerName,
 			ID:         d.id,
 			PublicIPv4: match[0],
-			Service:   d.name(),
+			Service:    d.name(),
 		})
 	}
+
+	matches = ip6Regex.FindAllStringSubmatch(text, -1)
+	for _, match := range matches {
+		resources.Append(&schema.Resource{
+			Provider:   providerName,
+			ID:         d.id,
+			PublicIPv6: match[0],
+			Service:    d.name(),
+		})
+	}
+
 	return resources
 }

@@ -30,6 +30,7 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 
 		for _, droplet := range droplets {
 			ip4, _ := droplet.PublicIPv4()
+			ip6, _ := droplet.PublicIPv6()
 			privateIP4, _ := droplet.PrivateIPv4()
 
 			if privateIP4 != "" {
@@ -44,6 +45,7 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 				Provider:   providerName,
 				ID:         d.id,
 				PublicIPv4: ip4,
+				PublicIPv6: ip6,
 				Public:     true,
 				Service:    d.name(),
 			})

@@ -76,13 +76,20 @@ func (d *vmProvider) GetResource(ctx context.Context) (*schema.Resources, error)
 						continue
 					}
 
-					list.Append(&schema.Resource{
+					resource := &schema.Resource{
 						Provider:    providerName,
-						PublicIPv4:  *publicIP.IPAddress,
 						ID:          d.id,
 						PrivateIpv4: *privateIP,
-						Service:    d.name(),
-					})
+						Service:     d.name(),
+					}
+
+					if publicIP.PublicIPAddressVersion == network.IPv4 {
+						resource.PublicIPv4 = *publicIP.IPAddress
+					} else {
+						resource.PublicIPv6 = *publicIP.IPAddress
+					}
+
+					list.Append(resource)
 				}
 			}
 		}

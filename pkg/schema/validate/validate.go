@@ -70,8 +70,10 @@ type ResourceType int
 // A list of supported resource types
 const (
 	DNSName ResourceType = iota + 1
-	PublicIP
-	PrivateIP
+	PublicIPv4
+	PublicIPv6
+	PrivateIPv4
+	PrivateIPv6
 	None
 )
 
@@ -91,15 +93,15 @@ func (v *Validator) Identify(item string) ResourceType {
 	if strings.Contains(item, ":") {
 		// Check ipv6 private address list
 		if v.containsIPv6(parsed) {
-			return PrivateIP
+			return PrivateIPv6
 		}
-		return PublicIP
+		return PublicIPv6
 	}
 	// Check ipv4 private address list
 	if v.containsIPv4(parsed) {
-		return PrivateIP
+		return PrivateIPv4
 	}
-	return PublicIP
+	return PublicIPv4
 }
 
 // isDNSName will validate the given string as a DNS name

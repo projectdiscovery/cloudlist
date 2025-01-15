@@ -125,25 +125,27 @@ func (ep *ecsProvider) listECSResources(ecsClient *ecs.ECS, ec2Client *ec2.EC2) 
 
 								for _, reservation := range describeInstancesOutput.Reservations {
 									for _, instance := range reservation.Instances {
-										privateIP := aws.StringValue(instance.PrivateIpAddress)
-										publicIP := aws.StringValue(instance.PublicIpAddress)
+										ip4 := aws.StringValue(instance.PublicIpAddress)
+										ip6 := aws.StringValue(instance.Ipv6Address)
+										privateIp4 := aws.StringValue(instance.PrivateIpAddress)
 
-										if privateIP != "" {
+										if privateIp4 != "" {
 											resource := &schema.Resource{
 												ID:          aws.StringValue(instance.InstanceId),
 												Provider:    "aws",
-												PrivateIpv4: privateIP,
+												PrivateIpv4: privateIp4,
 												Public:      false,
 												Service:     ep.name(),
 											}
 											list.Append(resource)
 										}
 
-										if publicIP != "" {
+										if ip4 != "" || ip6 != "" {
 											resource := &schema.Resource{
 												ID:         aws.StringValue(instance.InstanceId),
 												Provider:   "aws",
-												PublicIPv4: publicIP,
+												PublicIPv4: ip4,
+												PublicIPv6: ip6,
 												Public:     true,
 												Service:    ep.name(),
 											}

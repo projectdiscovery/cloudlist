@@ -43,14 +43,21 @@ func (d *dnsProvider) GetResource(ctx context.Context) (*schema.Resources, error
 
 			for _, record := range arrayRecord.GetValue() {
 				if v, ok := record.(map[string]interface{}); ok {
-					list.Append(&schema.Resource{
-						Public:     true,
-						Provider:   providerName,
-						DNSName:    fmt.Sprintf("%s.%s", arrayRecord.GetName(), domain.GetName()),
-						PublicIPv4: v["ip"].(string),
-						ID:         d.id,
-						Service:    d.name(),
-					})
+					resource := &schema.Resource{
+						Public:   true,
+						Provider: providerName,
+						DNSName:  fmt.Sprintf("%s.%s", arrayRecord.GetName(), domain.GetName()),
+						ID:       d.id,
+						Service:  d.name(),
+					}
+
+					if arrayRecord.GetType() == "a" {
+						resource.PublicIPv4 = v["ip"].(string)
+					} else {
+						resource.PublicIPv6 = v["ip"].(string)
+					}
+
+					list.Append(resource)
 				} else {
 					return nil, errors.Wrap(err, fmt.Sprintf("could not get ip for `%s` record", arrayRecord.GetName()))
 				}
