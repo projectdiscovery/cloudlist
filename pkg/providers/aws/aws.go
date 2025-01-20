@@ -19,6 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/lightsail"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	sliceutil "github.com/projectdiscovery/utils/slice"
@@ -27,16 +28,20 @@ import (
 var Services = []string{"ec2", "instance", "route53", "s3", "ecs", "eks", "lambda", "apigateway", "alb", "elb", "lightsail", "cloudfront"}
 
 type ProviderOptions struct {
-	Id             string
-	AccessKey      string
-	SecretKey      string
-	Token          string
-	AssumeRoleName string
-	AccountIds     []string
-	Services       schema.ServiceMap
+	Id                    string
+	AccessKey             string
+	SecretKey             string
+	Token                 string
+	AssumeRoleArn         string
+	AssumeRoleSessionName string
+	ExternalId            string
+	AssumeRoleName        string
+	AccountIds            []string
+	Services              schema.ServiceMap
 }
 
 func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
+	p.Id, _ = block.GetMetadata("id")
 	accessKey, ok := block.GetMetadata(apiAccessKey)
 	if !ok {
 		return &schema.ErrNoSuchKey{Name: apiAccessKey}
@@ -46,7 +51,23 @@ func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
 		return &schema.ErrNoSuchKey{Name: apiSecretKey}
 	}
 	p.Token, _ = block.GetMetadata(sessionToken)
-	p.Id, _ = block.GetMetadata("id")
+	p.AccessKey = accessKey
+	p.SecretKey = accessToken
+
+	if assumeRoleArn, ok := block.GetMetadata(assumeRoleArn); ok {
+		p.AssumeRoleArn = assumeRoleArn
+	}
+	if assumeRoleSessionName, ok := block.GetMetadata(assumeRoleSessionName); ok {
+		p.AssumeRoleSessionName = assumeRoleSessionName
+	}
+
+	if externalId, ok := block.GetMetadata(externalId); ok {
+		p.ExternalId = externalId
+	}
+
+	if assumeRoleName, ok := block.GetMetadata(assumeRoleName); ok {
+		p.AssumeRoleName = assumeRoleName
+	}
 
 	supportedServicesMap := make(map[string]struct{})
 	for _, s := range Services {
@@ -66,14 +87,7 @@ func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
 			services[s] = struct{}{}
 		}
 	}
-
-	p.AccessKey = accessKey
-	p.SecretKey = accessToken
 	p.Services = services
-
-	if assumeRoleName, ok := block.GetMetadata(assumeRoleName); ok {
-		p.AssumeRoleName = assumeRoleName
-	}
 
 	if accountIds, ok := block.GetMetadata(accountIds); ok {
 		p.AccountIds = sliceutil.Dedupe(strings.Split(accountIds, ","))
@@ -111,13 +125,50 @@ func New(block schema.OptionBlock) (*Provider, error) {
 	config.WithRegion("us-east-1")
 	config.WithCredentials(credentials.NewStaticCredentials(options.AccessKey, options.SecretKey, options.Token))
 
-	session, err := session.NewSession(config)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not extablish a session")
-	}
-	provider.session = session
+	var sess *session.Session
+	var err error
 
-	rc := ec2.New(session)
+	if options.AssumeRoleArn != "" {
+		stsSession, err := session.NewSession(config)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not establish session with AWS config")
+		}
+
+		stsClient := sts.New(stsSession)
+		roleInput := &sts.AssumeRoleInput{
+			RoleArn:         aws.String(options.AssumeRoleArn),
+			RoleSessionName: aws.String(options.AssumeRoleSessionName),
+			ExternalId:      aws.String(options.ExternalId),
+		}
+
+		assumeRoleOutput, err := stsClient.AssumeRole(roleInput)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to assume role")
+		}
+
+		assumedCredentials := assumeRoleOutput.Credentials
+
+		sess, err = session.NewSession(&aws.Config{
+			Credentials: credentials.NewStaticCredentials(
+				*assumedCredentials.AccessKeyId,
+				*assumedCredentials.SecretAccessKey,
+				*assumedCredentials.SessionToken,
+			),
+			Region: config.Region,
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "could not assume role")
+		}
+	} else {
+		sess, err = session.NewSession(config)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not establish a session")
+		}
+	}
+
+	provider.session = sess
+
+	rc := ec2.New(sess)
 	regions, err := rc.DescribeRegions(&ec2.DescribeRegionsInput{})
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get list of regions")
@@ -126,37 +177,37 @@ func New(block schema.OptionBlock) (*Provider, error) {
 
 	services := provider.options.Services
 	if services.Has("ec2") || services.Has("instance") {
-		provider.ec2Client = ec2.New(session)
+		provider.ec2Client = ec2.New(sess)
 	}
 	if services.Has("route53") {
-		provider.route53Client = route53.New(session)
+		provider.route53Client = route53.New(sess)
 	}
 	if services.Has("s3") {
-		provider.s3Client = s3.New(session)
+		provider.s3Client = s3.New(sess)
 	}
 	if services.Has("ecs") {
-		provider.ecsClient = ecs.New(session)
+		provider.ecsClient = ecs.New(sess)
 	}
 	if services.Has("eks") {
-		provider.eksClient = eks.New(session)
+		provider.eksClient = eks.New(sess)
 	}
 	if services.Has("lambda") {
-		provider.lambdaClient = lambda.New(session)
+		provider.lambdaClient = lambda.New(sess)
 	}
 	if services.Has("apigateway") {
-		provider.apiGateway = apigateway.New(session)
+		provider.apiGateway = apigateway.New(sess)
 	}
 	if services.Has("alb") {
-		provider.albClient = elbv2.New(session)
+		provider.albClient = elbv2.New(sess)
 	}
 	if services.Has("elb") {
-		provider.elbClient = elb.New(session)
+		provider.elbClient = elb.New(sess)
 	}
 	if services.Has("lightsail") {
-		provider.lightsailClient = lightsail.New(session)
+		provider.lightsailClient = lightsail.New(sess)
 	}
 	if services.Has("cloudfront") {
-		provider.cloudFrontClient = cloudfront.New(session)
+		provider.cloudFrontClient = cloudfront.New(sess)
 	}
 	return provider, nil
 }
@@ -166,6 +217,9 @@ const apiAccessKey = "aws_access_key"
 const apiSecretKey = "aws_secret_key"
 const sessionToken = "aws_session_token"
 const assumeRoleName = "assume_role_name"
+const assumeRoleArn = "assume_role_arn"
+const externalId = "external_id"
+const assumeRoleSessionName = "assume_role_session_name"
 const accountIds = "account_ids"
 
 // Name returns the name of the provider
