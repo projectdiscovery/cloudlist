@@ -69,6 +69,11 @@ func (l *lightsailProvider) listListsailResources(lsClient *lightsail.Lightsail)
 				Public:      publicIPv4 != "",
 				Service:     l.name(),
 			}
+
+			if len(instance.Ipv6Addresses) > 0 {
+				resource.PublicIPv6 = aws.StringValue(instance.Ipv6Addresses[0])
+			}
+
 			list.Append(resource)
 		}
 		if aws.StringValue(resp.NextPageToken) == "" {

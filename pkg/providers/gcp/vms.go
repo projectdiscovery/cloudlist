@@ -43,6 +43,7 @@ func (d *cloudVMProvider) GetResource(ctx context.Context) (*schema.Resources, e
 						Public:     true,
 						Provider:   providerName,
 						PublicIPv4: cfg.NatIP,
+						PublicIPv6: cfg.ExternalIpv6,
 						Service:    d.name(),
 					})
 				}

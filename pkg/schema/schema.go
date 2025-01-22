@@ -66,11 +66,16 @@ func (r *Resources) appendResourceWithTypeAndMeta(resourceType validate.Resource
 	case validate.DNSName:
 		resource.Public = true
 		resource.DNSName = item
-	case validate.PublicIP:
+	case validate.PublicIPv4:
 		resource.Public = true
 		resource.PublicIPv4 = item
-	case validate.PrivateIP:
+	case validate.PublicIPv6:
+		resource.Public = true
+		resource.PublicIPv6 = item
+	case validate.PrivateIPv4:
 		resource.PrivateIpv4 = item
+	case validate.PrivateIPv6:
+		resource.PrivateIpv6 = item
 	default:
 		return
 	}
@@ -89,10 +94,20 @@ func (r *Resources) appendResource(resource *Resource, uniqueMap *sync.Map) {
 		r.appendResourceWithTypeAndMeta(resourceType, resource.PublicIPv4, resource.ID, resource.Provider, resource.Service)
 		uniqueMap.Store(resource.PublicIPv4, struct{}{})
 	}
+	if _, ok := uniqueMap.Load(resource.PublicIPv6); !ok && resource.PublicIPv6 != "" {
+		resourceType := validator.Identify(resource.PublicIPv6)
+		r.appendResourceWithTypeAndMeta(resourceType, resource.PublicIPv6, resource.ID, resource.Provider, resource.Service)
+		uniqueMap.Store(resource.PublicIPv6, struct{}{})
+	}
 	if _, ok := uniqueMap.Load(resource.PrivateIpv4); !ok && resource.PrivateIpv4 != "" {
 		resourceType := validator.Identify(resource.PrivateIpv4)
 		r.appendResourceWithTypeAndMeta(resourceType, resource.PrivateIpv4, resource.ID, resource.Provider, resource.Service)
 		uniqueMap.Store(resource.PrivateIpv4, struct{}{})
+	}
+	if _, ok := uniqueMap.Load(resource.PrivateIpv6); !ok && resource.PrivateIpv6 != "" {
+		resourceType := validator.Identify(resource.PrivateIpv6)
+		r.appendResourceWithTypeAndMeta(resourceType, resource.PrivateIpv6, resource.ID, resource.Provider, resource.Service)
+		uniqueMap.Store(resource.PrivateIpv6, struct{}{})
 	}
 }
 
@@ -124,8 +139,12 @@ type Resource struct {
 	ID string `json:"id,omitempty"`
 	// PublicIPv4 is the public ipv4 address of the instance.
 	PublicIPv4 string `json:"public_ipv4,omitempty"`
+	// PublicIPv6 is the public ipv6 address of the instance.
+	PublicIPv6 string `json:"public_ipv6,omitempty"`
 	// PrivateIpv4 is the private ipv4 address of the instance
 	PrivateIpv4 string `json:"private_ipv4,omitempty"`
+	// PrivateIpv6 is the private ipv6 address of the instance
+	PrivateIpv6 string `json:"private_ipv6,omitempty"`
 	// DNSName is the DNS name of the resource
 	DNSName string `json:"dns_name,omitempty"`
 }
@@ -157,7 +176,7 @@ func (ob *OptionBlock) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	// Convert raw map to OptionBlock and handle special cases
 	for key, value := range rawMap {
 		switch key {
-		case "account_ids":
+		case "account_ids", "urls":
 			if valueArr, ok := value.([]interface{}); ok {
 				var strArr []string
 				for _, v := range valueArr {
@@ -169,6 +188,14 @@ func (ob *OptionBlock) UnmarshalYAML(unmarshal func(interface{}) error) error {
 					default:
 						return fmt.Errorf("unsupported type %T in account_ids", v)
 					}
+				}
+				(*ob)[key] = strings.Join(strArr, ",")
+			}
+		case "headers":
+			if valueMap, ok := value.(map[interface{}]interface{}); ok {
+				var strArr []string
+				for k, v := range valueMap {
+					strArr = append(strArr, fmt.Sprintf("%s: %s", k, v))
 				}
 				(*ob)[key] = strings.Join(strArr, ",")
 			}

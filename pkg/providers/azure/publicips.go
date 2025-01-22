@@ -35,13 +35,21 @@ func (pip *publicIPProvider) GetResource(ctx context.Context) (*schema.Resources
 		if ip.IPAddress == nil {
 			continue
 		}
-		list.Append(&schema.Resource{
-			Provider:   providerName,
-			PublicIPv4: *ip.IPAddress,
-			ID:         pip.id,
-			Public:     true,
-			Service:    pip.name(),
-		})
+
+		resource := &schema.Resource{
+			Provider: providerName,
+			ID:       pip.id,
+			Public:   true,
+			Service:  pip.name(),
+		}
+
+		if ip.PublicIPAddressVersion == network.IPv4 {
+			resource.PublicIPv4 = *ip.IPAddress
+		} else {
+			resource.PublicIPv6 = *ip.IPAddress
+		}
+
+		list.Append(resource)
 	}
 	return list, nil
 }

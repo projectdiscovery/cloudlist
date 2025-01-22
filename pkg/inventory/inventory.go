@@ -9,6 +9,7 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/providers/azure"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/cloudflare"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/consul"
+	"github.com/projectdiscovery/cloudlist/pkg/providers/custom"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/digitalocean"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/fastly"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/gcp"
@@ -69,6 +70,7 @@ var Providers = map[string][]string{
 	"hetzner":      hetzner.Services,
 	"openstack":    openstack.Services,
 	"kubernetes":   k8s.Services,
+	"custom":       custom.Services,
 }
 
 func GetProviders() []string {
@@ -124,6 +126,8 @@ func nameToProvider(value string, block schema.OptionBlock) (schema.Provider, er
 		return openstack.New(block)
 	case "kubernetes":
 		return k8s.New(block)
+	case "custom":
+		return custom.New(block)
 	default:
 		return nil, fmt.Errorf("invalid provider name found: %s", value)
 	}

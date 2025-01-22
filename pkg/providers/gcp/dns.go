@@ -58,14 +58,21 @@ func (d *cloudDNSProvider) parseRecordsForResourceSet(r *dns.ResourceRecordSetsL
 		}
 
 		for _, data := range resource.Rrdatas {
-			list.Append(&schema.Resource{
-				DNSName:    resource.Name,
-				Public:     true,
-				PublicIPv4: data,
-				ID:         d.id,
-				Provider:   providerName,
-				Service:    d.name(),
-			})
+			dst := &schema.Resource{
+				DNSName:  resource.Name,
+				Public:   true,
+				ID:       d.id,
+				Provider: providerName,
+				Service:  d.name(),
+			}
+
+			if resource.Type == "A" {
+				dst.PublicIPv4 = data
+			} else if resource.Type == "AAAA" {
+				dst.PublicIPv6 = data
+			}
+
+			list.Append(dst)
 		}
 	}
 	return list
