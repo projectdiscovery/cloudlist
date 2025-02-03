@@ -185,7 +185,7 @@ require (
 
 require (
 	github.com/projectdiscovery/networkpolicy v0.1.3
-	github.com/projectdiscovery/retryablehttp-go v1.0.96
+	github.com/projectdiscovery/retryablehttp-go v1.0.98
 )
 
 require (
@@ -200,8 +200,8 @@ require (
 	github.com/gaissmai/bart v0.17.8 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
-	github.com/projectdiscovery/fastdialer v0.2.15 // indirect
-	github.com/projectdiscovery/hmap v0.0.75 // indirect
+	github.com/projectdiscovery/fastdialer v0.3.0 // indirect
+	github.com/projectdiscovery/hmap v0.0.77 // indirect
 	github.com/projectdiscovery/retryabledns v1.0.94 // indirect
 	github.com/refraction-networking/utls v1.6.7 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
