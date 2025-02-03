@@ -15,6 +15,12 @@ Amazon Web Services can be integrated by using the following configuration block
   aws_secret_key: $AWS_SECRET_KEY
   # aws_session_token session token for temporary security credentials retrieved via STS (optional)
   aws_session_token: $AWS_SESSION_TOKEN
+  # assume_role_arn is the arn of the role to assume (optional)
+  assume_role_arn: $AWS_ASSUME_ROLE_ARN
+  # external_id is the external id for the role to assume (required if assume_role_arn is provided)
+  external_id: $AWS_EXTERNAL_ID
+  # assume_role_session_name is the name of the session for the role to assume (required if assume_role_arn is provided)
+  assume_role_session_name: $AWS_ASSUME_ROLE_SESSION_NAME
  # assume_role_name is the name of the role to assume (optional)
  assume_role_name: $AWS_ASSUME_ROLE_NAME
  # account_ids is the aws account ids which has similar assumed role name (optional)
