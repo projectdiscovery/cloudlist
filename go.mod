@@ -30,7 +30,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/goflags v0.1.70
 	github.com/projectdiscovery/gologger v1.1.43
-	github.com/projectdiscovery/utils v0.4.8
+	github.com/projectdiscovery/utils v0.4.9
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.14
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/oauth2 v0.15.0
@@ -201,7 +201,7 @@ require (
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/projectdiscovery/fastdialer v0.3.0 // indirect
-	github.com/projectdiscovery/hmap v0.0.77 // indirect
+	github.com/projectdiscovery/hmap v0.0.79 // indirect
 	github.com/projectdiscovery/retryabledns v1.0.94 // indirect
 	github.com/refraction-networking/utls v1.6.7 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
