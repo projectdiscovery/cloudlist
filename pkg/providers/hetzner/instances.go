@@ -31,8 +31,9 @@ func (p *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 				Provider:   providerName,
 				ID:         p.id,
 				PublicIPv4: server.PublicNet.IPv4.IP.String(),
+				PublicIPv6: server.PublicNet.IPv6.IP.String(),
 				Public:     true,
-				Service:   p.name(),
+				Service:    p.name(),
 			})
 		}
 		for _, privateNet := range server.PrivateNet {

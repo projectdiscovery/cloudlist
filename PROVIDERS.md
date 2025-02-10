@@ -15,6 +15,18 @@ Amazon Web Services can be integrated by using the following configuration block
   aws_secret_key: $AWS_SECRET_KEY
   # aws_session_token session token for temporary security credentials retrieved via STS (optional)
   aws_session_token: $AWS_SESSION_TOKEN
+  # assume_role_arn is the arn of the role to assume (optional)
+  assume_role_arn: $AWS_ASSUME_ROLE_ARN
+  # external_id is the external id for the role to assume (required if assume_role_arn is provided)
+  external_id: $AWS_EXTERNAL_ID
+  # assume_role_session_name is the name of the session for the role to assume (required if assume_role_arn is provided)
+  assume_role_session_name: $AWS_ASSUME_ROLE_SESSION_NAME
+ # assume_role_name is the name of the role to assume (optional)
+ assume_role_name: $AWS_ASSUME_ROLE_NAME
+ # account_ids is the aws account ids which has similar assumed role name (optional)
+ account_ids:
+   - $AWS_ACCOUNT_ID_1
+   - $AWS_ACCOUNT_ID_2
 ```
 
 `aws_access_key` and `aws_secret_key` can be generated in the IAM console. We recommend creating a new IAM user with `Read Only` permissions and providing the access token for the user.
@@ -27,6 +39,11 @@ References -
 1. https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_examples_iam_read-only-console.html
 2. https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
 3. https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_request.html
+
+- Aws Assume Role:
+
+  - https://docs.aws.amazon.com/sdkref/latest/guide/feature-assume-role-credentials.html
+  - https://docs.logrhythm.com/OCbeats/docs/aws-cross-account-access-using-sts-assume-role
    
 ### Google Cloud Platform (GCP)
 
@@ -123,6 +140,24 @@ Scaleway can be integrated by using the following configuration block.
 References - 
 1. https://www.scaleway.com/en/docs/generate-api-keys/
    
+### ArvanCloud
+
+ArvanCloud can be integrated by using the following configuration block.
+
+```yaml
+- # provider is the name of the provider
+  provider: arvancloud # or r1c
+  # api_key is the api_key for arvancloud
+  api_key: $R1C_API_KEY
+```
+
+The `api_key` can be generated from ArvanCloud Machine User manager.
+
+References - 
+1. https://www.arvancloud.ir/en/dev/api
+2. https://docs.arvancloud.ir/en/developer-tools/api/api-usage
+3. https://panel.arvancloud.ir/profile/machine-user
+
 ### Cloudflare 
 
 Cloudflare can be integrated by using the following configuration block.

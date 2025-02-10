@@ -77,8 +77,12 @@ type Resource struct {
 	ID string `json:"id,omitempty"`
 	// PublicIPv4 is the public ipv4 address of the instance.
 	PublicIPv4 string `json:"public_ipv4,omitempty"`
+	// PublicIPv6 is the public ipv6 address of the instance.
+	PublicIPv6 string `json:"public_ipv6,omitempty"`
 	// PrivateIpv4 is the private ipv4 address of the instance
 	PrivateIpv4 string `json:"private_ipv4,omitempty"`
+	// PrivateIpv6 is the private ipv6 address of the instance
+	PrivateIpv6 string `json:"private_ipv6,omitempty"`
 	// DNSName is the DNS name of the resource
 	DNSName string `json:"dns_name,omitempty"`
 }

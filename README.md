@@ -63,11 +63,11 @@ CONFIGURATION:
    -pc, -provider-config string  provider config file (default "$HOME/.config/cloudlist/provider-config.yaml")
 
 FILTERS:
-   -p, -provider value    display results for given providers (comma-separated) (default linode,fastly,heroku,terraform,digitalocean,consul,cloudflare,hetzner,nomad,do,scw,openstack,alibaba,aws,gcp,namecheap,kubernetes,azure)
+   -p, -provider value    display results for given providers (comma-separated) (default linode,fastly,heroku,terraform,digitalocean,consul,cloudflare,hetzner,nomad,do,scw,openstack,alibaba,aws,gcp,namecheap,kubernetes,azure, custom)
    -id string[]           display results for given ids (comma-separated)
    -host                  display only hostnames in results
    -ip                    display only ips in results
-   -s, -service value     query and display results from given service (comma-separated)) (default cloudfront,gke,domain,compute,ec2,instance,cloud-function,app,eks,consul,droplet,vm,ecs,fastly,alb,s3,lambda,elb,cloud-run,route53,publicip,dns,service,nomad,lightsail,ingress,apigateway)
+   -s, -service value     query and display results from given service (comma-separated)) (default cloudfront,gke,domain,compute,ec2,instance,cloud-function,app,eks,custom,consul,droplet,vm,ecs,fastly,alb,s3,lambda,elb,cloud-run,route53,publicip,dns,service,nomad,lightsail,ingress,apigateway)
    -ep, -exclude-private  exclude private ips in cli output
 
 UPDATE:
