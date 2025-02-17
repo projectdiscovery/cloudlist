@@ -156,8 +156,8 @@ github.com/fatih/color v1.15.0/go.mod h1:0h5ZqXfHYED7Bhv2ZJamyIOUej9KtShiJESRwBD
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/fsnotify/fsnotify v1.7.0 h1:8JEhPFa5W2WU7YfeZzPNqzMP6Lwt7L2715Ggo0nosvA=
 github.com/fsnotify/fsnotify v1.7.0/go.mod h1:40Bi/Hjc2AVfZrqy+aj+yEI+/bRxZnMJyTJwOpGvigM=
-github.com/gaissmai/bart v0.17.8 h1:REVOltckoqNqNrdhKYgA4THrufgzr2CuPKKXsSQMRhw=
-github.com/gaissmai/bart v0.17.8/go.mod h1:JCPkH/Xt5bSPCKDc6OpzkhSCeib8BIxu3kthzZwcl6w=
+github.com/gaissmai/bart v0.17.10 h1:TY1y++A6N/ESrwRLTRWrnVOrQpZqpOYSVnKMu/FYW6o=
+github.com/gaissmai/bart v0.17.10/go.mod h1:JCPkH/Xt5bSPCKDc6OpzkhSCeib8BIxu3kthzZwcl6w=
 github.com/ghodss/yaml v1.0.0/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/go-kit/kit v0.8.0/go.mod h1:xBxKIO96dXMWWy0MnWVtmwkA9/13aqxPnvrjFYMA2as=
 github.com/go-kit/kit v0.9.0/go.mod h1:xBxKIO96dXMWWy0MnWVtmwkA9/13aqxPnvrjFYMA2as=
@@ -475,8 +475,8 @@ github.com/projectdiscovery/hmap v0.0.79 h1:tJsml7cHNFCaNdaJLh5p8yvwx/hlgFotdRRu
 github.com/projectdiscovery/hmap v0.0.79/go.mod h1:npHErVQb4U40KzQO87gqasTBbd8SRRIZ3nMAEqZN0Ic=
 github.com/projectdiscovery/machineid v0.0.0-20240226150047-2e2c51e35983 h1:ZScLodGSezQVwsQDtBSMFp72WDq0nNN+KE/5DHKY5QE=
 github.com/projectdiscovery/machineid v0.0.0-20240226150047-2e2c51e35983/go.mod h1:3G3BRKui7nMuDFAZKR/M2hiOLtaOmyukT20g88qRQjI=
-github.com/projectdiscovery/networkpolicy v0.1.4 h1:H5+HHZF6tpG2VWBw9qL7xk8LGlAjpmS+Ip7gRBsQnH4=
-github.com/projectdiscovery/networkpolicy v0.1.4/go.mod h1:tdiWEMiFcLNZSzA8nc0U879Iot1ThrpbphJTcFjlQic=
+github.com/projectdiscovery/networkpolicy v0.1.5 h1:8o56PvwTvyxwaixLLL+G/bJhVW1tRiNThMNd9Og7NHM=
+github.com/projectdiscovery/networkpolicy v0.1.5/go.mod h1:+j6j76xNRU+mNDvuY/pQHGvwgcfEI1i29lG2emzFpls=
 github.com/projectdiscovery/retryabledns v1.0.94 h1:MvxtRcmvxhxikxT7p/E40hcYRWRiL5fg/JQ8bpBaz+0=
 github.com/projectdiscovery/retryabledns v1.0.94/go.mod h1:croGTyMM4yNlrSWA/X7xNe3c0c7mDmCdbm8goLd8Bak=
 github.com/projectdiscovery/retryablehttp-go v1.0.99 h1:S+lQqo1ZnO5aoWsBV8HapGslJSaYVUII954SnH1RSjw=
