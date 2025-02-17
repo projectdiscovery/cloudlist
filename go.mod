@@ -184,7 +184,7 @@ require (
 )
 
 require (
-	github.com/projectdiscovery/networkpolicy v0.1.4
+	github.com/projectdiscovery/networkpolicy v0.1.5
 	github.com/projectdiscovery/retryablehttp-go v1.0.99
 )
 
@@ -197,7 +197,7 @@ require (
 	github.com/charmbracelet/x/ansi v0.3.2 // indirect
 	github.com/cloudflare/circl v1.3.7 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
-	github.com/gaissmai/bart v0.17.8 // indirect
+	github.com/gaissmai/bart v0.17.10 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/projectdiscovery/fastdialer v0.3.0 // indirect
