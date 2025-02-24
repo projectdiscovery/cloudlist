@@ -201,7 +201,7 @@ require (
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/projectdiscovery/fastdialer v0.3.0 // indirect
-	github.com/projectdiscovery/hmap v0.0.80 // indirect
+	github.com/projectdiscovery/hmap v0.0.81 // indirect
 	github.com/projectdiscovery/retryabledns v1.0.94 // indirect
 	github.com/refraction-networking/utls v1.6.7 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
