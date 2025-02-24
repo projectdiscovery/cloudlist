@@ -30,7 +30,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/goflags v0.1.72
 	github.com/projectdiscovery/gologger v1.1.45
-	github.com/projectdiscovery/utils v0.4.10
+	github.com/projectdiscovery/utils v0.4.11
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.14
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/oauth2 v0.15.0
@@ -185,7 +185,7 @@ require (
 
 require (
 	github.com/projectdiscovery/networkpolicy v0.1.5
-	github.com/projectdiscovery/retryablehttp-go v1.0.100
+	github.com/projectdiscovery/retryablehttp-go v1.0.101
 )
 
 require (
