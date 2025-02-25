@@ -78,11 +78,11 @@ func ParseOptions() *Options {
 		flagSet.StringVarP(&options.ProviderConfig, "provider-config", "pc", defaultProviderConfigLocation, "provider config file"),
 	)
 	flagSet.CreateGroup("filter", "Filters",
-		flagSet.StringSliceVarP(&options.Providers, "provider", "p", nil, "display results for given providers (comma-separated)"+" (default "+strings.Join(defaultProviders, ",")+")", goflags.CommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.Providers, "provider", "p", nil, "display results for given providers (comma-separated) (default "+strings.Join(defaultProviders, ",")+")", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVar(&options.Id, "id", nil, "display results for given ids (comma-separated)", goflags.NormalizedStringSliceOptions),
 		flagSet.BoolVar(&options.Hosts, "host", false, "display only hostnames in results"),
 		flagSet.BoolVar(&options.IPAddress, "ip", false, "display only ips in results"),
-		flagSet.StringSliceVarP(&options.Services, "service", "s", nil, "query and display results from given service (comma-separated))"+" (default "+strings.Join(defaultServies, ",")+")", goflags.CommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.Services, "service", "s", nil, "query and display results from given service (comma-separated)) (default "+strings.Join(defaultServies, ",")+")", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.BoolVarP(&options.ExcludePrivate, "exclude-private", "ep", false, "exclude private ips in cli output"),
 	)
 	flagSet.CreateGroup("update", "Update",
