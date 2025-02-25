@@ -31,6 +31,20 @@ func New(options *Options) (*Runner, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// CLI overrides config
+	if len(options.Services) == 0 {
+		options.Services = append(options.Services, config.GetServiceNames()...)
+	}
+
+	// assign default services if not provided
+	if len(options.Services) == 0 {
+		options.Services = append(options.Services, defaultServies...)
+	}
+	if len(options.Providers) == 0 {
+		options.Providers = append(options.Providers, defaultProviders...)
+	}
+
 	return &Runner{config: config, options: options}, nil
 }
 
@@ -53,8 +67,8 @@ func (r *Runner) Enumerate() {
 			item["services"] = strings.Join(services, ",")
 		}
 		// Validate and only pass the correct items to input
-		if len(r.options.Provider) != 0 || len(r.options.Id) != 0 {
-			if len(r.options.Provider) != 0 && !Contains(r.options.Provider, item["provider"]) {
+		if len(r.options.Providers) != 0 || len(r.options.Id) != 0 {
+			if len(r.options.Providers) != 0 && !Contains(r.options.Providers, item["provider"]) {
 				continue
 			}
 			if len(r.options.Id) != 0 && !Contains(r.options.Id, item["id"]) {
