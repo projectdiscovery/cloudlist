@@ -162,6 +162,22 @@ func (e *ErrNoSuchKey) Error() string {
 // Options contains configuration options for a provider
 type Options []OptionBlock
 
+// GetServiceNames returns the services from the options
+func (o Options) GetServiceNames() []string {
+	services := make([]string, 0)
+	for _, option := range o {
+		if serviceNameList, ok := option["services"]; ok {
+			for _, serviceName := range strings.Split(serviceNameList, ",") {
+				trimmedServiceName := strings.TrimSpace(serviceName)
+				if trimmedServiceName != "" {
+					services = append(services, trimmedServiceName)
+				}
+			}
+		}
+	}
+	return services
+}
+
 // OptionBlock is a single option on which operation is possible
 type OptionBlock map[string]string
 
@@ -176,7 +192,7 @@ func (ob *OptionBlock) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	// Convert raw map to OptionBlock and handle special cases
 	for key, value := range rawMap {
 		switch key {
-		case "account_ids", "urls":
+		case "account_ids", "urls", "services":
 			if valueArr, ok := value.([]interface{}); ok {
 				var strArr []string
 				for _, v := range valueArr {
