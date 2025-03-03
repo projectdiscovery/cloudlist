@@ -475,8 +475,8 @@ github.com/projectdiscovery/hmap v0.0.81 h1:M1wg+RS4xqNGCn0EjsjtrocUidfAk7iTztAC
 github.com/projectdiscovery/hmap v0.0.81/go.mod h1:zpx2eQHow57PNpgmVuhzcSGM1olHlMMBmqy2L5Z6FNk=
 github.com/projectdiscovery/machineid v0.0.0-20240226150047-2e2c51e35983 h1:ZScLodGSezQVwsQDtBSMFp72WDq0nNN+KE/5DHKY5QE=
 github.com/projectdiscovery/machineid v0.0.0-20240226150047-2e2c51e35983/go.mod h1:3G3BRKui7nMuDFAZKR/M2hiOLtaOmyukT20g88qRQjI=
-github.com/projectdiscovery/networkpolicy v0.1.6 h1:DSJz1mEvQqqs25HcCJE8HzDHjsPE60hCMriXAgRQoJk=
-github.com/projectdiscovery/networkpolicy v0.1.6/go.mod h1:XlJMqPdEh3qjfJr7jsMBDLSIRKlaEsoEtHYZ0zH8F7Y=
+github.com/projectdiscovery/networkpolicy v0.1.7 h1:SIFsv5f8JYDwCUH/AUTeB3dpXthx0AUz2rej64rNWwY=
+github.com/projectdiscovery/networkpolicy v0.1.7/go.mod h1:grubaCHOEgT6a2r/p8DlfOwovEL4N8Fd3yye7/ACwug=
 github.com/projectdiscovery/retryabledns v1.0.94 h1:MvxtRcmvxhxikxT7p/E40hcYRWRiL5fg/JQ8bpBaz+0=
 github.com/projectdiscovery/retryabledns v1.0.94/go.mod h1:croGTyMM4yNlrSWA/X7xNe3c0c7mDmCdbm8goLd8Bak=
 github.com/projectdiscovery/retryablehttp-go v1.0.102 h1:OgVbzGzFq1a82D/kVoooPSgRHU17RDO/fVWUTfMyDvE=
