@@ -481,8 +481,8 @@ github.com/projectdiscovery/retryabledns v1.0.94 h1:MvxtRcmvxhxikxT7p/E40hcYRWRi
 github.com/projectdiscovery/retryabledns v1.0.94/go.mod h1:croGTyMM4yNlrSWA/X7xNe3c0c7mDmCdbm8goLd8Bak=
 github.com/projectdiscovery/retryablehttp-go v1.0.102 h1:OgVbzGzFq1a82D/kVoooPSgRHU17RDO/fVWUTfMyDvE=
 github.com/projectdiscovery/retryablehttp-go v1.0.102/go.mod h1:hDyw8H3GOeA0XjpdTdS4JF7qflojp6PAZ9t6vCFFbCU=
-github.com/projectdiscovery/utils v0.4.12 h1:3HE+4Go4iTwipeN2B+tC7xl7KS4BgXgp0BZaQXE2bjM=
-github.com/projectdiscovery/utils v0.4.12/go.mod h1:EDUNBDGTO+Tfl6YQj3ADg97iYp2h8IbCmpP24LMW3+E=
+github.com/projectdiscovery/utils v0.4.13 h1:mRCv0HM8XSAGb4AzeVW+w3o+AKedZfXdNN/yk7tMvO0=
+github.com/projectdiscovery/utils v0.4.13/go.mod h1:y5gnpQn802iEWqf0djTRNskJlS62P5eqe1VS1+ah0tk=
 github.com/prometheus/client_golang v0.9.1/go.mod h1:7SWBe2y4D6OKWSNQJUaRYU/AaXPKyh/dDVn+NZz0KFw=
 github.com/prometheus/client_golang v1.0.0/go.mod h1:db9x61etRT2tGnBNRi70OPL5FsnadC4Ky3P0J6CfImo=
 github.com/prometheus/client_golang v1.4.0/go.mod h1:e9GMxYsXl05ICDXkRhurwBS4Q3OK1iX/F2sw+iXX5zU=
