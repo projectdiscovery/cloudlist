@@ -184,7 +184,7 @@ require (
 )
 
 require (
-	github.com/projectdiscovery/networkpolicy v0.1.6
+	github.com/projectdiscovery/networkpolicy v0.1.7
 	github.com/projectdiscovery/retryablehttp-go v1.0.102
 )
 
