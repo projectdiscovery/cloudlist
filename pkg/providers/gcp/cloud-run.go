@@ -26,7 +26,7 @@ func (d *cloudRunProvider) GetResource(ctx context.Context) (*schema.Resources, 
 	if err != nil {
 		return nil, fmt.Errorf("could not get services: %s", err)
 	}
-	
+
 	for _, service := range services {
 		serviceUrl, _ := url.Parse(service.Status.Url)
 		resource := &schema.Resource{
@@ -47,14 +47,14 @@ func (d *cloudRunProvider) getServices() ([]*run.Service, error) {
 		locationsService := d.run.Projects.Locations.List(fmt.Sprintf("projects/%s", project))
 		locationsResponse, err := locationsService.Do()
 		if err != nil {
-			continue
+			return nil, FormatGoogleError(fmt.Errorf("could not list locations for project %s: %w", project, err))
 		}
 
 		for _, location := range locationsResponse.Locations {
 			servicesService := d.run.Projects.Locations.Services.List(location.Name)
 			servicesResponse, err := servicesService.Do()
 			if err != nil {
-				continue
+				return nil, FormatGoogleError(fmt.Errorf("could not list services for location %s in project %s: %w", location.Name, project, err))
 			}
 			services = append(services, servicesResponse.Items...)
 		}

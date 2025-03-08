@@ -2,7 +2,7 @@ package gcp
 
 import (
 	"context"
-	"log"
+	"fmt"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"google.golang.org/api/dns/v1"
@@ -24,25 +24,40 @@ func (d *cloudDNSProvider) GetResource(ctx context.Context) (*schema.Resources, 
 	list := schema.NewResources()
 
 	for _, project := range d.projects {
-		zone := d.dns.ManagedZones.List(project)
-		err := zone.Pages(context.Background(), func(resp *dns.ManagedZonesListResponse) error {
-			for _, z := range resp.ManagedZones {
-				resources := d.dns.ResourceRecordSets.List(project, z.Name)
-				err := resources.Pages(context.Background(), func(r *dns.ResourceRecordSetsListResponse) error {
-					items := d.parseRecordsForResourceSet(r)
-					list.Merge(items)
+		dnsZonesService := d.dns.ManagedZones.List(project)
+		err := dnsZonesService.Pages(context.Background(), func(zones *dns.ManagedZonesListResponse) error {
+			for _, zone := range zones.ManagedZones {
+				dnsRecordsService := d.dns.ResourceRecordSets.List(project, zone.Name)
+				recordsErr := dnsRecordsService.Pages(context.Background(), func(records *dns.ResourceRecordSetsListResponse) error {
+					for _, record := range records.Rrsets {
+						if record.Type == "A" || record.Type == "AAAA" || record.Type == "CNAME" {
+							for _, data := range record.Rrdatas {
+								dst := &schema.Resource{
+									DNSName:  record.Name,
+									Public:   true,
+									ID:       d.id,
+									Provider: providerName,
+									Service:  d.name(),
+								}
+								if record.Type == "A" {
+									dst.PublicIPv4 = data
+								} else if record.Type == "AAAA" {
+									dst.PublicIPv6 = data
+								}
+								list.Append(dst)
+							}
+						}
+					}
 					return nil
 				})
-				if err != nil {
-					log.Printf("Could not get resource_records for zone %s in project %s: %s\n", z.Name, project, err)
-					continue
+				if recordsErr != nil {
+					return fmt.Errorf("could not get DNS records for zone %s in project %s: %s", zone.Name, project, ExtractGoogleErrorReason(recordsErr))
 				}
 			}
 			return nil
 		})
 		if err != nil {
-			log.Printf("Could not get all zones for project %s: %s\n", project, err)
-			continue
+			return nil, fmt.Errorf("could not get DNS zones for project %s: %s", project, ExtractGoogleErrorReason(err))
 		}
 	}
 	return list, nil

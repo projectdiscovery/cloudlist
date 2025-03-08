@@ -24,7 +24,7 @@ func (d *cloudStorageProvider) GetResource(ctx context.Context) (*schema.Resourc
 
 	buckets, err := d.getBuckets()
 	if err != nil {
-		return nil, fmt.Errorf("could not get buckets: %s", err)
+		return nil, fmt.Errorf("could not get buckets: %s", ExtractGoogleErrorReason(err))
 	}
 	for _, bucket := range buckets {
 		resource := &schema.Resource{
@@ -43,10 +43,13 @@ func (d *cloudStorageProvider) getBuckets() ([]*storage.Bucket, error) {
 	var buckets []*storage.Bucket
 	for _, project := range d.projects {
 		bucketsService := d.storage.Buckets.List(project)
-		_ = bucketsService.Pages(context.Background(), func(bal *storage.Buckets) error {
+		err := bucketsService.Pages(context.Background(), func(bal *storage.Buckets) error {
 			buckets = append(buckets, bal.Items...)
 			return nil
 		})
+		if err != nil {
+			return nil, fmt.Errorf("could not list buckets for project %s: %s", project, ExtractGoogleErrorReason(err))
+		}
 	}
 	return buckets, nil
 }

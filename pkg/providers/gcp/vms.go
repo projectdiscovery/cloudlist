@@ -2,7 +2,7 @@ package gcp
 
 import (
 	"context"
-	"log"
+	"fmt"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"google.golang.org/api/compute/v1"
@@ -51,8 +51,7 @@ func (d *cloudVMProvider) GetResource(ctx context.Context) (*schema.Resources, e
 			return nil
 		})
 		if err != nil {
-			log.Printf("Could not get all instances for project %s: %s\n", project, err)
-			continue
+			return nil, fmt.Errorf("could not get all instances for project %s: %s", project, ExtractGoogleErrorReason(err))
 		}
 	}
 	return list, nil

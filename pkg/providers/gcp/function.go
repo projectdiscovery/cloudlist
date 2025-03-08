@@ -24,7 +24,7 @@ func (d *cloudFunctionsProvider) GetResource(ctx context.Context) (*schema.Resou
 	list := schema.NewResources()
 	functions, err := d.getFunctions()
 	if err != nil {
-		return nil, fmt.Errorf("could not get functions: %s", err)
+		return nil, fmt.Errorf("could not get functions: %s", ExtractGoogleErrorReason(err))
 	}
 	for _, function := range functions {
 		funcUrl, _ := url.Parse(function.HttpsTrigger.Url)
@@ -44,10 +44,13 @@ func (d *cloudFunctionsProvider) getFunctions() ([]*cloudfunctions.CloudFunction
 	var functions []*cloudfunctions.CloudFunction
 	for _, project := range d.projects {
 		functionsService := d.functions.Projects.Locations.Functions.List(fmt.Sprintf("projects/%s/locations/-", project))
-		_ = functionsService.Pages(context.Background(), func(fal *cloudfunctions.ListFunctionsResponse) error {
+		err := functionsService.Pages(context.Background(), func(fal *cloudfunctions.ListFunctionsResponse) error {
 			functions = append(functions, fal.Functions...)
 			return nil
 		})
+		if err != nil {
+			return nil, fmt.Errorf("could not list functions for project %s: %s", project, ExtractGoogleErrorReason(err))
+		}
 	}
 	return functions, nil
 }
