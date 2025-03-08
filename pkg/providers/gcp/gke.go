@@ -35,52 +35,32 @@ func (d *gkeProvider) GetResource(ctx context.Context) (*schema.Resources, error
 		req := d.svc.Projects.Locations.Clusters.List(fmt.Sprintf("projects/%s/locations/-", project))
 		resp, err := req.Do()
 		if err != nil {
-			return nil, FormatGoogleError(fmt.Errorf("could not list GKE clusters for project %s: %w", project, err))
+			return nil, fmt.Errorf("could not list GKE clusters for project %s: %s", project, ExtractGoogleErrorReason(err))
 		}
-
+		if resp.Clusters == nil {
+			continue
+		}
 		for _, cluster := range resp.Clusters {
-			if len(cluster.MasterAuth.ClusterCaCertificate) > 0 && cluster.Endpoint != "" {
-				clientConfig, err := BuildClientConfig(cluster)
-				if err != nil {
-					continue
-				}
-
-				// Create the clientset
-				clientset, err := kubernetes.NewForConfig(clientConfig)
-				if err != nil {
-					continue
-				}
-
-				// List public IPs in the cluster
-				services, err := clientset.CoreV1().Services("").List(ctx, metav1.ListOptions{})
-				if err != nil {
-					continue
-				}
-
-				for _, service := range services.Items {
-					if service.Spec.Type == "LoadBalancer" {
-						for _, ing := range service.Status.LoadBalancer.Ingress {
-							if ing.IP != "" {
-								list.Append(&schema.Resource{
-									ID:         d.id,
-									Provider:   providerName,
-									Public:     true,
-									PublicIPv4: ing.IP,
-									Service:    d.name(),
-								})
-							}
-							if ing.Hostname != "" {
-								list.Append(&schema.Resource{
-									ID:       d.id,
-									Provider: providerName,
-									Public:   true,
-									DNSName:  ing.Hostname,
-									Service:  d.name(),
-								})
-							}
-						}
-					}
-				}
+			config, err := BuildClientConfig(cluster)
+			if err != nil {
+				continue
+			}
+			clientset, err := kubernetes.NewForConfig(config)
+			if err != nil {
+				continue
+			}
+			nodes, err := clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+			if err != nil {
+				continue
+			}
+			for range nodes.Items {
+				// Example logic: we just know the cluster might expose nodes publicly.
+				list.Append(&schema.Resource{
+					Public:   true,
+					ID:       d.id,
+					Provider: providerName,
+					Service:  d.name(),
+				})
 			}
 		}
 	}

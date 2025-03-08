@@ -28,31 +28,36 @@ func (d *cloudDNSProvider) GetResource(ctx context.Context) (*schema.Resources, 
 		err := dnsZonesService.Pages(context.Background(), func(zones *dns.ManagedZonesListResponse) error {
 			for _, zone := range zones.ManagedZones {
 				dnsRecordsService := d.dns.ResourceRecordSets.List(project, zone.Name)
-				err := dnsRecordsService.Pages(context.Background(), func(records *dns.ResourceRecordSetsListResponse) error {
+				recordsErr := dnsRecordsService.Pages(context.Background(), func(records *dns.ResourceRecordSetsListResponse) error {
 					for _, record := range records.Rrsets {
-						if record.Type == "A" || record.Type == "AAAA" {
+						if record.Type == "A" || record.Type == "AAAA" || record.Type == "CNAME" {
 							for _, data := range record.Rrdatas {
-								list.Append(&schema.Resource{
-									ID:         d.id,
-									Provider:   providerName,
-									Public:     true,
-									DNSName:    fmt.Sprintf("%s.", record.Name),
-									PublicIPv4: data,
-									Service:    d.name(),
-								})
+								dst := &schema.Resource{
+									DNSName:  record.Name,
+									Public:   true,
+									ID:       d.id,
+									Provider: providerName,
+									Service:  d.name(),
+								}
+								if record.Type == "A" {
+									dst.PublicIPv4 = data
+								} else if record.Type == "AAAA" {
+									dst.PublicIPv6 = data
+								}
+								list.Append(dst)
 							}
 						}
 					}
 					return nil
 				})
-				if err != nil {
-					return FormatGoogleError(fmt.Errorf("could not get DNS records for zone %s in project %s: %w", zone.Name, project, err))
+				if recordsErr != nil {
+					return fmt.Errorf("could not get DNS records for zone %s in project %s: %s", zone.Name, project, ExtractGoogleErrorReason(recordsErr))
 				}
 			}
 			return nil
 		})
 		if err != nil {
-			return nil, FormatGoogleError(fmt.Errorf("could not get DNS zones for project %s: %w", project, err))
+			return nil, fmt.Errorf("could not get DNS zones for project %s: %s", project, ExtractGoogleErrorReason(err))
 		}
 	}
 	return list, nil

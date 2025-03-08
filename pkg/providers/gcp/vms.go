@@ -51,7 +51,7 @@ func (d *cloudVMProvider) GetResource(ctx context.Context) (*schema.Resources, e
 			return nil
 		})
 		if err != nil {
-			return nil, FormatGoogleError(fmt.Errorf("could not get all instances for project %s: %w", project, err))
+			return nil, fmt.Errorf("could not get all instances for project %s: %s", project, ExtractGoogleErrorReason(err))
 		}
 	}
 	return list, nil
