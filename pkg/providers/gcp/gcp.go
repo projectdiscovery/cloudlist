@@ -136,6 +136,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	err = list.Pages(context.Background(), func(resp *cloudresourcemanager.ListProjectsResponse) error {
 		for _, project := range resp.Projects {
 			projects = append(projects, project.ProjectId)
+			gologger.Info().Msgf("Discovered project: %s", project.ProjectId)
 		}
 		return nil
 	})
@@ -147,58 +148,98 @@ func New(options schema.OptionBlock) (*Provider, error) {
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalResources := schema.NewResources()
 
-	if p.dns != nil {
-		cloudDNSProvider := &cloudDNSProvider{dns: p.dns, id: p.id, projects: p.projects}
-		zones, err := cloudDNSProvider.GetResource(ctx)
-		if err != nil {
-			return nil, err
-		}
-		finalResources.Merge(zones)
+	// First, list all discovered projects with INFO messages
+	for _, project := range p.projects {
+		gologger.Info().Msgf("Discovered project: %s", project)
 	}
 
-	if p.gke != nil {
-		GKEProvider := &gkeProvider{svc: p.gke, id: p.id, projects: p.projects}
-		gkeData, err := GKEProvider.GetResource(ctx)
-		if err != nil {
-			gologger.Warning().Msgf("Could not get GKE resources: %s\n", err)
-		}
-		finalResources.Merge(gkeData)
-	}
+	// Then process each project
+	for _, project := range p.projects {
+		gologger.Info().Msgf("Processing project: %s", project)
 
-	if p.compute != nil {
-		VMProvider := &cloudVMProvider{compute: p.compute, id: p.id, projects: p.projects}
-		vmData, err := VMProvider.GetResource(ctx)
-		if err != nil {
-			return nil, err
+		if p.dns != nil {
+			cloudDNSProvider := &cloudDNSProvider{dns: p.dns, id: p.id, projects: []string{project}}
+			zones, err := cloudDNSProvider.GetResource(ctx)
+			if err != nil {
+				if strings.Contains(err.Error(), "SERVICE_DISABLED") {
+					gologger.Warning().Msgf("Cloud DNS API Service disabled for project %s", project)
+				} else {
+					gologger.Error().Msgf("[ERROR] %s: %s", project, err.Error())
+				}
+			} else if zones != nil {
+				finalResources.Merge(zones)
+			}
 		}
-		finalResources.Merge(vmData)
-	}
 
-	if p.storage != nil {
-		cloudStorageProvider := &cloudStorageProvider{id: p.id, storage: p.storage, projects: p.projects}
-		storageData, err := cloudStorageProvider.GetResource(ctx)
-		if err != nil {
-			return nil, err
+		if p.gke != nil {
+			GKEProvider := &gkeProvider{svc: p.gke, id: p.id, projects: []string{project}}
+			gkeData, err := GKEProvider.GetResource(ctx)
+			if err != nil {
+				if strings.Contains(err.Error(), "SERVICE_DISABLED") {
+					gologger.Warning().Msgf("GKE API Service disabled for project %s", project)
+				} else {
+					gologger.Error().Msgf("[ERROR] %s: %s", project, err.Error())
+				}
+			} else if gkeData != nil {
+				finalResources.Merge(gkeData)
+			}
 		}
-		finalResources.Merge(storageData)
-	}
 
-	if p.functions != nil {
-		cloudFunctionsProvider := &cloudFunctionsProvider{id: p.id, functions: p.functions, projects: p.projects}
-		functionsData, err := cloudFunctionsProvider.GetResource(ctx)
-		if err != nil {
-			return nil, err
+		if p.compute != nil {
+			VMProvider := &cloudVMProvider{compute: p.compute, id: p.id, projects: []string{project}}
+			vmData, err := VMProvider.GetResource(ctx)
+			if err != nil {
+				if strings.Contains(err.Error(), "SERVICE_DISABLED") {
+					gologger.Warning().Msgf("Compute API Service disabled for project %s", project)
+				} else {
+					gologger.Error().Msgf("[ERROR] %s: %s", project, err.Error())
+				}
+			} else if vmData != nil {
+				finalResources.Merge(vmData)
+			}
 		}
-		finalResources.Merge(functionsData)
-	}
 
-	if p.run != nil {
-		cloudRunProvider := &cloudRunProvider{id: p.id, run: p.run, projects: p.projects}
-		cloudRunData, err := cloudRunProvider.GetResource(ctx)
-		if err != nil {
-			return nil, err
+		if p.storage != nil {
+			cloudStorageProvider := &cloudStorageProvider{id: p.id, storage: p.storage, projects: []string{project}}
+			storageData, err := cloudStorageProvider.GetResource(ctx)
+			if err != nil {
+				if strings.Contains(err.Error(), "SERVICE_DISABLED") {
+					gologger.Warning().Msgf("Storage API Service disabled for project %s", project)
+				} else {
+					gologger.Error().Msgf("[ERROR] %s: %s", project, err.Error())
+				}
+			} else if storageData != nil {
+				finalResources.Merge(storageData)
+			}
 		}
-		finalResources.Merge(cloudRunData)
+
+		if p.functions != nil {
+			cloudFunctionsProvider := &cloudFunctionsProvider{id: p.id, functions: p.functions, projects: []string{project}}
+			functionsData, err := cloudFunctionsProvider.GetResource(ctx)
+			if err != nil {
+				if strings.Contains(err.Error(), "SERVICE_DISABLED") {
+					gologger.Warning().Msgf("Cloud Functions API Service disabled for project %s", project)
+				} else {
+					gologger.Error().Msgf("[ERROR] %s: %s", project, err.Error())
+				}
+			} else if functionsData != nil {
+				finalResources.Merge(functionsData)
+			}
+		}
+
+		if p.run != nil {
+			cloudRunProvider := &cloudRunProvider{id: p.id, run: p.run, projects: []string{project}}
+			cloudRunData, err := cloudRunProvider.GetResource(ctx)
+			if err != nil {
+				if strings.Contains(err.Error(), "SERVICE_DISABLED") {
+					gologger.Warning().Msgf("Cloud Run API Service disabled for project %s", project)
+				} else {
+					gologger.Error().Msgf("[ERROR] %s: %s", project, err.Error())
+				}
+			} else if cloudRunData != nil {
+				finalResources.Merge(cloudRunData)
+			}
+		}
 	}
 
 	return finalResources, nil

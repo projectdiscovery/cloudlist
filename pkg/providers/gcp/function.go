@@ -44,10 +44,13 @@ func (d *cloudFunctionsProvider) getFunctions() ([]*cloudfunctions.CloudFunction
 	var functions []*cloudfunctions.CloudFunction
 	for _, project := range d.projects {
 		functionsService := d.functions.Projects.Locations.Functions.List(fmt.Sprintf("projects/%s/locations/-", project))
-		_ = functionsService.Pages(context.Background(), func(fal *cloudfunctions.ListFunctionsResponse) error {
+		err := functionsService.Pages(context.Background(), func(fal *cloudfunctions.ListFunctionsResponse) error {
 			functions = append(functions, fal.Functions...)
 			return nil
 		})
+		if err != nil {
+			return nil, FormatGoogleError(fmt.Errorf("could not list functions for project %s: %w", project, err))
+		}
 	}
 	return functions, nil
 }

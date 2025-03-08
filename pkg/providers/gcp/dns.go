@@ -2,7 +2,7 @@ package gcp
 
 import (
 	"context"
-	"log"
+	"fmt"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"google.golang.org/api/dns/v1"
@@ -24,25 +24,35 @@ func (d *cloudDNSProvider) GetResource(ctx context.Context) (*schema.Resources, 
 	list := schema.NewResources()
 
 	for _, project := range d.projects {
-		zone := d.dns.ManagedZones.List(project)
-		err := zone.Pages(context.Background(), func(resp *dns.ManagedZonesListResponse) error {
-			for _, z := range resp.ManagedZones {
-				resources := d.dns.ResourceRecordSets.List(project, z.Name)
-				err := resources.Pages(context.Background(), func(r *dns.ResourceRecordSetsListResponse) error {
-					items := d.parseRecordsForResourceSet(r)
-					list.Merge(items)
+		dnsZonesService := d.dns.ManagedZones.List(project)
+		err := dnsZonesService.Pages(context.Background(), func(zones *dns.ManagedZonesListResponse) error {
+			for _, zone := range zones.ManagedZones {
+				dnsRecordsService := d.dns.ResourceRecordSets.List(project, zone.Name)
+				err := dnsRecordsService.Pages(context.Background(), func(records *dns.ResourceRecordSetsListResponse) error {
+					for _, record := range records.Rrsets {
+						if record.Type == "A" || record.Type == "AAAA" {
+							for _, data := range record.Rrdatas {
+								list.Append(&schema.Resource{
+									ID:         d.id,
+									Provider:   providerName,
+									Public:     true,
+									DNSName:    fmt.Sprintf("%s.", record.Name),
+									PublicIPv4: data,
+									Service:    d.name(),
+								})
+							}
+						}
+					}
 					return nil
 				})
 				if err != nil {
-					log.Printf("Could not get resource_records for zone %s in project %s: %s\n", z.Name, project, err)
-					continue
+					return FormatGoogleError(fmt.Errorf("could not get DNS records for zone %s in project %s: %w", zone.Name, project, err))
 				}
 			}
 			return nil
 		})
 		if err != nil {
-			log.Printf("Could not get all zones for project %s: %s\n", project, err)
-			continue
+			return nil, FormatGoogleError(fmt.Errorf("could not get DNS zones for project %s: %w", project, err))
 		}
 	}
 	return list, nil

@@ -6,12 +6,12 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"github.com/projectdiscovery/cloudlist/pkg/providers/k8s"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	container "google.golang.org/api/container/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 )
@@ -32,75 +32,94 @@ func (d *gkeProvider) GetResource(ctx context.Context) (*schema.Resources, error
 	list := schema.NewResources()
 
 	for _, project := range d.projects {
-		kubeConfig, err := d.getK8sClusterConfigs(ctx, project)
+		req := d.svc.Projects.Locations.Clusters.List(fmt.Sprintf("projects/%s/locations/-", project))
+		resp, err := req.Do()
 		if err != nil {
-			return nil, err
+			return nil, FormatGoogleError(fmt.Errorf("could not list GKE clusters for project %s: %w", project, err))
 		}
-		// Just list all the namespaces found in the project to test the API.
-		for clusterName := range kubeConfig.Clusters {
-			cfg, err := clientcmd.NewNonInteractiveClientConfig(*kubeConfig, clusterName, &clientcmd.ConfigOverrides{CurrentContext: clusterName}, nil).ClientConfig()
-			if err != nil {
-				return nil, fmt.Errorf("failed to create Kubernetes configuration cluster=%s: %w", clusterName, err)
-			}
 
-			k8sClient, err := kubernetes.NewForConfig(cfg)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create Kubernetes client cluster=%s: %w", clusterName, err)
+		for _, cluster := range resp.Clusters {
+			if len(cluster.MasterAuth.ClusterCaCertificate) > 0 && cluster.Endpoint != "" {
+				clientConfig, err := BuildClientConfig(cluster)
+				if err != nil {
+					continue
+				}
+
+				// Create the clientset
+				clientset, err := kubernetes.NewForConfig(clientConfig)
+				if err != nil {
+					continue
+				}
+
+				// List public IPs in the cluster
+				services, err := clientset.CoreV1().Services("").List(ctx, metav1.ListOptions{})
+				if err != nil {
+					continue
+				}
+
+				for _, service := range services.Items {
+					if service.Spec.Type == "LoadBalancer" {
+						for _, ing := range service.Status.LoadBalancer.Ingress {
+							if ing.IP != "" {
+								list.Append(&schema.Resource{
+									ID:         d.id,
+									Provider:   providerName,
+									Public:     true,
+									PublicIPv4: ing.IP,
+									Service:    d.name(),
+								})
+							}
+							if ing.Hostname != "" {
+								list.Append(&schema.Resource{
+									ID:       d.id,
+									Provider: providerName,
+									Public:   true,
+									DNSName:  ing.Hostname,
+									Service:  d.name(),
+								})
+							}
+						}
+					}
+				}
 			}
-			timeoutSeconds := int64(10)
-			ingress, err := k8sClient.NetworkingV1().Ingresses("").List(ctx, metav1.ListOptions{
-				TimeoutSeconds: &timeoutSeconds,
-			})
-			if err != nil {
-				return nil, errors.Wrap(err, "could not list kubernetes ingress")
-			}
-			k8sIngressProvider := k8s.NewK8sIngressProvider(d.id, ingress)
-			ingressHosts, _ := k8sIngressProvider.GetResource(ctx)
-			for _, ingressHost := range ingressHosts.Items {
-				ingressHost.Service = d.name()
-			}
-			list.Merge(ingressHosts)
 		}
 	}
 	return list, nil
 }
 
-func (d *gkeProvider) getK8sClusterConfigs(ctx context.Context, projectId string) (*api.Config, error) {
-	// Basic config structure
-	ret := api.Config{
-		APIVersion: "v1",
-		Kind:       "Config",
-		Clusters:   map[string]*api.Cluster{},  // Clusters is a map of referencable names to cluster configs
-		AuthInfos:  map[string]*api.AuthInfo{}, // AuthInfos is a map of referencable names to user configs
-		Contexts:   map[string]*api.Context{},  // Contexts is a map of referencable names to context configs
+// BuildClientConfig returns a client config for kubernetes
+func BuildClientConfig(cluster *container.Cluster) (*rest.Config, error) {
+	if len(cluster.MasterAuth.ClusterCaCertificate) == 0 {
+		return nil, errors.New("error creating k8s client: no CA certificate")
 	}
 
-	// Ask Google for a list of all kube clusters in the given project.
-	resp, err := d.svc.Projects.Zones.Clusters.List(projectId, "-").Context(ctx).Do()
+	sDec, err := base64.StdEncoding.DecodeString(cluster.MasterAuth.ClusterCaCertificate)
 	if err != nil {
-		return nil, fmt.Errorf("clusters list project=%s: %w", projectId, err)
+		return nil, err
 	}
 
-	for _, f := range resp.Clusters {
-		name := fmt.Sprintf("gke_%s_%s_%s", projectId, f.Zone, f.Name)
-		cert, err := base64.StdEncoding.DecodeString(f.MasterAuth.ClusterCaCertificate)
-		if err != nil {
-			return nil, fmt.Errorf("invalid certificate cluster=%s cert=%s: %w", name, f.MasterAuth.ClusterCaCertificate, err)
-		}
-		// example: gke_my-project_us-central1-b_cluster-1 => https://XX.XX.XX.XX
-		ret.Clusters[name] = &api.Cluster{
-			CertificateAuthorityData: cert,
-			Server:                   "https://" + f.Endpoint,
-		}
-		// Just reuse the context name as an auth name.
-		ret.Contexts[name] = &api.Context{
-			Cluster:  name,
-			AuthInfo: name,
-		}
-		// GCP specific configation;
-		ret.AuthInfos[name] = &api.AuthInfo{
-			AuthProvider: &api.AuthProviderConfig{Name: googleAuthPlugin},
-		}
+	userConfig := api.Config{
+		AuthInfos: map[string]*api.AuthInfo{
+			"user": {
+				AuthProvider: &api.AuthProviderConfig{
+					Name: googleAuthPlugin,
+				},
+			},
+		},
+		Clusters: map[string]*api.Cluster{
+			"cluster": {
+				CertificateAuthorityData: sDec,
+				Server:                   fmt.Sprintf("https://%s", cluster.Endpoint),
+			},
+		},
+		Contexts: map[string]*api.Context{
+			"context": {
+				AuthInfo: "user",
+				Cluster:  "cluster",
+			},
+		},
+		CurrentContext: "context",
 	}
-	return &ret, nil
+
+	return clientcmd.NewNonInteractiveClientConfig(userConfig, "context", nil, nil).ClientConfig()
 }

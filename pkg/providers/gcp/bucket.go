@@ -43,10 +43,13 @@ func (d *cloudStorageProvider) getBuckets() ([]*storage.Bucket, error) {
 	var buckets []*storage.Bucket
 	for _, project := range d.projects {
 		bucketsService := d.storage.Buckets.List(project)
-		_ = bucketsService.Pages(context.Background(), func(bal *storage.Buckets) error {
+		err := bucketsService.Pages(context.Background(), func(bal *storage.Buckets) error {
 			buckets = append(buckets, bal.Items...)
 			return nil
 		})
+		if err != nil {
+			return nil, FormatGoogleError(fmt.Errorf("could not list buckets for project %s: %w", project, err))
+		}
 	}
 	return buckets, nil
 }
