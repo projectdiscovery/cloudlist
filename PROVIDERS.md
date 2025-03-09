@@ -406,3 +406,22 @@ References -
 - https://docs.aws.amazon.com/eks/latest/userguide/create-kubeconfig.html
 - https://learn.microsoft.com/en-us/azure/aks/control-kubeconfig-access#get-and-verify-the-configuration-information
 - https://cloud.google.com/kubernetes-engine/docs/how-to/cluster-access-for-kubectl#store_info
+
+### DNSSimple
+
+DNSSimple can be integrated by using the following configuration block.
+
+```yaml
+- # provider is the name of the provider
+  provider: dnssimple
+  # id is the name defined by user for filtering (optional)
+  id: main
+  # dnssimple_api_token is the API token for DNSSimple
+  dnssimple_api_token: $DNSSIMPLE_API_TOKEN
+```
+
+The `dnssimple_api_token` can be generated from the DNSSimple account settings under "API Access". You will need to create an API v2 token with appropriate permissions to access your domains and DNS records.
+
+References - 
+1. https://developer.dnsimple.com/v2/
+2. https://support.dnsimple.com/articles/api-access-token/
