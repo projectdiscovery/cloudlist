@@ -2,6 +2,7 @@ package dnssimple
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/dnsimple/dnsimple-go/dnsimple"
@@ -83,7 +84,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	}
 
 	if whoamiResponse.Data.Account != nil {
-		provider.account = whoamiResponse.Data.Account.ID
+		provider.account = fmt.Sprintf("%d", whoamiResponse.Data.Account.ID)
 	} else {
 		return nil, errorutil.New("no account information found in DNSSimple response")
 	}

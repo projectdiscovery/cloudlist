@@ -23,16 +23,17 @@ func (d *dnsProvider) name() string {
 func (d *dnsProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
 
-	// List all domains
-	listOptions := &dnsimple.ListOptions{}
-	domains, err := d.client.Domains.ListDomains(ctx, d.account, listOptions)
+	// List all domains - using DomainListOptions instead of ListOptions
+	domainOptions := &dnsimple.DomainListOptions{}
+	domains, err := d.client.Domains.ListDomains(ctx, d.account, domainOptions)
 	if err != nil {
 		return nil, err
 	}
 
 	// For each domain, get its zone records
+	recordOptions := &dnsimple.ZoneRecordListOptions{}
 	for _, domain := range domains.Data {
-		zoneRecords, err := d.client.Zones.ListRecords(ctx, d.account, domain.Name, nil)
+		zoneRecords, err := d.client.Zones.ListRecords(ctx, d.account, domain.Name, recordOptions)
 		if err != nil {
 			log.Printf("Could not get records for domain %s: %s\n", domain.Name, err)
 			continue
