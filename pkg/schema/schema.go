@@ -27,26 +27,33 @@ type Provider interface {
 	Services() []string
 }
 
+// VerifiableProvider is a Provider that can be verified
+// with additional optional verification mechanism.
+type VerifiableProvider interface {
+	Provider
+	// Verify checks if the provider is valid
+	Verify(ctx context.Context) error
+}
+
 // Resources is a container of multiple resource returned from providers
 type Resources struct {
-	Items []*Resource
+	Items        []*Resource
+	deduplicator *ResourceDeduplicator
 }
 
 // NewResources creates a new resources structure
 func NewResources() *Resources {
-	return &Resources{Items: make([]*Resource, 0)}
+	return &Resources{
+		Items:        make([]*Resource, 0),
+		deduplicator: NewResourceDeduplicator(),
+	}
 }
 
-var uniqueMap *sync.Map
-var validator *validate.Validator
-
-// ClearUniqueMap clears the unique map
-func ClearUniqueMap() {
-	uniqueMap = &sync.Map{}
-}
+var (
+	validator *validate.Validator
+)
 
 func init() {
-	uniqueMap = &sync.Map{}
 	// Create validator
 	var err error
 	validator, err = validate.NewValidator()
@@ -83,37 +90,41 @@ func (r *Resources) appendResourceWithTypeAndMeta(resourceType validate.Resource
 }
 
 // appendResource appends a resource to the resources list
-func (r *Resources) appendResource(resource *Resource, uniqueMap *sync.Map) {
-	if _, ok := uniqueMap.Load(resource.DNSName); !ok && resource.DNSName != "" {
+func (r *Resources) appendResource(resource *Resource) {
+	if resource.DNSName != "" && !r.deduplicator.Contains(resource.DNSName) {
 		resourceType := validator.Identify(resource.DNSName)
 		r.appendResourceWithTypeAndMeta(resourceType, resource.DNSName, resource.ID, resource.Provider, resource.Service)
-		uniqueMap.Store(resource.DNSName, struct{}{})
+		r.deduplicator.Add(resource.DNSName)
 	}
-	if _, ok := uniqueMap.Load(resource.PublicIPv4); !ok && resource.PublicIPv4 != "" {
+
+	if resource.PublicIPv4 != "" && !r.deduplicator.Contains(resource.PublicIPv4) {
 		resourceType := validator.Identify(resource.PublicIPv4)
 		r.appendResourceWithTypeAndMeta(resourceType, resource.PublicIPv4, resource.ID, resource.Provider, resource.Service)
-		uniqueMap.Store(resource.PublicIPv4, struct{}{})
+		r.deduplicator.Add(resource.PublicIPv4)
 	}
-	if _, ok := uniqueMap.Load(resource.PublicIPv6); !ok && resource.PublicIPv6 != "" {
+
+	if resource.PublicIPv6 != "" && !r.deduplicator.Contains(resource.PublicIPv6) {
 		resourceType := validator.Identify(resource.PublicIPv6)
 		r.appendResourceWithTypeAndMeta(resourceType, resource.PublicIPv6, resource.ID, resource.Provider, resource.Service)
-		uniqueMap.Store(resource.PublicIPv6, struct{}{})
+		r.deduplicator.Add(resource.PublicIPv6)
 	}
-	if _, ok := uniqueMap.Load(resource.PrivateIpv4); !ok && resource.PrivateIpv4 != "" {
+
+	if resource.PrivateIpv4 != "" && !r.deduplicator.Contains(resource.PrivateIpv4) {
 		resourceType := validator.Identify(resource.PrivateIpv4)
 		r.appendResourceWithTypeAndMeta(resourceType, resource.PrivateIpv4, resource.ID, resource.Provider, resource.Service)
-		uniqueMap.Store(resource.PrivateIpv4, struct{}{})
+		r.deduplicator.Add(resource.PrivateIpv4)
 	}
-	if _, ok := uniqueMap.Load(resource.PrivateIpv6); !ok && resource.PrivateIpv6 != "" {
+
+	if resource.PrivateIpv6 != "" && !r.deduplicator.Contains(resource.PrivateIpv6) {
 		resourceType := validator.Identify(resource.PrivateIpv6)
 		r.appendResourceWithTypeAndMeta(resourceType, resource.PrivateIpv6, resource.ID, resource.Provider, resource.Service)
-		uniqueMap.Store(resource.PrivateIpv6, struct{}{})
+		r.deduplicator.Add(resource.PrivateIpv6)
 	}
 }
 
 // Append appends a single resource to the resource list
 func (r *Resources) Append(resource *Resource) {
-	r.appendResource(resource, uniqueMap)
+	r.appendResource(resource)
 }
 
 // Merge merges a list of resources into the main list
@@ -121,9 +132,8 @@ func (r *Resources) Merge(resources *Resources) {
 	if resources == nil {
 		return
 	}
-	mergeUniqueMap := &sync.Map{}
 	for _, item := range resources.Items {
-		r.appendResource(item, mergeUniqueMap)
+		r.appendResource(item)
 	}
 }
 
@@ -247,4 +257,67 @@ func (s ServiceMap) Has(service string) bool {
 
 func (s ServiceMap) Keys() []string {
 	return mapsutil.GetKeys(s)
+}
+
+// ResourceDeduplicator provides thread-safe deduplication for resources
+type ResourceDeduplicator struct {
+	items *sync.Map
+}
+
+// NewResourceDeduplicator creates a new resource deduplicator
+func NewResourceDeduplicator() *ResourceDeduplicator {
+	return &ResourceDeduplicator{
+		items: &sync.Map{},
+	}
+}
+
+// Contains checks if a value exists in the deduplicator
+func (d *ResourceDeduplicator) Contains(value string) bool {
+	if value == "" {
+		return false
+	}
+	_, exists := d.items.Load(value)
+	return exists
+}
+
+// Add adds a value to the deduplicator if it doesn't exist
+// Returns true if the value was added (was unique)
+func (d *ResourceDeduplicator) Add(value string) bool {
+	if value == "" {
+		return false
+	}
+	_, loaded := d.items.LoadOrStore(value, struct{}{})
+	return !loaded
+}
+
+// ProcessResource adds a resource's values to deduplication and returns if any were new
+func (d *ResourceDeduplicator) ProcessResource(resource *Resource) bool {
+	added := false
+
+	if resource.DNSName != "" && !d.Contains(resource.DNSName) {
+		d.Add(resource.DNSName)
+		added = true
+	}
+
+	if resource.PublicIPv4 != "" && !d.Contains(resource.PublicIPv4) {
+		d.Add(resource.PublicIPv4)
+		added = true
+	}
+
+	if resource.PublicIPv6 != "" && !d.Contains(resource.PublicIPv6) {
+		d.Add(resource.PublicIPv6)
+		added = true
+	}
+
+	if resource.PrivateIpv4 != "" && !d.Contains(resource.PrivateIpv4) {
+		d.Add(resource.PrivateIpv4)
+		added = true
+	}
+
+	if resource.PrivateIpv6 != "" && !d.Contains(resource.PrivateIpv6) {
+		d.Add(resource.PrivateIpv6)
+		added = true
+	}
+
+	return added
 }

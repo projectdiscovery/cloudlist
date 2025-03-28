@@ -203,3 +203,26 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 
 	return finalResources, nil
 }
+
+// Verify checks if the GCP provider credentials are valid
+func (p *Provider) Verify(ctx context.Context) error {
+	if len(p.projects) == 0 {
+		return errorutil.New("no accessible GCP projects found with provided credentials")
+	}
+
+	// For extra verification, try a minimal API call on one service
+	if p.compute != nil {
+		project := p.projects[0]
+		_, err := p.compute.Regions.List(project).Do()
+		if err != nil {
+			return errorutil.NewWithErr(err).Msgf("failed to verify compute service access")
+		}
+	} else if p.dns != nil {
+		project := p.projects[0]
+		_, err := p.dns.ManagedZones.List(project).Do()
+		if err != nil {
+			return errorutil.NewWithErr(err).Msgf("failed to verify DNS service access")
+		}
+	}
+	return nil
+}

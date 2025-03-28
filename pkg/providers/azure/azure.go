@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Azure/azure-sdk-for-go/profiles/latest/resources/mgmt/resources"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
@@ -132,4 +133,19 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		resources.Merge(publicIPs)
 	}
 	return resources, nil
+}
+
+// Verify checks if the provider is valid using simple API call
+func (p *Provider) Verify(ctx context.Context) error {
+	groupsClient := resources.NewGroupsClient(p.SubscriptionID)
+	groupsClient.Authorizer = p.Authorizer
+
+	// Try a lightweight operation - just list the first group
+	result, err := groupsClient.List(ctx, "", nil)
+	if err != nil {
+		return fmt.Errorf("failed to verify Azure credentials: %v", err)
+	}
+
+	_ = result
+	return nil
 }
