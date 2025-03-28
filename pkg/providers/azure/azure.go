@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Azure/azure-sdk-for-go/profiles/latest/network/mgmt/network"
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/resources/mgmt/resources"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
@@ -140,12 +141,26 @@ func (p *Provider) Verify(ctx context.Context) error {
 	groupsClient := resources.NewGroupsClient(p.SubscriptionID)
 	groupsClient.Authorizer = p.Authorizer
 
-	// Try a lightweight operation - just list the first group
-	result, err := groupsClient.List(ctx, "", nil)
-	if err != nil {
-		return fmt.Errorf("failed to verify Azure credentials: %v", err)
-	}
+	pClient := network.NewPublicIPAddressesClient(p.SubscriptionID)
+	pClient.Authorizer = p.Authorizer
 
-	_ = result
-	return nil
+	// Try a lightweight operation - just list the first group
+	var success bool
+	if p.services.Has("vm") {
+		_, err := groupsClient.List(ctx, "", nil)
+		if err != nil {
+			return fmt.Errorf("failed to verify Azure credentials: %v", err)
+		}
+		success = true
+	} else if p.services.Has("publicip") && !success {
+		_, err := pClient.ListAllComplete(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to verify Azure credentials: %v", err)
+		}
+		success = true
+	}
+	if success {
+		return nil
+	}
+	return fmt.Errorf("no accessible Azure services found with provided credentials")
 }

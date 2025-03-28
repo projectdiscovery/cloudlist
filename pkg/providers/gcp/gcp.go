@@ -211,18 +211,43 @@ func (p *Provider) Verify(ctx context.Context) error {
 	}
 
 	// For extra verification, try a minimal API call on one service
-	if p.compute != nil {
-		project := p.projects[0]
-		_, err := p.compute.Regions.List(project).Do()
-		if err != nil {
-			return errorutil.NewWithErr(err).Msgf("failed to verify compute service access")
+	for _, project := range p.projects {
+		var success bool
+		if p.compute != nil {
+			_, err := p.compute.Regions.List(project).Do()
+			if err != nil {
+				return errorutil.NewWithErr(err).Msgf("failed to verify compute service access")
+			}
+			success = true
+		} else if p.dns != nil {
+			_, err := p.dns.ManagedZones.List(project).Do()
+			if err != nil {
+				return errorutil.NewWithErr(err).Msgf("failed to verify DNS service access")
+			}
+			success = true
+		} else if p.storage != nil {
+			_, err := p.storage.Buckets.List(project).Do()
+			if err != nil {
+				return errorutil.NewWithErr(err).Msgf("failed to verify storage service access")
+			}
+			success = true
+		} else if p.functions != nil {
+			_, err := p.functions.Projects.Locations.List(project).Do()
+			if err != nil {
+				return errorutil.NewWithErr(err).Msgf("failed to verify functions service access")
+			}
+			success = true
+		} else if p.run != nil {
+			_, err := p.run.Projects.Locations.List(project).Do()
+			if err != nil {
+				return errorutil.NewWithErr(err).Msgf("failed to verify run service access")
+			}
+			success = true
 		}
-	} else if p.dns != nil {
-		project := p.projects[0]
-		_, err := p.dns.ManagedZones.List(project).Do()
-		if err != nil {
-			return errorutil.NewWithErr(err).Msgf("failed to verify DNS service access")
+		// For any one service to be successful, we can return nil
+		if success {
+			return nil
 		}
 	}
-	return nil
+	return errorutil.New("no accessible GCP services found with provided credentials")
 }

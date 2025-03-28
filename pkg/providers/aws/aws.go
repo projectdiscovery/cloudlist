@@ -320,3 +320,78 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	}
 	return finalResources, nil
 }
+
+// Verify checks if the provider is valid using simple API calls
+func (p *Provider) Verify(ctx context.Context) error {
+	var success bool
+
+	// Try EC2 DescribeRegions (lightweight operation)
+	if p.ec2Client != nil {
+		_, err := p.ec2Client.DescribeRegions(&ec2.DescribeRegionsInput{})
+		if err == nil {
+			success = true
+		}
+	}
+
+	// Try other services with simple operations if EC2 failed
+	if !success && p.route53Client != nil {
+		_, err := p.route53Client.ListHostedZones(&route53.ListHostedZonesInput{})
+		if err == nil {
+			success = true
+		}
+	}
+
+	if !success && p.s3Client != nil {
+		_, err := p.s3Client.ListBuckets(&s3.ListBucketsInput{})
+		if err == nil {
+			success = true
+		}
+	}
+
+	if !success && p.lambdaClient != nil {
+		_, err := p.lambdaClient.ListFunctions(&lambda.ListFunctionsInput{})
+		if err == nil {
+			success = true
+		}
+	}
+
+	if !success && p.apiGateway != nil {
+		_, err := p.apiGateway.GetRestApis(&apigateway.GetRestApisInput{})
+		if err == nil {
+			success = true
+		}
+	}
+
+	if !success && p.albClient != nil {
+		_, err := p.albClient.DescribeLoadBalancers(&elbv2.DescribeLoadBalancersInput{})
+		if err == nil {
+			success = true
+		}
+	}
+
+	if !success && p.elbClient != nil {
+		_, err := p.elbClient.DescribeLoadBalancers(&elb.DescribeLoadBalancersInput{})
+		if err == nil {
+			success = true
+		}
+	}
+
+	if !success && p.lightsailClient != nil {
+		_, err := p.lightsailClient.GetRegions(&lightsail.GetRegionsInput{})
+		if err == nil {
+			success = true
+		}
+	}
+
+	if !success && p.cloudFrontClient != nil {
+		_, err := p.cloudFrontClient.ListDistributions(&cloudfront.ListDistributionsInput{})
+		if err == nil {
+			success = true
+		}
+	}
+
+	if success {
+		return nil
+	}
+	return errors.New("failed to verify AWS credentials: no accessible services found")
+}
