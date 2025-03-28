@@ -83,11 +83,12 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		return nil, errorutil.NewWithErr(err).Msgf("failed to authenticate with DNSSimple")
 	}
 
-	if whoamiResponse.Data.Account != nil {
-		provider.account = fmt.Sprintf("%d", whoamiResponse.Data.Account.ID)
-	} else {
+	if whoamiResponse.Data.Account == nil {
 		return nil, errorutil.New("no account information found in DNSSimple response")
+
 	}
+
+	provider.account = fmt.Sprintf("%d", whoamiResponse.Data.Account.ID)
 
 	return provider, nil
 }
