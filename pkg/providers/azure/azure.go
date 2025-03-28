@@ -207,7 +207,6 @@ func (p *Provider) Verify(ctx context.Context) error {
 		if success {
 			return nil
 		}
-		return fmt.Errorf("no accessible Azure services found with provided credentials")
 	}
 	return fmt.Errorf("no accessible Azure services found with provided credentials")
 }

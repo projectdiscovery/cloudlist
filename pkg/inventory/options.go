@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 	"gopkg.in/yaml.v2"
 )
 
@@ -13,7 +14,11 @@ func ParseOptions(path string) (schema.Options, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			gologger.Error().Msgf("Could not close provider config file: %s\n", err)
+		}
+	}()
 
 	options := schema.Options{}
 	if err := yaml.NewDecoder(file).Decode(&options); err != nil {
