@@ -106,7 +106,7 @@ func (v *Validator) Identify(item string) ResourceType {
 
 // isDNSName will validate the given string as a DNS name
 func (v *Validator) isDNSName(str string, parsed net.IP) bool {
-	if str == "" || len(strings.Replace(str, ".", "", -1)) > 255 {
+	if str == "" || len(strings.ReplaceAll(str, ".", "")) > 255 {
 		// constraints already violated
 		return false
 	}

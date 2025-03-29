@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 )
 
 // instanceProvider is an instance provider for terraform state file
@@ -26,7 +27,11 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 	if err != nil {
 		return nil, errors.Wrap(err, "could not open state file")
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			gologger.Error().Msgf("Could not close provider config file: %s\n", err)
+		}
+	}()
 
 	data, err := io.ReadAll(file)
 	if err != nil {

@@ -66,6 +66,7 @@ func (d *cloudDNSProvider) parseRecordsForResourceSet(r *dns.ResourceRecordSetsL
 				Service:  d.name(),
 			}
 
+			//nolint
 			if resource.Type == "A" {
 				dst.PublicIPv4 = data
 			} else if resource.Type == "AAAA" {

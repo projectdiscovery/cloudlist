@@ -107,6 +107,7 @@ func (r *route53Provider) listResourcesByZone(zones []*route53.HostedZone, clien
 					Service:  r.name(),
 				}
 
+				//nolint
 				if *item.Type == "A" {
 					resource.PublicIPv4 = record
 				} else if *item.Type == "AAAA" {
