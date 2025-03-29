@@ -11,6 +11,7 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/providers/consul"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/custom"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/digitalocean"
+	"github.com/projectdiscovery/cloudlist/pkg/providers/dnssimple"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/fastly"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/gcp"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/heroku"
@@ -128,6 +129,8 @@ func nameToProvider(value string, block schema.OptionBlock) (schema.Provider, er
 		return k8s.New(block)
 	case "custom":
 		return custom.New(block)
+	case "dnssimple":
+		return dnssimple.New(block)
 	default:
 		return nil, fmt.Errorf("invalid provider name found: %s", value)
 	}

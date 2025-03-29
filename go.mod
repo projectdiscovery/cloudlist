@@ -196,6 +196,7 @@ require (
 	github.com/charmbracelet/lipgloss v0.13.0 // indirect
 	github.com/charmbracelet/x/ansi v0.3.2 // indirect
 	github.com/cloudflare/circl v1.3.7 // indirect
+	github.com/dnsimple/dnsimple-go v1.7.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/gaissmai/bart v0.17.10 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
@@ -204,6 +205,7 @@ require (
 	github.com/projectdiscovery/hmap v0.0.82 // indirect
 	github.com/projectdiscovery/retryabledns v1.0.94 // indirect
 	github.com/refraction-networking/utls v1.6.7 // indirect
+	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
 	github.com/tidwall/btree v1.4.3 // indirect
