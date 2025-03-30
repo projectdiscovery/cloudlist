@@ -2,12 +2,15 @@ package azure
 
 import (
 	"context"
+	"fmt"
+	"sync"
 
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/network/mgmt/network"
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/resources/mgmt/resources"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
+	"github.com/panjf2000/ants/v2"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
@@ -25,7 +28,6 @@ func (d *vmProvider) name() string {
 
 // GetResource returns all the resources in the store for a provider.
 func (d *vmProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
-
 	list := schema.NewResources()
 
 	groups, err := fetchResouceGroups(ctx, d)
@@ -33,67 +35,109 @@ func (d *vmProvider) GetResource(ctx context.Context) (*schema.Resources, error)
 		return nil, err
 	}
 
+	// Set up synchronization
+	var mu sync.Mutex
+	var errs []error
+	var errMu sync.Mutex
+
+	// Create a goroutine pool with size that matches Azure API limitations
+	// Adjust pool size based on your Azure throttling limits
+	pool, err := ants.NewPool(10, ants.WithPreAlloc(true))
+	if err != nil {
+		return nil, fmt.Errorf("could not create worker pool: %w", err)
+	}
+	defer pool.Release()
+
 	for _, group := range groups {
-		vmList, err := fetchVMList(ctx, group, d)
-		if err != nil {
-			return nil, err
-		}
+		group := group // Create local copy for goroutine
 
-		for _, vm := range vmList {
-			nics := *vm.NetworkProfile.NetworkInterfaces
-			for _, nic := range nics {
+		// Submit task to the pool
+		err := pool.Submit(func() {
+			vmList, err := fetchVMList(ctx, group, d)
+			if err != nil {
+				errMu.Lock()
+				errs = append(errs, fmt.Errorf("error fetching VMs for group %s: %w", group, err))
+				errMu.Unlock()
+				return
+			}
 
-				res, err := azure.ParseResourceID(*nic.ID)
-				if err != nil {
-					return nil, err
-				}
-
-				ipconfigList, err := fetchIPConfigList(ctx, group, res.ResourceName, d)
-				if err != nil {
-					return nil, err
-				}
-				for _, ipConfig := range ipconfigList {
-					privateIP := ipConfig.PrivateIPAddress
-
-					// The PublicIPAddress field can be nil especially for SQL Server
-					// VMs that are pulled.
-					// In these cases, we just want to return an empty error
-					if ipConfig.PublicIPAddress == nil {
+			for _, vm := range vmList {
+				nics := *vm.NetworkProfile.NetworkInterfaces
+				for _, nic := range nics {
+					res, err := azure.ParseResourceID(*nic.ID)
+					if err != nil {
+						errMu.Lock()
+						errs = append(errs, fmt.Errorf("error parsing resource ID: %w", err))
+						errMu.Unlock()
 						continue
 					}
 
-					res, err := azure.ParseResourceID(*ipConfig.PublicIPAddress.ID)
+					ipconfigList, err := fetchIPConfigList(ctx, group, res.ResourceName, d)
 					if err != nil {
-						return nil, err
-					}
-
-					publicIP, err := fetchPublicIP(ctx, group, res.ResourceName, d)
-					if err != nil {
-						return nil, err
-					}
-
-					if publicIP.IPAddress == nil {
+						errMu.Lock()
+						errs = append(errs, fmt.Errorf("error fetching IP configs for NIC %s: %w", res.ResourceName, err))
+						errMu.Unlock()
 						continue
 					}
 
-					resource := &schema.Resource{
-						Provider:    providerName,
-						ID:          d.id,
-						PrivateIpv4: *privateIP,
-						Service:     d.name(),
-					}
+					for _, ipConfig := range ipconfigList {
+						if ipConfig.PublicIPAddress == nil {
+							continue
+						}
 
-					if publicIP.PublicIPAddressVersion == network.IPv4 {
-						resource.PublicIPv4 = *publicIP.IPAddress
-					} else {
-						resource.PublicIPv6 = *publicIP.IPAddress
-					}
+						res, err := azure.ParseResourceID(*ipConfig.PublicIPAddress.ID)
+						if err != nil {
+							errMu.Lock()
+							errs = append(errs, fmt.Errorf("error parsing resource ID: %w", err))
+							errMu.Unlock()
+							continue
+						}
 
-					list.Append(resource)
+						publicIP, err := fetchPublicIP(ctx, group, res.ResourceName, d)
+						if err != nil {
+							errMu.Lock()
+							errs = append(errs, fmt.Errorf("error fetching public IP %s: %w", res.ResourceName, err))
+							errMu.Unlock()
+							continue
+						}
+
+						if publicIP.IPAddress == nil {
+							continue
+						}
+
+						resource := &schema.Resource{
+							Provider:    providerName,
+							ID:          d.id,
+							PrivateIpv4: *ipConfig.PrivateIPAddress,
+							Service:     d.name(),
+						}
+
+						if publicIP.PublicIPAddressVersion == network.IPv4 {
+							resource.PublicIPv4 = *publicIP.IPAddress
+						} else {
+							resource.PublicIPv6 = *publicIP.IPAddress
+						}
+
+						mu.Lock()
+						list.Append(resource)
+						mu.Unlock()
+					}
 				}
 			}
+		})
+
+		if err != nil {
+			errMu.Lock()
+			errs = append(errs, fmt.Errorf("error submitting task for group %s: %w", group, err))
+			errMu.Unlock()
 		}
 	}
+
+	// Return errors if any occurred
+	if len(errs) > 0 {
+		return list, fmt.Errorf("encountered %d errors during resource fetching: %v", len(errs), errs[0])
+	}
+
 	return list, nil
 }
 

@@ -184,6 +184,7 @@ require (
 )
 
 require (
+	github.com/panjf2000/ants/v2 v2.11.2
 	github.com/projectdiscovery/networkpolicy v0.1.7
 	github.com/projectdiscovery/retryablehttp-go v1.0.102
 )
@@ -214,5 +215,5 @@ require (
 	github.com/zmap/rc2 v0.0.0-20190804163417-abaa70531248 // indirect
 	github.com/zmap/zcrypto v0.0.0-20230422215203-9a665e1e9968 // indirect
 	go.etcd.io/bbolt v1.3.7 // indirect
-	golang.org/x/sync v0.10.0 // indirect
+	golang.org/x/sync v0.11.0 // indirect
 )
