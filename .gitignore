@@ -1,3 +1,6 @@
 cmd/cloudlist/cloudlist
 .DS_Store
 dist
+.env
+provider-config.yaml
+cloudlist

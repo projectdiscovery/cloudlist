@@ -138,7 +138,11 @@ func readProviderConfig(configFile string) (schema.Options, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			gologger.Error().Msgf("Could not close provider config file: %s\n", err)
+		}
+	}()
 
 	config := schema.Options{}
 	if err := yaml.NewDecoder(file).Decode(&config); err != nil {

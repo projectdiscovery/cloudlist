@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/retryablehttp-go"
 )
 
@@ -39,7 +40,11 @@ func (d *serviceProvider) GetResource(ctx context.Context) (*schema.Resources, e
 		if err != nil {
 			return nil, err
 		}
-		defer response.Body.Close()
+		defer func() {
+			if err := response.Body.Close(); err != nil {
+				gologger.Error().Msgf("Could not close provider config file: %s\n", err)
+			}
+		}()
 
 		if response.StatusCode != http.StatusOK {
 			continue

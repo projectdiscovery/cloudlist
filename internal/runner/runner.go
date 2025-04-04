@@ -95,6 +95,7 @@ func (r *Runner) Enumerate() {
 	}
 
 	builder := &bytes.Buffer{}
+	deduplicator := schema.NewResourceDeduplicator()
 	for _, provider := range inventory.Providers {
 		gologger.Info().Msgf("Listing assets from provider: %s services: %s id: %s", provider.Name(), strings.Join(provider.Services(), ","), provider.ID())
 
@@ -105,6 +106,11 @@ func (r *Runner) Enumerate() {
 		}
 		var hostsCount, ipCount int
 		for _, instance := range instances.Items {
+			// Skip if already processed
+			if !deduplicator.ProcessResource(instance) {
+				continue
+			}
+
 			builder.Reset()
 
 			if r.options.JSON {
