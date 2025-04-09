@@ -29,8 +29,8 @@ require (
 	github.com/namecheap/go-namecheap-sdk/v2 v2.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/goflags v0.1.74
-	github.com/projectdiscovery/gologger v1.1.50
-	github.com/projectdiscovery/utils v0.4.15
+	github.com/projectdiscovery/gologger v1.1.51
+	github.com/projectdiscovery/utils v0.4.16
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.14
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/oauth2 v0.15.0
@@ -186,8 +186,9 @@ require (
 require (
 	github.com/alitto/pond/v2 v2.3.2
 	github.com/dnsimple/dnsimple-go v1.7.0
-	github.com/projectdiscovery/networkpolicy v0.1.9
-	github.com/projectdiscovery/retryablehttp-go v1.0.105
+	github.com/panjf2000/ants/v2 v2.11.2
+	github.com/projectdiscovery/networkpolicy v0.1.10
+	github.com/projectdiscovery/retryablehttp-go v1.0.106
 )
 
 require (
@@ -202,9 +203,9 @@ require (
 	github.com/gaissmai/bart v0.17.10 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
-	github.com/projectdiscovery/fastdialer v0.3.1 // indirect
-	github.com/projectdiscovery/hmap v0.0.84 // indirect
-	github.com/projectdiscovery/retryabledns v1.0.95 // indirect
+	github.com/projectdiscovery/fastdialer v0.4.0 // indirect
+	github.com/projectdiscovery/hmap v0.0.85 // indirect
+	github.com/projectdiscovery/retryabledns v1.0.96 // indirect
 	github.com/refraction-networking/utls v1.6.7 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
