@@ -8,6 +8,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/network/mgmt/network"
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/resources/mgmt/resources"
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/resources/mgmt/subscriptions"
+	"github.com/Azure/azure-sdk-for-go/profiles/latest/trafficmanager/mgmt/trafficmanager"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
@@ -25,7 +26,7 @@ const (
 	providerName = "azure"
 )
 
-var Services = []string{"vm", "publicip"}
+var Services = []string{"vm", "publicip", "trafficmanager"}
 
 // Provider is a data provider for Azure API
 type Provider struct {
@@ -175,8 +176,17 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			}
 			resources.Merge(publicIPs)
 		}
-	}
 
+		if p.services.Has("trafficmanager") {
+			trafficManagerp := &trafficManagerProvider{Authorizer: p.Authorizer, SubscriptionID: subscriptionID, id: p.id}
+			trafficManager, err := trafficManagerp.GetResource(ctx)
+			if err != nil {
+				gologger.Warning().Msgf("Error listing traffic manager for subscription %s: %s", subscriptionID, err)
+				continue
+			}
+			resources.Merge(trafficManager)
+		}
+	}
 	return resources, nil
 }
 
@@ -189,6 +199,9 @@ func (p *Provider) Verify(ctx context.Context) error {
 		pClient := network.NewPublicIPAddressesClient(subscriptionID)
 		pClient.Authorizer = p.Authorizer
 
+		trafficManagerClient := trafficmanager.NewProfilesClient(subscriptionID)
+		trafficManagerClient.Authorizer = p.Authorizer
+
 		// Try a lightweight operation - just list the first group
 		var success bool
 		if p.services.Has("vm") {
@@ -199,6 +212,12 @@ func (p *Provider) Verify(ctx context.Context) error {
 			success = true
 		} else if p.services.Has("publicip") && !success {
 			_, err := pClient.ListAllComplete(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to verify Azure credentials: %v", err)
+			}
+			success = true
+		} else if p.services.Has("trafficmanager") && !success {
+			_, err := trafficManagerClient.ListBySubscription(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to verify Azure credentials: %v", err)
 			}

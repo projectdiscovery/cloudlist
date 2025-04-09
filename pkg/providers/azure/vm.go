@@ -2,7 +2,6 @@ package azure
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
@@ -10,9 +9,10 @@ import (
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/resources/mgmt/resources"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
-	"github.com/panjf2000/ants/v2"
+	"github.com/alitto/pond/v2"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 )
 
 // vmProvider is an instance provider for Azure API
@@ -29,122 +29,115 @@ func (d *vmProvider) name() string {
 // GetResource returns all the resources in the store for a provider.
 func (d *vmProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
+	mu := &sync.Mutex{}
 
-	groups, err := fetchResouceGroups(ctx, d)
+	groups, err := fetchResouceGroups(ctx, d.SubscriptionID, d.Authorizer)
 	if err != nil {
 		return nil, err
 	}
 
-	// Set up synchronization
-	var mu sync.Mutex
-	var errs []error
-	var errMu sync.Mutex
-
 	// Create a goroutine pool with size that matches Azure API limitations
 	// Adjust pool size based on your Azure throttling limits
-	pool, err := ants.NewPool(10, ants.WithPreAlloc(true))
-	if err != nil {
-		return nil, fmt.Errorf("could not create worker pool: %w", err)
-	}
-	defer pool.Release()
+	pool := pond.NewPool(10)
 
 	for _, group := range groups {
 		group := group // Create local copy for goroutine
 
 		// Submit task to the pool
-		err := pool.Submit(func() {
-			vmList, err := fetchVMList(ctx, group, d)
+		pool.Submit(func() {
+			resourcesSlice, err := d.processResourceGroup(ctx, group)
 			if err != nil {
-				errMu.Lock()
-				errs = append(errs, fmt.Errorf("error fetching VMs for group %s: %w", group, err))
-				errMu.Unlock()
-				return
+				gologger.Warning().Msgf("error processing resource group %s: %s", group, err)
 			}
 
-			for _, vm := range vmList {
-				nics := *vm.NetworkProfile.NetworkInterfaces
-				for _, nic := range nics {
-					res, err := azure.ParseResourceID(*nic.ID)
-					if err != nil {
-						errMu.Lock()
-						errs = append(errs, fmt.Errorf("error parsing resource ID: %w", err))
-						errMu.Unlock()
-						continue
-					}
-
-					ipconfigList, err := fetchIPConfigList(ctx, group, res.ResourceName, d)
-					if err != nil {
-						errMu.Lock()
-						errs = append(errs, fmt.Errorf("error fetching IP configs for NIC %s: %w", res.ResourceName, err))
-						errMu.Unlock()
-						continue
-					}
-
-					for _, ipConfig := range ipconfigList {
-						if ipConfig.PublicIPAddress == nil {
-							continue
-						}
-
-						res, err := azure.ParseResourceID(*ipConfig.PublicIPAddress.ID)
-						if err != nil {
-							errMu.Lock()
-							errs = append(errs, fmt.Errorf("error parsing resource ID: %w", err))
-							errMu.Unlock()
-							continue
-						}
-
-						publicIP, err := fetchPublicIP(ctx, group, res.ResourceName, d)
-						if err != nil {
-							errMu.Lock()
-							errs = append(errs, fmt.Errorf("error fetching public IP %s: %w", res.ResourceName, err))
-							errMu.Unlock()
-							continue
-						}
-
-						if publicIP.IPAddress == nil {
-							continue
-						}
-
-						resource := &schema.Resource{
-							Provider:    providerName,
-							ID:          d.id,
-							PrivateIpv4: *ipConfig.PrivateIPAddress,
-							Service:     d.name(),
-						}
-
-						if publicIP.PublicIPAddressVersion == network.IPv4 {
-							resource.PublicIPv4 = *publicIP.IPAddress
-						} else {
-							resource.PublicIPv6 = *publicIP.IPAddress
-						}
-
-						mu.Lock()
-						list.Append(resource)
-						mu.Unlock()
-					}
-				}
+			mu.Lock()
+			for _, resource := range resourcesSlice {
+				list.Append(resource)
 			}
+			mu.Unlock()
 		})
-
-		if err != nil {
-			errMu.Lock()
-			errs = append(errs, fmt.Errorf("error submitting task for group %s: %w", group, err))
-			errMu.Unlock()
-		}
 	}
-
-	// Return errors if any occurred
-	if len(errs) > 0 {
-		return list, fmt.Errorf("encountered %d errors during resource fetching: %v", len(errs), errs[0])
-	}
+	pool.StopAndWait()
 
 	return list, nil
 }
 
-func fetchResouceGroups(ctx context.Context, sess *vmProvider) (resGrpList []string, err error) {
+func (d *vmProvider) processResourceGroup(ctx context.Context, group string) ([]*schema.Resource, error) {
+	vmList, err := fetchVMList(ctx, group, d)
+	if err != nil {
+		return nil, errors.Wrap(err, "error fetching vm list")
+	}
 
-	grClient := resources.NewGroupsClient(sess.SubscriptionID)
-	grClient.Authorizer = sess.Authorizer
+	var resources []*schema.Resource
+	for _, vm := range vmList {
+		nics := *vm.NetworkProfile.NetworkInterfaces
+
+		for _, nic := range nics {
+			res, err := azure.ParseResourceID(*nic.ID)
+			if err != nil {
+				gologger.Warning().Msgf("error parsing resource ID: %s", err)
+				continue
+			}
+
+			ipconfigList, err := fetchIPConfigList(ctx, group, res.ResourceName, d)
+			if err != nil {
+				gologger.Warning().Msgf("error fetching IP configs for NIC %s: %s", res.ResourceName, err)
+				continue
+			}
+
+			for _, ipConfig := range ipconfigList {
+				if ipConfig.PublicIPAddress == nil {
+					continue
+				}
+
+				res, err := azure.ParseResourceID(*ipConfig.PublicIPAddress.ID)
+				if err != nil {
+					gologger.Warning().Msgf("error parsing resource ID: %s", err)
+					continue
+				}
+
+				publicIP, err := fetchPublicIP(ctx, group, res.ResourceName, d)
+				if err != nil {
+					gologger.Warning().Msgf("error fetching public IP %s: %s", res.ResourceName, err)
+					continue
+				}
+
+				if publicIP.IPAddress == nil {
+					continue
+				}
+
+				resource := &schema.Resource{
+					Provider:    providerName,
+					ID:          d.id,
+					PrivateIpv4: *ipConfig.PrivateIPAddress,
+					Service:     d.name(),
+				}
+
+				if publicIP.PublicIPAddressVersion == network.IPv4 {
+					resource.PublicIPv4 = *publicIP.IPAddress
+				} else {
+					resource.PublicIPv6 = *publicIP.IPAddress
+				}
+
+				resources = append(resources, resource)
+
+				if publicIP.DNSSettings.Fqdn != nil {
+					resources = append(resources, &schema.Resource{
+						Provider: providerName,
+						ID:       d.id,
+						DNSName:  *publicIP.DNSSettings.Fqdn,
+						Service:  d.name(),
+					})
+				}
+			}
+		}
+	}
+	return resources, nil
+}
+
+func fetchResouceGroups(ctx context.Context, subscriptionID string, authorizer autorest.Authorizer) (resGrpList []string, err error) {
+	grClient := resources.NewGroupsClient(subscriptionID)
+	grClient.Authorizer = authorizer
 
 	for list, err := grClient.ListComplete(ctx, "", nil); list.NotDone(); err = list.Next() {
 
@@ -162,15 +155,11 @@ func fetchVMList(ctx context.Context, group string, sess *vmProvider) (VMList []
 	vmClient.Authorizer = sess.Authorizer
 
 	for vm, err := vmClient.ListComplete(context.Background(), group, ""); vm.NotDone(); err = vm.Next() {
-
 		if err != nil {
 			return nil, errors.Wrap(err, "error traverising vm list")
 		}
-
 		VMList = append(VMList, vm.Value())
-
 	}
-
 	return VMList, err
 }
 
