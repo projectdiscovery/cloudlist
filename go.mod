@@ -184,8 +184,8 @@ require (
 )
 
 require (
+	github.com/alitto/pond/v2 v2.3.2
 	github.com/dnsimple/dnsimple-go v1.7.0
-	github.com/panjf2000/ants/v2 v2.11.2
 	github.com/projectdiscovery/networkpolicy v0.1.9
 	github.com/projectdiscovery/retryablehttp-go v1.0.105
 )
