@@ -66,6 +66,10 @@ func (r *Runner) Enumerate() {
 		if len(services) > 0 {
 			item["services"] = strings.Join(services, ",")
 		}
+		if r.options.ExtendedMetadata {
+			item["extended_metadata"] = "true"
+		}
+
 		// Validate and only pass the correct items to input
 		if len(r.options.Providers) != 0 || len(r.options.Id) != 0 {
 			if len(r.options.Providers) != 0 && !Contains(r.options.Providers, item["provider"]) {
