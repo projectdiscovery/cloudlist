@@ -18,9 +18,10 @@ import (
 
 // gkeProvider is a provider for aws Route53 API
 type gkeProvider struct {
-	id       string
-	svc      *container.Service
-	projects []string
+	id               string
+	svc              *container.Service
+	projects         []string
+	extendedMetadata bool
 }
 
 func (d *gkeProvider) name() string {
@@ -54,7 +55,7 @@ func (d *gkeProvider) GetResource(ctx context.Context) (*schema.Resources, error
 			if err != nil {
 				return nil, errors.Wrap(err, "could not list kubernetes ingress")
 			}
-			k8sIngressProvider := k8s.NewK8sIngressProvider(d.id, ingress)
+			k8sIngressProvider := k8s.NewK8sIngressProvider(d.id, ingress, d.extendedMetadata)
 			ingressHosts, _ := k8sIngressProvider.GetResource(ctx)
 			for _, ingressHost := range ingressHosts.Items {
 				ingressHost.Service = d.name()

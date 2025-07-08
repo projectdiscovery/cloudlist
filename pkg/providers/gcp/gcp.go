@@ -18,15 +18,16 @@ import (
 
 // Provider is a data provider for gcp API
 type Provider struct {
-	dns       *dns.Service
-	gke       *container.Service
-	compute   *compute.Service
-	storage   *storage.Service
-	functions *cloudfunctions.Service
-	run       *run.APIService
-	services  schema.ServiceMap
-	id        string
-	projects  []string
+	dns              *dns.Service
+	gke              *container.Service
+	compute          *compute.Service
+	storage          *storage.Service
+	functions        *cloudfunctions.Service
+	run              *run.APIService
+	services         schema.ServiceMap
+	id               string
+	projects         []string
+	extendedMetadata bool
 }
 
 var Services = []string{"dns", "gke", "compute", "s3", "cloud-function", "cloud-run"}
@@ -58,6 +59,11 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	id, _ := options.GetMetadata("id")
 
 	provider := &Provider{id: id}
+
+	if extendedMetadata, ok := options.GetMetadata("extended_metadata"); ok {
+		provider.extendedMetadata = extendedMetadata == "true"
+	}
+
 	supportedServicesMap := make(map[string]struct{})
 	for _, s := range Services {
 		supportedServicesMap[s] = struct{}{}
@@ -157,7 +163,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	}
 
 	if p.gke != nil {
-		GKEProvider := &gkeProvider{svc: p.gke, id: p.id, projects: p.projects}
+		GKEProvider := &gkeProvider{svc: p.gke, id: p.id, projects: p.projects, extendedMetadata: p.extendedMetadata}
 		gkeData, err := GKEProvider.GetResource(ctx)
 		if err != nil {
 			gologger.Warning().Msgf("Could not get GKE resources: %s\n", err)
@@ -166,7 +172,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	}
 
 	if p.compute != nil {
-		VMProvider := &cloudVMProvider{compute: p.compute, id: p.id, projects: p.projects}
+		VMProvider := &cloudVMProvider{compute: p.compute, id: p.id, projects: p.projects, extendedMetadata: p.extendedMetadata}
 		vmData, err := VMProvider.GetResource(ctx)
 		if err != nil {
 			return nil, err
@@ -175,7 +181,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	}
 
 	if p.storage != nil {
-		cloudStorageProvider := &cloudStorageProvider{id: p.id, storage: p.storage, projects: p.projects}
+		cloudStorageProvider := &cloudStorageProvider{id: p.id, storage: p.storage, projects: p.projects, extendedMetadata: p.extendedMetadata}
 		storageData, err := cloudStorageProvider.GetResource(ctx)
 		if err != nil {
 			return nil, err

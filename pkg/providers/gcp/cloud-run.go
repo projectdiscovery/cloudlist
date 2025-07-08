@@ -26,7 +26,6 @@ func (d *cloudRunProvider) GetResource(ctx context.Context) (*schema.Resources, 
 	if err != nil {
 		return nil, fmt.Errorf("could not get services: %s", err)
 	}
-	
 	for _, service := range services {
 		serviceUrl, _ := url.Parse(service.Status.Url)
 		resource := &schema.Resource{
