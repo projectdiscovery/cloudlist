@@ -7,7 +7,8 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/projectdiscovery/gologger"
 	errorutil "github.com/projectdiscovery/utils/errors"
-	"google.golang.org/api/cloudfunctions/v1"
+	cloudfunctionsv1 "google.golang.org/api/cloudfunctions/v1"
+	"google.golang.org/api/cloudfunctions/v2"
 	"google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/compute/v1"
 	container "google.golang.org/api/container/v1beta1"
@@ -23,6 +24,7 @@ type Provider struct {
 	compute          *compute.Service
 	storage          *storage.Service
 	functions        *cloudfunctions.Service
+	functionsV1      *cloudfunctionsv1.Service
 	run              *run.APIService
 	services         schema.ServiceMap
 	id               string
@@ -118,11 +120,19 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		provider.storage = storageService
 	}
 	if services.Has("cloud-function") {
+		// Initialize v2 service
 		functionsService, err := cloudfunctions.NewService(context.Background(), creds)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not create functions service with api key")
+			return nil, errorutil.NewWithErr(err).Msgf("could not create functions v2 service with api key")
 		}
 		provider.functions = functionsService
+
+		// Initialize v1 service
+		functionsV1Service, err := cloudfunctionsv1.NewService(context.Background(), creds)
+		if err != nil {
+			return nil, errorutil.NewWithErr(err).Msgf("could not create functions v1 service with api key")
+		}
+		provider.functionsV1 = functionsV1Service
 	}
 
 	if services.Has("cloud-run") {
@@ -189,8 +199,8 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		finalResources.Merge(storageData)
 	}
 
-	if p.functions != nil {
-		cloudFunctionsProvider := &cloudFunctionsProvider{id: p.id, functions: p.functions, projects: p.projects}
+	if p.functions != nil || p.functionsV1 != nil {
+		cloudFunctionsProvider := &cloudFunctionsProvider{id: p.id, functions: p.functions, functionsV1: p.functionsV1, projects: p.projects, extendedMetadata: p.extendedMetadata}
 		functionsData, err := cloudFunctionsProvider.GetResource(ctx)
 		if err != nil {
 			return nil, err
@@ -234,6 +244,10 @@ func (p *Provider) Verify(ctx context.Context) error {
 			}
 		} else if p.functions != nil {
 			if _, err = p.functions.Projects.Locations.List(project).Do(); err == nil {
+				success = true
+			}
+		} else if p.functionsV1 != nil {
+			if _, err = p.functionsV1.Projects.Locations.List(project).Do(); err == nil {
 				success = true
 			}
 		} else if p.run != nil {

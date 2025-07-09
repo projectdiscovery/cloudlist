@@ -3,7 +3,9 @@ package aws
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
@@ -62,12 +64,20 @@ func (ep *elbProvider) listELBResources(elbClient *elb.ELB, ec2Client *ec2.EC2) 
 
 	for _, lb := range loadBalancerDescriptions {
 		elbDNS := *lb.DNSName
+
+		// Extract metadata for this load balancer
+		var metadata map[string]string
+		if ep.options.ExtendedMetadata {
+			metadata = ep.getLoadBalancerMetadata(lb, elbClient)
+		}
+
 		resource := &schema.Resource{
 			Provider: "aws",
 			ID:       *lb.LoadBalancerName,
 			DNSName:  elbDNS,
 			Public:   true,
 			Service:  ep.name(),
+			Metadata: metadata,
 		}
 		list.Append(resource)
 
@@ -87,12 +97,19 @@ func (ep *elbProvider) listELBResources(elbClient *elb.ELB, ec2Client *ec2.EC2) 
 			for _, reservation := range instanceOutput.Reservations {
 				for _, instance := range reservation.Instances {
 					if instance.PrivateIpAddress != nil {
+						// Extract metadata for target instance
+						var instanceMetadata map[string]string
+						if ep.options.ExtendedMetadata {
+							instanceMetadata = ep.getTargetInstanceMetadata(instance, lb, reservation)
+						}
+
 						resource := &schema.Resource{
 							Provider:    "aws",
 							ID:          instanceID,
 							PrivateIpv4: *instance.PrivateIpAddress,
 							Public:      false,
 							Service:     ep.name(),
+							Metadata:    instanceMetadata,
 						}
 						list.Append(resource)
 					}
@@ -150,4 +167,148 @@ func (ep *elbProvider) getElbAndEc2Clients(region *string) ([]*elb.ELB, []*ec2.E
 		ec2Clients = append(ec2Clients, ec2.New(assumeSession))
 	}
 	return elbClients, ec2Clients
+}
+
+func (ep *elbProvider) getLoadBalancerMetadata(lb *elb.LoadBalancerDescription, elbClient *elb.ELB) map[string]string {
+	metadata := make(map[string]string)
+
+	// Basic load balancer information
+	schema.AddMetadata(metadata, "load_balancer_name", lb.LoadBalancerName)
+	schema.AddMetadata(metadata, "dns_name", lb.DNSName)
+	schema.AddMetadata(metadata, "hosted_zone_name", lb.CanonicalHostedZoneName)
+	schema.AddMetadata(metadata, "hosted_zone_id", lb.CanonicalHostedZoneNameID)
+	schema.AddMetadata(metadata, "scheme", lb.Scheme)
+	schema.AddMetadata(metadata, "vpc_id", lb.VPCId)
+
+	if lb.CreatedTime != nil {
+		metadata["created_time"] = lb.CreatedTime.Format(time.RFC3339)
+	}
+
+	schema.AddMetadataList(metadata, "availability_zones", lb.AvailabilityZones)
+	schema.AddMetadataList(metadata, "subnet_ids", lb.Subnets)
+	schema.AddMetadataList(metadata, "security_groups", lb.SecurityGroups)
+
+	// Instances
+	schema.AddMetadataInt(metadata, "instance_count", len(lb.Instances))
+	if len(lb.Instances) > 0 {
+		var instanceIds []string
+		for _, instance := range lb.Instances {
+			if instance.InstanceId != nil {
+				instanceIds = append(instanceIds, aws.StringValue(instance.InstanceId))
+			}
+		}
+		if len(instanceIds) > 0 {
+			metadata["instance_ids"] = strings.Join(instanceIds, ",")
+		}
+	}
+
+	// Listener descriptions
+	schema.AddMetadataInt(metadata, "listener_count", len(lb.ListenerDescriptions))
+	if len(lb.ListenerDescriptions) > 0 {
+		var ports []string
+		var protocols []string
+		for _, listener := range lb.ListenerDescriptions {
+			if listener.Listener != nil {
+				if listener.Listener.LoadBalancerPort != nil {
+					ports = append(ports, fmt.Sprintf("%d", aws.Int64Value(listener.Listener.LoadBalancerPort)))
+				}
+				if listener.Listener.Protocol != nil {
+					protocols = append(protocols, aws.StringValue(listener.Listener.Protocol))
+				}
+			}
+		}
+		if len(ports) > 0 {
+			metadata["listener_ports"] = strings.Join(ports, ",")
+		}
+		if len(protocols) > 0 {
+			metadata["listener_protocols"] = strings.Join(protocols, ",")
+		}
+	}
+
+	// Backend server descriptions
+	schema.AddMetadataInt(metadata, "backend_server_count", len(lb.BackendServerDescriptions))
+
+	// Get tags
+	if lb.LoadBalancerName != nil {
+		if tagOutput, err := elbClient.DescribeTags(&elb.DescribeTagsInput{
+			LoadBalancerNames: []*string{lb.LoadBalancerName},
+		}); err == nil && tagOutput.TagDescriptions != nil && len(tagOutput.TagDescriptions) > 0 {
+			for _, tagDesc := range tagOutput.TagDescriptions {
+				if tagString := buildELBTagString(tagDesc.Tags); tagString != "" {
+					metadata["tags"] = tagString
+					break
+				}
+			}
+		}
+	}
+
+	return metadata
+}
+
+func (ep *elbProvider) getTargetInstanceMetadata(instance *ec2.Instance, lb *elb.LoadBalancerDescription, reservation *ec2.Reservation) map[string]string {
+	metadata := make(map[string]string)
+
+	// Basic instance information
+	schema.AddMetadata(metadata, "instance_id", instance.InstanceId)
+	schema.AddMetadata(metadata, "instance_type", instance.InstanceType)
+	schema.AddMetadata(metadata, "private_dns_name", instance.PrivateDnsName)
+	schema.AddMetadata(metadata, "public_dns_name", instance.PublicDnsName)
+	schema.AddMetadata(metadata, "subnet_id", instance.SubnetId)
+	schema.AddMetadata(metadata, "vpc_id", instance.VpcId)
+
+	// Instance state
+	if instance.State != nil {
+		schema.AddMetadata(metadata, "instance_state", instance.State.Name)
+	}
+
+	// Placement
+	if instance.Placement != nil {
+		schema.AddMetadata(metadata, "availability_zone", instance.Placement.AvailabilityZone)
+	}
+
+	// Owner information
+	schema.AddMetadata(metadata, "owner_id", reservation.OwnerId)
+
+	// Load balancer information
+	schema.AddMetadata(metadata, "load_balancer_name", lb.LoadBalancerName)
+	schema.AddMetadata(metadata, "load_balancer_dns", lb.DNSName)
+
+	// Instance tags
+	if len(instance.Tags) > 0 {
+		if tagString := buildTagString(instance.Tags); tagString != "" {
+			metadata["instance_tags"] = tagString
+		}
+	}
+
+	// Security groups
+	if len(instance.SecurityGroups) > 0 {
+		var sgIds, sgNames []string
+		for _, sg := range instance.SecurityGroups {
+			if sg.GroupId != nil {
+				sgIds = append(sgIds, aws.StringValue(sg.GroupId))
+			}
+			if sg.GroupName != nil {
+				sgNames = append(sgNames, aws.StringValue(sg.GroupName))
+			}
+		}
+		if len(sgIds) > 0 {
+			metadata["security_group_ids"] = strings.Join(sgIds, ",")
+		}
+		if len(sgNames) > 0 {
+			metadata["security_group_names"] = strings.Join(sgNames, ",")
+		}
+	}
+
+	return metadata
+}
+
+func buildELBTagString(tags []*elb.Tag) string {
+	var tagPairs []string
+	for _, tag := range tags {
+		if tag.Key != nil && tag.Value != nil {
+			tagPairs = append(tagPairs, fmt.Sprintf("%s=%s",
+				aws.StringValue(tag.Key), aws.StringValue(tag.Value)))
+		}
+	}
+	return strings.Join(tagPairs, ",")
 }

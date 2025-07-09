@@ -38,6 +38,7 @@ type ProviderOptions struct {
 	AssumeRoleName        string
 	AccountIds            []string
 	Services              schema.ServiceMap
+	ExtendedMetadata      bool
 }
 
 func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
@@ -88,6 +89,10 @@ func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
 		}
 	}
 	p.Services = services
+
+	if extendedMetadata, ok := block.GetMetadata("extended_metadata"); ok {
+		p.ExtendedMetadata = extendedMetadata == "true"
+	}
 
 	if accountIds, ok := block.GetMetadata(accountIds); ok {
 		p.AccountIds = sliceutil.Dedupe(strings.Split(accountIds, ","))
@@ -284,8 +289,8 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		assignWorker(eksProvider.GetResource)
 	}
 	if p.apiGateway != nil && p.lambdaClient != nil {
-		lamdaAndApiGatewayProvider := &lambdaAndapiGatewayProvider{apiGateway: p.apiGateway, lambdaClient: p.lambdaClient, options: *p.options, session: p.session, regions: p.regions}
-		assignWorker(lamdaAndApiGatewayProvider.GetResource)
+		lambdaAndApiGatewayProvider := &lambdaAndapiGatewayProvider{apiGateway: p.apiGateway, lambdaClient: p.lambdaClient, options: *p.options, session: p.session, regions: p.regions}
+		assignWorker(lambdaAndApiGatewayProvider.GetResource)
 	}
 	if p.albClient != nil {
 		albProvider := &elbV2Provider{albClient: p.albClient, options: *p.options, session: p.session, regions: p.regions}
