@@ -2,6 +2,7 @@ package gcp
 
 import (
 	"context"
+	"strings"
 
 	asset "cloud.google.com/go/asset/apiv1"
 	"cloud.google.com/go/asset/apiv1/assetpb"
@@ -34,8 +35,20 @@ func (d *cloudFunctionsProvider) GetResource(ctx context.Context) (*schema.Resou
 				break
 			}
 			functionName := asset.Resource.Data.Fields["name"].GetStringValue()
+			var dnsName string
+			if httpsTriggerField, ok := asset.Resource.Data.Fields["httpsTrigger"]; ok {
+				if httpsTrigger := httpsTriggerField.GetStructValue(); httpsTrigger != nil {
+					if urlField, ok := httpsTrigger.Fields["url"]; ok {
+						if url := urlField.GetStringValue(); url != "" {
+							dnsName = strings.TrimPrefix(url, "https://")
+						}
+					}
+				}
+			}
+			if dnsName == "" {
+				dnsName = functionName + ".cloudfunctions.net"
+			}
 
-			// Default to private
 			isPublic := false
 			if asset.IamPolicy != nil {
 				for _, binding := range asset.IamPolicy.Bindings {
@@ -56,7 +69,7 @@ func (d *cloudFunctionsProvider) GetResource(ctx context.Context) (*schema.Resou
 			resource := &schema.Resource{
 				ID:       d.id,
 				Provider: providerName,
-				DNSName:  functionName + ".cloudfunctions.net",
+				DNSName:  dnsName,
 				Public:   isPublic,
 				Service:  d.name(),
 			}
