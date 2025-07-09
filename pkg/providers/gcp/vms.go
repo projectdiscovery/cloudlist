@@ -34,9 +34,7 @@ func (d *cloudVMProvider) GetResource(ctx context.Context) (*schema.Resources, e
 			if err != nil {
 				break
 			}
-			instanceName := asset.Resource.Data.Fields["name"].GetStringValue()
 
-			// Default to private
 			isPublic := false
 			var publicIPv4, publicIPv6 string
 
@@ -77,7 +75,6 @@ func (d *cloudVMProvider) GetResource(ctx context.Context) (*schema.Resources, e
 			resource := &schema.Resource{
 				ID:         d.id,
 				Provider:   providerName,
-				DNSName:    instanceName + ".compute.googleapis.com",
 				Public:     isPublic,
 				PublicIPv4: publicIPv4,
 				PublicIPv6: publicIPv6,

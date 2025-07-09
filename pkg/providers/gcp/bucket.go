@@ -2,10 +2,12 @@ package gcp
 
 import (
 	"context"
+	"fmt"
 
 	asset "cloud.google.com/go/asset/apiv1"
 	"cloud.google.com/go/asset/apiv1/assetpb"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"google.golang.org/api/iterator"
 )
 
 type cloudStorageProvider struct {
@@ -30,10 +32,21 @@ func (d *cloudStorageProvider) GetResource(ctx context.Context) (*schema.Resourc
 		it := d.assetClient.ListAssets(ctx, req)
 		for {
 			asset, err := it.Next()
-			if err != nil {
+			if err == iterator.Done {
 				break
 			}
-			bucketName := asset.Resource.Data.Fields["name"].GetStringValue()
+			if err != nil {
+				return nil, fmt.Errorf("failed to list assets for project %s: %w", project, err)
+			}
+
+			if asset.Resource == nil || asset.Resource.Data == nil {
+				continue
+			}
+			nameField, ok := asset.Resource.Data.Fields["name"]
+			if !ok || nameField == nil {
+				continue
+			}
+			bucketName := nameField.GetStringValue()
 
 			isPublic := false
 			if asset.IamPolicy != nil {

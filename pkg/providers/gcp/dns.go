@@ -24,67 +24,53 @@ func (d *cloudDNSProvider) GetResource(ctx context.Context) (*schema.Resources, 
 	list := schema.NewResources()
 
 	for _, project := range d.projects {
-		// Get managed zones
-		req := &assetpb.ListAssetsRequest{
+		// Get resource record sets for this zone
+		recordsReq := &assetpb.ListAssetsRequest{
 			Parent:      "projects/" + project,
-			AssetTypes:  []string{"dns.googleapis.com/ManagedZone"},
+			AssetTypes:  []string{"dns.googleapis.com/ResourceRecordSet"},
 			ContentType: assetpb.ContentType_RESOURCE,
 		}
-		it := d.assetClient.ListAssets(ctx, req)
+		recordsIt := d.assetClient.ListAssets(ctx, recordsReq)
 		for {
-			_, err := it.Next()
+			recordAsset, err := recordsIt.Next()
 			if err != nil {
 				break
 			}
 
-			// Get resource record sets for this zone
-			recordsReq := &assetpb.ListAssetsRequest{
-				Parent:      "projects/" + project,
-				AssetTypes:  []string{"dns.googleapis.com/ResourceRecordSet"},
-				ContentType: assetpb.ContentType_RESOURCE,
-			}
-			recordsIt := d.assetClient.ListAssets(ctx, recordsReq)
-			for {
-				recordAsset, err := recordsIt.Next()
-				if err != nil {
-					break
+			// Parse record data
+			if recordAsset.Resource != nil && recordAsset.Resource.Data != nil {
+				fields := recordAsset.Resource.Data.Fields
+				recordName := fields["name"].GetStringValue()
+				recordType := fields["type"].GetStringValue()
+
+				// Only process A, CNAME, and AAAA records
+				if recordType != "A" && recordType != "CNAME" && recordType != "AAAA" {
+					continue
 				}
 
-				// Parse record data
-				if recordAsset.Resource != nil && recordAsset.Resource.Data != nil {
-					fields := recordAsset.Resource.Data.Fields
-					recordName := fields["name"].GetStringValue()
-					recordType := fields["type"].GetStringValue()
+				// Get record data
+				if rrdatasField, ok := fields["rrdatas"]; ok {
+					rrdatas := rrdatasField.GetListValue().Values
+					for _, rdata := range rrdatas {
+						data := rdata.GetStringValue()
 
-					// Only process A, CNAME, and AAAA records
-					if recordType != "A" && recordType != "CNAME" && recordType != "AAAA" {
-						continue
-					}
-
-					// Get record data
-					if rrdatasField, ok := fields["rrdatas"]; ok {
-						rrdatas := rrdatasField.GetListValue().Values
-						for _, rdata := range rrdatas {
-							data := rdata.GetStringValue()
-
-							resource := &schema.Resource{
-								DNSName:  recordName,
-								Public:   true, // DNS records are typically public
-								ID:       d.id,
-								Provider: providerName,
-								Service:  d.name(),
-							}
-
-							// Set IP addresses based on record type
-							switch recordType {
-							case "A":
-								resource.PublicIPv4 = data
-							case "AAAA":
-								resource.PublicIPv6 = data
-							}
-
-							list.Append(resource)
+						resource := &schema.Resource{
+							DNSName:  recordName,
+							Public:   true, // DNS records are typically public
+							ID:       d.id,
+							Provider: providerName,
+							Service:  d.name(),
 						}
+
+						// Set IP addresses based on record type
+						switch recordType {
+						case "A":
+							resource.PublicIPv4 = data
+						case "AAAA":
+							resource.PublicIPv6 = data
+						}
+
+						list.Append(resource)
 					}
 				}
 			}

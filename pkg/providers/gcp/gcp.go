@@ -10,6 +10,7 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/projectdiscovery/gologger"
 	errorutil "github.com/projectdiscovery/utils/errors"
+	"google.golang.org/api/iterator"
 )
 
 // Provider is a data provider for gcp API
@@ -46,7 +47,10 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	if !ok {
 		return nil, errorutil.New("could not get API Key")
 	}
-	organizationId, _ := options.GetMetadata("organization_id")
+	organizationId, ok := options.GetMetadata("organization_id")
+	if !ok {
+		return nil, errorutil.New("organization_id is required")
+	}
 	id, _ := options.GetMetadata("id")
 
 	provider := &Provider{id: id}
@@ -98,9 +102,10 @@ func listProjects(assetClient *asset.Client, parent string) ([]string, error) {
 	it := assetClient.ListAssets(context.Background(), req)
 	for {
 		asset, err := it.Next()
-		if err != nil {
+		if err == iterator.Done {
 			break
 		}
+
 		if asset.Resource != nil && asset.Resource.Data != nil {
 			fields := asset.Resource.Data.Fields
 			if nameField, ok := fields["projectId"]; ok {
