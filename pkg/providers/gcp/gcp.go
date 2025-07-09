@@ -105,6 +105,9 @@ func listProjects(assetClient *asset.Client, parent string) ([]string, error) {
 		if err == iterator.Done {
 			break
 		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to list project assets: %w", err)
+		}
 
 		if asset.Resource != nil && asset.Resource.Data != nil {
 			fields := asset.Resource.Data.Fields
