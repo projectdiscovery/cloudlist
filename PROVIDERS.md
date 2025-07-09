@@ -54,7 +54,9 @@ Google Cloud Platform can be integrated by using the following configuration blo
   provider: gcp
   # id is the name defined by user for filtering (optional)
   id: staging
-  # gcp_service_account_key is the key token of service account.
+  # organization_id is the ID of the organization in GCP (required)
+  organization_id: xxx
+  # gcp_service_account_key is the JSON key for the GCP service account (required)
   gcp_service_account_key: '{}'
 ```
 

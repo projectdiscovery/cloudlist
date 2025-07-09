@@ -2,57 +2,88 @@ package gcp
 
 import (
 	"context"
-	"log"
 
+	asset "cloud.google.com/go/asset/apiv1"
+	"cloud.google.com/go/asset/apiv1/assetpb"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
-	"google.golang.org/api/compute/v1"
 )
 
 type cloudVMProvider struct {
-	id       string
-	compute  *compute.Service
-	projects []string
+	id          string
+	assetClient *asset.Client
+	projects    []string
 }
 
 func (d *cloudVMProvider) name() string {
 	return "vms"
 }
 
-// GetResource returns all the resources in the store for a provider.
+// GetResource returns all the VM resources in the store for a provider.
 func (d *cloudVMProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
 
 	for _, project := range d.projects {
-		instances := d.compute.Instances.AggregatedList(project)
-		err := instances.Pages(context.Background(), func(ial *compute.InstanceAggregatedList) error {
-			for _, instancesScopedList := range ial.Items {
-				for _, instance := range instancesScopedList.Instances {
-					instance := instance
+		req := &assetpb.ListAssetsRequest{
+			Parent:      "projects/" + project,
+			AssetTypes:  []string{"compute.googleapis.com/Instance"},
+			ContentType: assetpb.ContentType_RESOURCE,
+		}
+		it := d.assetClient.ListAssets(ctx, req)
+		for {
+			asset, err := it.Next()
+			if err != nil {
+				break
+			}
+			instanceName := asset.Resource.Data.Fields["name"].GetStringValue()
 
-					if len(instance.NetworkInterfaces) == 0 {
-						continue
-					}
-					nic := instance.NetworkInterfaces[0]
-					if len(nic.AccessConfigs) == 0 {
-						continue
-					}
-					cfg := nic.AccessConfigs[0]
+			// Default to private
+			isPublic := false
+			var publicIPv4, publicIPv6 string
 
-					list.Append(&schema.Resource{
-						ID:         d.id,
-						Public:     true,
-						Provider:   providerName,
-						PublicIPv4: cfg.NatIP,
-						PublicIPv6: cfg.ExternalIpv6,
-						Service:    d.name(),
-					})
+			// Check network interfaces for public IPs
+			if networkInterfacesField, ok := asset.Resource.Data.Fields["networkInterfaces"]; ok {
+				networkInterfaces := networkInterfacesField.GetListValue().Values
+				for _, nic := range networkInterfaces {
+					nicFields := nic.GetStructValue().Fields
+
+					// Check access configs for public IPs
+					if accessConfigsField, ok := nicFields["accessConfigs"]; ok {
+						accessConfigs := accessConfigsField.GetListValue().Values
+						for _, config := range accessConfigs {
+							configFields := config.GetStructValue().Fields
+
+							// Check for NAT IP (public IPv4)
+							if natIPField, ok := configFields["natIP"]; ok {
+								natIP := natIPField.GetStringValue()
+								if natIP != "" {
+									publicIPv4 = natIP
+									isPublic = true
+								}
+							}
+
+							// Check for external IPv6
+							if externalIPv6Field, ok := configFields["externalIpv6"]; ok {
+								externalIPv6 := externalIPv6Field.GetStringValue()
+								if externalIPv6 != "" {
+									publicIPv6 = externalIPv6
+									isPublic = true
+								}
+							}
+						}
+					}
 				}
 			}
-			return nil
-		})
-		if err != nil {
-			log.Printf("Could not get all instances for project %s: %s\n", project, err)
-			continue
+
+			resource := &schema.Resource{
+				ID:         d.id,
+				Provider:   providerName,
+				DNSName:    instanceName + ".compute.googleapis.com",
+				Public:     isPublic,
+				PublicIPv4: publicIPv4,
+				PublicIPv6: publicIPv6,
+				Service:    d.name(),
+			}
+			list.Append(resource)
 		}
 	}
 	return list, nil

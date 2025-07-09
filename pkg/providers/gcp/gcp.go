@@ -2,31 +2,22 @@ package gcp
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
+	asset "cloud.google.com/go/asset/apiv1"
+	"cloud.google.com/go/asset/apiv1/assetpb"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/projectdiscovery/gologger"
 	errorutil "github.com/projectdiscovery/utils/errors"
-	"google.golang.org/api/cloudfunctions/v1"
-	"google.golang.org/api/cloudresourcemanager/v1"
-	"google.golang.org/api/compute/v1"
-	container "google.golang.org/api/container/v1beta1"
-	"google.golang.org/api/dns/v1"
-	run "google.golang.org/api/run/v1"
-	"google.golang.org/api/storage/v1"
 )
 
 // Provider is a data provider for gcp API
 type Provider struct {
-	dns       *dns.Service
-	gke       *container.Service
-	compute   *compute.Service
-	storage   *storage.Service
-	functions *cloudfunctions.Service
-	run       *run.APIService
-	services  schema.ServiceMap
-	id        string
-	projects  []string
+	assetClient *asset.Client
+	services    schema.ServiceMap
+	id          string
+	projects    []string
 }
 
 var Services = []string{"dns", "gke", "compute", "s3", "cloud-function", "cloud-run"}
@@ -55,6 +46,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	if !ok {
 		return nil, errorutil.New("could not get API Key")
 	}
+	organizationId, _ := options.GetMetadata("organization_id")
 	id, _ := options.GetMetadata("id")
 
 	provider := &Provider{id: id}
@@ -64,7 +56,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	}
 	services := make(schema.ServiceMap)
 	if ss, ok := options.GetMetadata("services"); ok {
-		for _, s := range strings.Split(ss, ",") {
+		for s := range strings.SplitSeq(ss, ",") {
 			if _, ok := supportedServicesMap[s]; ok {
 				services[s] = struct{}{}
 			}
@@ -81,74 +73,52 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).Msgf("could not register gcp service account")
 	}
-	if services.Has("dns") {
-		dnsService, err := dns.NewService(context.Background(), creds)
-		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not create dns service with api key")
-		}
-		provider.dns = dnsService
-	}
-	if services.Has("compute") {
-		computeService, err := compute.NewService(context.Background(), creds)
-		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not create compute service with api key")
-		}
-		provider.compute = computeService
+
+	provider.assetClient, err = asset.NewClient(context.Background(), creds)
+	if err != nil {
+		return nil, errorutil.NewWithErr(err).Msgf("could not create asset client with api key")
 	}
 
-	if services.Has("gke") {
-		containerService, err := container.NewService(context.Background(), creds)
-		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not create container service with api key")
-		}
-		provider.gke = containerService
-	}
-
-	if services.Has("s3") {
-		storageService, err := storage.NewService(context.Background(), creds)
-		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not create storage service with api key")
-		}
-		provider.storage = storageService
-	}
-	if services.Has("cloud-function") {
-		functionsService, err := cloudfunctions.NewService(context.Background(), creds)
-		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not create functions service with api key")
-		}
-		provider.functions = functionsService
-	}
-
-	if services.Has("cloud-run") {
-		cloudRunService, err := run.NewService(context.Background(), creds)
-		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not create cloud run service with api key")
-		}
-		provider.run = cloudRunService
-	}
-
-	projects := []string{}
-	manager, err := cloudresourcemanager.NewService(context.Background(), creds)
+	projects, err := listProjects(provider.assetClient, fmt.Sprintf("organizations/%s", organizationId))
 	if err != nil {
 		return nil, errorutil.NewWithErr(err).Msgf("could not list projects")
 	}
-	list := manager.Projects.List()
-	err = list.Pages(context.Background(), func(resp *cloudresourcemanager.ListProjectsResponse) error {
-		for _, project := range resp.Projects {
-			projects = append(projects, project.ProjectId)
-		}
-		return nil
-	})
 	provider.projects = projects
 	return provider, err
+}
+
+// listProjects uses the Cloud Asset Inventory API to list all accessible projects
+func listProjects(assetClient *asset.Client, parent string) ([]string, error) {
+	projects := []string{}
+	req := &assetpb.ListAssetsRequest{
+		Parent:      parent,
+		AssetTypes:  []string{"cloudresourcemanager.googleapis.com/Project"},
+		ContentType: assetpb.ContentType_RESOURCE,
+	}
+	it := assetClient.ListAssets(context.Background(), req)
+	for {
+		asset, err := it.Next()
+		if err != nil {
+			break
+		}
+		if asset.Resource != nil && asset.Resource.Data != nil {
+			fields := asset.Resource.Data.Fields
+			if nameField, ok := fields["projectId"]; ok {
+				projectID := nameField.GetStringValue()
+				projects = append(projects, projectID)
+			}
+		}
+	}
+
+	return projects, nil
 }
 
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalResources := schema.NewResources()
 
-	if p.dns != nil {
-		cloudDNSProvider := &cloudDNSProvider{dns: p.dns, id: p.id, projects: p.projects}
+	if p.services.Has("dns") {
+		cloudDNSProvider := &cloudDNSProvider{id: p.id, assetClient: p.assetClient, projects: p.projects}
 		zones, err := cloudDNSProvider.GetResource(ctx)
 		if err != nil {
 			return nil, err
@@ -156,8 +126,8 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		finalResources.Merge(zones)
 	}
 
-	if p.gke != nil {
-		GKEProvider := &gkeProvider{svc: p.gke, id: p.id, projects: p.projects}
+	if p.services.Has("gke") {
+		GKEProvider := &gkeProvider{id: p.id, assetClient: p.assetClient, projects: p.projects}
 		gkeData, err := GKEProvider.GetResource(ctx)
 		if err != nil {
 			gologger.Warning().Msgf("Could not get GKE resources: %s\n", err)
@@ -165,8 +135,8 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		finalResources.Merge(gkeData)
 	}
 
-	if p.compute != nil {
-		VMProvider := &cloudVMProvider{compute: p.compute, id: p.id, projects: p.projects}
+	if p.services.Has("compute") {
+		VMProvider := &cloudVMProvider{id: p.id, assetClient: p.assetClient, projects: p.projects}
 		vmData, err := VMProvider.GetResource(ctx)
 		if err != nil {
 			return nil, err
@@ -174,8 +144,8 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		finalResources.Merge(vmData)
 	}
 
-	if p.storage != nil {
-		cloudStorageProvider := &cloudStorageProvider{id: p.id, storage: p.storage, projects: p.projects}
+	if p.services.Has("s3") {
+		cloudStorageProvider := &cloudStorageProvider{id: p.id, projects: p.projects, assetClient: p.assetClient}
 		storageData, err := cloudStorageProvider.GetResource(ctx)
 		if err != nil {
 			return nil, err
@@ -183,8 +153,8 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		finalResources.Merge(storageData)
 	}
 
-	if p.functions != nil {
-		cloudFunctionsProvider := &cloudFunctionsProvider{id: p.id, functions: p.functions, projects: p.projects}
+	if p.services.Has("cloud-function") {
+		cloudFunctionsProvider := &cloudFunctionsProvider{id: p.id, assetClient: p.assetClient, projects: p.projects}
 		functionsData, err := cloudFunctionsProvider.GetResource(ctx)
 		if err != nil {
 			return nil, err
@@ -192,15 +162,14 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		finalResources.Merge(functionsData)
 	}
 
-	if p.run != nil {
-		cloudRunProvider := &cloudRunProvider{id: p.id, run: p.run, projects: p.projects}
+	if p.services.Has("cloud-run") {
+		cloudRunProvider := &cloudRunProvider{id: p.id, assetClient: p.assetClient, projects: p.projects}
 		cloudRunData, err := cloudRunProvider.GetResource(ctx)
 		if err != nil {
 			return nil, err
 		}
 		finalResources.Merge(cloudRunData)
 	}
-
 	return finalResources, nil
 }
 
@@ -214,24 +183,16 @@ func (p *Provider) Verify(ctx context.Context) error {
 	var err error
 	for _, project := range p.projects {
 		var success bool
-		if p.compute != nil {
-			if _, err = p.compute.Regions.List(project).Do(); err == nil {
-				success = true
+		if p.assetClient != nil {
+			// Use asset inventory to verify access
+			req := &assetpb.ListAssetsRequest{
+				Parent:      "projects/" + project,
+				PageSize:    1,
+				ContentType: assetpb.ContentType_RESOURCE,
 			}
-		} else if p.dns != nil {
-			if _, err = p.dns.ManagedZones.List(project).Do(); err == nil {
-				success = true
-			}
-		} else if p.storage != nil {
-			if _, err = p.storage.Buckets.List(project).Do(); err == nil {
-				success = true
-			}
-		} else if p.functions != nil {
-			if _, err = p.functions.Projects.Locations.List(project).Do(); err == nil {
-				success = true
-			}
-		} else if p.run != nil {
-			if _, err = p.run.Projects.Locations.List(project).Do(); err == nil {
+			it := p.assetClient.ListAssets(ctx, req)
+			_, err = it.Next()
+			if err == nil {
 				success = true
 			}
 		}

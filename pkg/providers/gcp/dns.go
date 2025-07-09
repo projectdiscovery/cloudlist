@@ -2,79 +2,93 @@ package gcp
 
 import (
 	"context"
-	"log"
 
+	asset "cloud.google.com/go/asset/apiv1"
+	"cloud.google.com/go/asset/apiv1/assetpb"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
-	"google.golang.org/api/dns/v1"
 )
 
-// cloudDNSProvider is a provider for aws Route53 API
+// cloudDNSProvider is a provider for GCP Cloud DNS API
 type cloudDNSProvider struct {
-	id       string
-	dns      *dns.Service
-	projects []string
+	id          string
+	assetClient *asset.Client
+	projects    []string
 }
 
 func (d *cloudDNSProvider) name() string {
 	return "dns"
 }
 
-// GetResource returns all the resources in the store for a provider.
+// GetResource returns all the DNS resources in the store for a provider.
 func (d *cloudDNSProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
 
 	for _, project := range d.projects {
-		zone := d.dns.ManagedZones.List(project)
-		err := zone.Pages(context.Background(), func(resp *dns.ManagedZonesListResponse) error {
-			for _, z := range resp.ManagedZones {
-				resources := d.dns.ResourceRecordSets.List(project, z.Name)
-				err := resources.Pages(context.Background(), func(r *dns.ResourceRecordSetsListResponse) error {
-					items := d.parseRecordsForResourceSet(r)
-					list.Merge(items)
-					return nil
-				})
+		// Get managed zones
+		req := &assetpb.ListAssetsRequest{
+			Parent:      "projects/" + project,
+			AssetTypes:  []string{"dns.googleapis.com/ManagedZone"},
+			ContentType: assetpb.ContentType_RESOURCE,
+		}
+		it := d.assetClient.ListAssets(ctx, req)
+		for {
+			_, err := it.Next()
+			if err != nil {
+				break
+			}
+
+			// Get resource record sets for this zone
+			recordsReq := &assetpb.ListAssetsRequest{
+				Parent:      "projects/" + project,
+				AssetTypes:  []string{"dns.googleapis.com/ResourceRecordSet"},
+				ContentType: assetpb.ContentType_RESOURCE,
+			}
+			recordsIt := d.assetClient.ListAssets(ctx, recordsReq)
+			for {
+				recordAsset, err := recordsIt.Next()
 				if err != nil {
-					log.Printf("Could not get resource_records for zone %s in project %s: %s\n", z.Name, project, err)
-					continue
+					break
+				}
+
+				// Parse record data
+				if recordAsset.Resource != nil && recordAsset.Resource.Data != nil {
+					fields := recordAsset.Resource.Data.Fields
+					recordName := fields["name"].GetStringValue()
+					recordType := fields["type"].GetStringValue()
+
+					// Only process A, CNAME, and AAAA records
+					if recordType != "A" && recordType != "CNAME" && recordType != "AAAA" {
+						continue
+					}
+
+					// Get record data
+					if rrdatasField, ok := fields["rrdatas"]; ok {
+						rrdatas := rrdatasField.GetListValue().Values
+						for _, rdata := range rrdatas {
+							data := rdata.GetStringValue()
+
+							resource := &schema.Resource{
+								DNSName:  recordName,
+								Public:   true, // DNS records are typically public
+								ID:       d.id,
+								Provider: providerName,
+								Service:  d.name(),
+							}
+
+							// Set IP addresses based on record type
+							switch recordType {
+							case "A":
+								resource.PublicIPv4 = data
+							case "AAAA":
+								resource.PublicIPv6 = data
+							}
+
+							list.Append(resource)
+						}
+					}
 				}
 			}
-			return nil
-		})
-		if err != nil {
-			log.Printf("Could not get all zones for project %s: %s\n", project, err)
-			continue
 		}
 	}
 	return list, nil
-}
-
-// parseRecordsForResourceSet parses and returns the records for a resource set
-func (d *cloudDNSProvider) parseRecordsForResourceSet(r *dns.ResourceRecordSetsListResponse) *schema.Resources {
-	list := schema.NewResources()
-
-	for _, resource := range r.Rrsets {
-		if resource.Type != "A" && resource.Type != "CNAME" && resource.Type != "AAAA" {
-			continue
-		}
-
-		for _, data := range resource.Rrdatas {
-			dst := &schema.Resource{
-				DNSName:  resource.Name,
-				Public:   true,
-				ID:       d.id,
-				Provider: providerName,
-				Service:  d.name(),
-			}
-
-			//nolint
-			if resource.Type == "A" {
-				dst.PublicIPv4 = data
-			} else if resource.Type == "AAAA" {
-				dst.PublicIPv6 = data
-			}
-
-			list.Append(dst)
-		}
-	}
-	return list
 }
