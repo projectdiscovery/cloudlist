@@ -550,6 +550,9 @@ func getStringField(data *structpb.Struct, fieldNames ...string) string {
 }
 
 func getNestedStringField(data *structpb.Struct, parentField, childField string) string {
+	if data == nil {
+		return ""
+	}
 	if parent, ok := data.Fields[parentField]; ok {
 		if parentStruct := parent.GetStructValue(); parentStruct != nil {
 			return getStringField(parentStruct, childField)

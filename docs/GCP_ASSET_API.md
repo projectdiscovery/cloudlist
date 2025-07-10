@@ -303,3 +303,92 @@ gcloud iam service-accounts keys delete KEY-ID --iam-account=$SA_EMAIL
 # Generate new key
 gcloud iam service-accounts keys create new-key.json --iam-account=$SA_EMAIL
 ```
+
+## Multiple Organization Support
+
+Cloudlist supports discovering assets from **multiple GCP organizations simultaneously** by configuring multiple provider blocks in the same configuration file.
+
+### Configuration Example
+
+```yaml
+# Multiple Organizations Configuration
+- provider: gcp
+  id: org-production
+  organization_id: "111111111111"  # Production organization
+  gcp_service_account_key: |
+    {
+      "type": "service_account",
+      "project_id": "prod-project",
+      "private_key_id": "...",
+      "private_key": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n",
+      "client_email": "asset-viewer-sa@prod-project.iam.gserviceaccount.com",
+      "client_id": "...",
+      "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+      "token_uri": "https://oauth2.googleapis.com/token",
+      "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+      "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/asset-viewer-sa%40prod-project.iam.gserviceaccount.com",
+      "universe_domain": "googleapis.com"
+    }
+
+- provider: gcp
+  id: org-staging
+  organization_id: "222222222222"  # Staging organization
+  gcp_service_account_key: |
+    {
+      "type": "service_account",
+      "project_id": "staging-project",
+      "private_key_id": "...",
+      "private_key": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n",
+      "client_email": "asset-viewer-sa@staging-project.iam.gserviceaccount.com",
+      "client_id": "...",
+      "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+      "token_uri": "https://oauth2.googleapis.com/token",
+      "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+      "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/asset-viewer-sa%40staging-project.iam.gserviceaccount.com",
+      "universe_domain": "googleapis.com"
+    }
+
+- provider: gcp
+  id: org-development
+  organization_id: "333333333333"  # Development organization
+  gcp_service_account_key: |
+    {
+      "type": "service_account",
+      "project_id": "dev-project",
+      "private_key_id": "...",
+      "private_key": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n",
+      "client_email": "asset-viewer-sa@dev-project.iam.gserviceaccount.com",
+      "client_id": "...",
+      "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+      "token_uri": "https://oauth2.googleapis.com/token",
+      "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+      "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/asset-viewer-sa%40dev-project.iam.gserviceaccount.com",
+      "universe_domain": "googleapis.com"
+    }
+```
+
+### Usage Examples
+
+```bash
+# Discover assets from ALL organizations
+./cloudlist -pc config.yaml -s all
+
+# Discover assets from specific organization
+./cloudlist -pc config.yaml -id org-production -s compute
+
+# Discover assets from multiple specific organizations
+./cloudlist -pc config.yaml -id org-production,org-staging -s compute
+
+# Compare production vs staging environments
+./cloudlist -pc config.yaml -id org-production -s all > prod-assets.txt
+./cloudlist -pc config.yaml -id org-staging -s all > staging-assets.txt
+diff prod-assets.txt staging-assets.txt
+```
+
+### Service Account Requirements
+
+Each organization requires its own service account with appropriate permissions:
+
+- **Organization-Level Permissions**: `roles/cloudasset.viewer` + `roles/resourcemanager.viewer`
+- **Cross-Organization Setup**: Service accounts can be in different projects/organizations
+- **Permission Inheritance**: Each service account only accesses its configured organization
