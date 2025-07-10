@@ -153,8 +153,6 @@ func (cp *cloudfrontProvider) getDistributionMetadata(distribution *cloudfront.D
 			if tagString := buildCloudFrontTagString(tagOutput.Tags.Items); tagString != "" {
 				metadata["tags"] = tagString
 			}
-		} else {
-			fmt.Printf("error listing tags for resource: %v\n", err)
 		}
 	}
 

@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/apigateway"
+	"github.com/aws/aws-sdk-go/service/apigatewayv2"
 	"github.com/aws/aws-sdk-go/service/cloudfront"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ecs"
@@ -25,7 +26,7 @@ import (
 	sliceutil "github.com/projectdiscovery/utils/slice"
 )
 
-var Services = []string{"ec2", "instance", "route53", "s3", "ecs", "eks", "lambda", "apigateway", "alb", "elb", "lightsail", "cloudfront"}
+var Services = []string{"ec2", "instance", "route53", "s3", "ecs", "eks", "lambda", "apigateway", "apigatewayv2", "alb", "elb", "lightsail", "cloudfront"}
 
 type ProviderOptions struct {
 	Id                    string
@@ -110,6 +111,7 @@ type Provider struct {
 	eksClient        *eks.EKS
 	lambdaClient     *lambda.Lambda
 	apiGateway       *apigateway.APIGateway
+	apiGatewayV2     *apigatewayv2.ApiGatewayV2
 	albClient        *elbv2.ELBV2
 	elbClient        *elb.ELB
 	lightsailClient  *lightsail.Lightsail
@@ -201,6 +203,7 @@ func New(block schema.OptionBlock) (*Provider, error) {
 	}
 	if services.Has("apigateway") {
 		provider.apiGateway = apigateway.New(sess)
+		provider.apiGatewayV2 = apigatewayv2.New(sess)
 	}
 	if services.Has("alb") {
 		provider.albClient = elbv2.New(sess)
@@ -288,8 +291,8 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		eksProvider := &eksProvider{eksClient: p.eksClient, options: *p.options, session: p.session, regions: p.regions}
 		assignWorker(eksProvider.GetResource)
 	}
-	if p.apiGateway != nil && p.lambdaClient != nil {
-		lambdaAndApiGatewayProvider := &lambdaAndapiGatewayProvider{apiGateway: p.apiGateway, lambdaClient: p.lambdaClient, options: *p.options, session: p.session, regions: p.regions}
+	if (p.apiGateway != nil || p.apiGatewayV2 != nil) && p.lambdaClient != nil {
+		lambdaAndApiGatewayProvider := &lambdaAndapiGatewayProvider{apiGateway: p.apiGateway, apiGatewayV2: p.apiGatewayV2, lambdaClient: p.lambdaClient, options: *p.options, session: p.session, regions: p.regions}
 		assignWorker(lambdaAndApiGatewayProvider.GetResource)
 	}
 	if p.albClient != nil {
@@ -362,6 +365,13 @@ func (p *Provider) Verify(ctx context.Context) error {
 
 	if !success && p.apiGateway != nil {
 		_, err := p.apiGateway.GetRestApis(&apigateway.GetRestApisInput{})
+		if err == nil {
+			success = true
+		}
+	}
+
+	if !success && p.apiGatewayV2 != nil {
+		_, err := p.apiGatewayV2.GetApis(&apigatewayv2.GetApisInput{})
 		if err == nil {
 			success = true
 		}

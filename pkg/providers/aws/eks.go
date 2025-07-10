@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
@@ -13,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/eks"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -46,6 +49,8 @@ func (ep *eksProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 					mu.Lock()
 					list.Merge(resources)
 					mu.Unlock()
+				} else {
+					fmt.Printf("error listing EKS resources: %v\n", err)
 				}
 			}(eksClient)
 		}
@@ -64,15 +69,19 @@ func (ep *eksProvider) listEKSResources(eksClient *eks.EKS) (*schema.Resources, 
 		if err != nil {
 			return nil, errors.Wrap(err, "could not list EKS clusters")
 		}
-		// Iterate over each cluster
 		for _, clusterName := range clustersOutput.Clusters {
-			// describe cluster
 			clusterOutput, err := eksClient.DescribeCluster(&eks.DescribeClusterInput{
 				Name: clusterName,
 			})
 			if err != nil {
 				return nil, errors.Wrapf(err, "could not describe EKS cluster: %s", *clusterName)
 			}
+
+			var clusterMetadata map[string]string
+			if ep.options.ExtendedMetadata {
+				clusterMetadata = ep.getClusterMetadata(clusterOutput.Cluster, eksClient)
+			}
+
 			clientset, err := newClientset(clusterOutput.Cluster)
 			if err != nil {
 				return nil, errors.Wrapf(err, "could not create clientset for EKS cluster: %s", *clusterName)
@@ -81,39 +90,49 @@ func (ep *eksProvider) listEKSResources(eksClient *eks.EKS) (*schema.Resources, 
 			if err != nil {
 				return nil, errors.Wrapf(err, "could not list nodes for EKS cluster: %s", *clusterName)
 			}
-			// Iterate over each node
 			for _, node := range nodes.Items {
+				var nodeMetadata map[string]string
+				if ep.options.ExtendedMetadata {
+					nodeMetadata = ep.getNodeMetadata(&node, clusterOutput.Cluster)
+				}
+
 				var podIPs []string
-				// List IP addresses of pods running on the node
 				pods, err := clientset.CoreV1().Pods("").List(context.Background(), metav1.ListOptions{
 					FieldSelector: fmt.Sprintf("spec.nodeName=%s", node.GetName()),
 				})
 				if err != nil {
 					continue
 				}
-				// Collect pod IP addresses
 				for _, pod := range pods.Items {
 					for _, podIP := range pod.Status.PodIPs {
 						podIPs = append(podIPs, podIP.IP)
 					}
 				}
-				// Node IP
 				nodeIP := node.Status.Addresses[0].Address
 				list.Append(&schema.Resource{
 					Provider:   providerName,
-					ID:         node.GetName(),
+					ID:         ep.options.Id,
 					PublicIPv4: nodeIP,
 					Public:     true,
 					Service:    ep.name(),
+					Metadata:   nodeMetadata,
 				})
-				// Pod IPs
 				for _, podIP := range podIPs {
+					var podMetadata map[string]string
+					if ep.options.ExtendedMetadata && clusterMetadata != nil {
+						podMetadata = make(map[string]string)
+						podMetadata["cluster_name"] = clusterMetadata["cluster_name"]
+						podMetadata["cluster_arn"] = clusterMetadata["cluster_arn"]
+						podMetadata["owner_id"] = clusterMetadata["owner_id"]
+						podMetadata["node_name"] = node.GetName()
+					}
 					list.Append(&schema.Resource{
 						Provider:    providerName,
-						ID:          node.GetName(),
+						ID:          ep.options.Id,
 						PrivateIpv4: podIP,
 						Public:      false,
 						Service:     ep.name(),
+						Metadata:    podMetadata,
 					})
 				}
 			}
@@ -124,6 +143,174 @@ func (ep *eksProvider) listEKSResources(eksClient *eks.EKS) (*schema.Resources, 
 		req.SetNextToken(*clustersOutput.NextToken)
 	}
 	return list, nil
+}
+
+func (ep *eksProvider) getClusterMetadata(cluster *eks.Cluster, eksClient *eks.EKS) map[string]string {
+	metadata := make(map[string]string)
+
+	schema.AddMetadata(metadata, "cluster_name", cluster.Name)
+	schema.AddMetadata(metadata, "cluster_arn", cluster.Arn)
+	schema.AddMetadata(metadata, "version", cluster.Version)
+	schema.AddMetadata(metadata, "platform_version", cluster.PlatformVersion)
+	schema.AddMetadata(metadata, "status", cluster.Status)
+	schema.AddMetadata(metadata, "endpoint", cluster.Endpoint)
+
+	if cluster.Arn != nil {
+		arnParts := strings.Split(aws.StringValue(cluster.Arn), ":")
+		if len(arnParts) >= 5 && arnParts[4] != "" {
+			metadata["owner_id"] = arnParts[4]
+		}
+	}
+
+	if cluster.CreatedAt != nil {
+		metadata["created_at"] = cluster.CreatedAt.Format(time.RFC3339)
+	}
+
+	schema.AddMetadata(metadata, "role_arn", cluster.RoleArn)
+
+	if cluster.ResourcesVpcConfig != nil {
+		schema.AddMetadata(metadata, "vpc_id", cluster.ResourcesVpcConfig.VpcId)
+
+		if len(cluster.ResourcesVpcConfig.PublicAccessCidrs) > 0 {
+			metadata["public_access_cidrs"] = strings.Join(aws.StringValueSlice(cluster.ResourcesVpcConfig.PublicAccessCidrs), ",")
+		}
+
+		if cluster.ResourcesVpcConfig.EndpointPublicAccess != nil {
+			metadata["endpoint_public_access"] = fmt.Sprintf("%v", aws.BoolValue(cluster.ResourcesVpcConfig.EndpointPublicAccess))
+		}
+
+		if cluster.ResourcesVpcConfig.EndpointPrivateAccess != nil {
+			metadata["endpoint_private_access"] = fmt.Sprintf("%v", aws.BoolValue(cluster.ResourcesVpcConfig.EndpointPrivateAccess))
+		}
+
+		if len(cluster.ResourcesVpcConfig.SubnetIds) > 0 {
+			metadata["subnet_ids"] = strings.Join(aws.StringValueSlice(cluster.ResourcesVpcConfig.SubnetIds), ",")
+		}
+
+		if len(cluster.ResourcesVpcConfig.SecurityGroupIds) > 0 {
+			metadata["security_group_ids"] = strings.Join(aws.StringValueSlice(cluster.ResourcesVpcConfig.SecurityGroupIds), ",")
+		}
+	}
+
+	if cluster.Identity != nil && cluster.Identity.Oidc != nil {
+		schema.AddMetadata(metadata, "oidc_issuer", cluster.Identity.Oidc.Issuer)
+	}
+
+	if cluster.CertificateAuthority != nil {
+		if cluster.CertificateAuthority.Data != nil {
+			metadata["has_certificate_authority"] = "true"
+		}
+	}
+
+	if cluster.Arn != nil {
+		if tagOutput, err := eksClient.ListTagsForResource(&eks.ListTagsForResourceInput{
+			ResourceArn: cluster.Arn,
+		}); err == nil && tagOutput.Tags != nil {
+			if tagString := buildAwsMapTagString(tagOutput.Tags); tagString != "" {
+				metadata["tags"] = tagString
+			}
+		}
+	}
+
+	return metadata
+}
+
+func (ep *eksProvider) getNodeMetadata(node *corev1.Node, cluster *eks.Cluster) map[string]string {
+	metadata := make(map[string]string)
+
+	metadata["node_name"] = node.GetName()
+
+	schema.AddMetadata(metadata, "cluster_name", cluster.Name)
+	if cluster.Arn != nil {
+		arnParts := strings.Split(aws.StringValue(cluster.Arn), ":")
+		if len(arnParts) >= 5 && arnParts[4] != "" {
+			metadata["owner_id"] = arnParts[4]
+		}
+	}
+
+	if node.CreationTimestamp.Time != (time.Time{}) {
+		metadata["node_created_at"] = node.CreationTimestamp.Time.Format(time.RFC3339)
+	}
+
+	if len(node.Labels) > 0 {
+		var labelPairs []string
+		if instanceType, ok := node.Labels["node.kubernetes.io/instance-type"]; ok {
+			metadata["instance_type"] = instanceType
+		}
+		if zone, ok := node.Labels["topology.kubernetes.io/zone"]; ok {
+			metadata["availability_zone"] = zone
+		}
+		if nodeGroup, ok := node.Labels["eks.amazonaws.com/nodegroup"]; ok {
+			metadata["nodegroup"] = nodeGroup
+		}
+		if capacityType, ok := node.Labels["eks.amazonaws.com/capacityType"]; ok {
+			metadata["capacity_type"] = capacityType
+		}
+
+		for k, v := range node.Labels {
+			labelPairs = append(labelPairs, fmt.Sprintf("%s=%s", k, v))
+		}
+		if len(labelPairs) > 0 {
+			metadata["labels"] = strings.Join(labelPairs, ",")
+		}
+	}
+
+	for _, condition := range node.Status.Conditions {
+		if condition.Type == "Ready" {
+			metadata["node_ready"] = string(condition.Status)
+			break
+		}
+	}
+
+	if node.Status.Capacity != nil {
+		if cpu, ok := node.Status.Capacity["cpu"]; ok {
+			metadata["cpu_capacity"] = cpu.String()
+		}
+		if memory, ok := node.Status.Capacity["memory"]; ok {
+			metadata["memory_capacity"] = memory.String()
+		}
+		if pods, ok := node.Status.Capacity["pods"]; ok {
+			metadata["pods_capacity"] = pods.String()
+		}
+	}
+
+	if node.Status.NodeInfo.KubeletVersion != "" {
+		metadata["kubelet_version"] = node.Status.NodeInfo.KubeletVersion
+	}
+	if node.Status.NodeInfo.ContainerRuntimeVersion != "" {
+		metadata["container_runtime"] = node.Status.NodeInfo.ContainerRuntimeVersion
+	}
+	if node.Status.NodeInfo.OSImage != "" {
+		metadata["os_image"] = node.Status.NodeInfo.OSImage
+	}
+	if node.Status.NodeInfo.Architecture != "" {
+		metadata["architecture"] = node.Status.NodeInfo.Architecture
+	}
+
+	if node.Spec.ProviderID != "" {
+		metadata["provider_id"] = node.Spec.ProviderID
+		parts := strings.Split(node.Spec.ProviderID, "/")
+		if len(parts) > 0 {
+			metadata["instance_id"] = parts[len(parts)-1]
+		}
+	}
+
+	for _, addr := range node.Status.Addresses {
+		switch addr.Type {
+		case "InternalIP":
+			metadata["internal_ip"] = addr.Address
+		case "ExternalIP":
+			metadata["external_ip"] = addr.Address
+		case "InternalDNS":
+			metadata["internal_dns"] = addr.Address
+		case "ExternalDNS":
+			metadata["external_dns"] = addr.Address
+		case "Hostname":
+			metadata["hostname"] = addr.Address
+		}
+	}
+
+	return metadata
 }
 
 func (ep *eksProvider) getEksClients(region *string) []*eks.EKS {
