@@ -2,6 +2,7 @@ package aws
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -128,6 +129,7 @@ func New(block schema.OptionBlock) (*Provider, error) {
 	var sess *session.Session
 	var err error
 
+	// Handle role assumption for assume_role_arn case
 	if options.AssumeRoleArn != "" {
 		stsSession, err := session.NewSession(config)
 		if err != nil {
@@ -136,9 +138,18 @@ func New(block schema.OptionBlock) (*Provider, error) {
 
 		stsClient := sts.New(stsSession)
 		roleInput := &sts.AssumeRoleInput{
-			RoleArn:         aws.String(options.AssumeRoleArn),
-			RoleSessionName: aws.String(options.AssumeRoleSessionName),
-			ExternalId:      aws.String(options.ExternalId),
+			RoleArn: aws.String(options.AssumeRoleArn),
+		}
+
+		// Only set optional fields if they are provided
+		if options.AssumeRoleSessionName != "" {
+			roleInput.RoleSessionName = aws.String(options.AssumeRoleSessionName)
+		} else {
+			roleInput.RoleSessionName = aws.String("cloudlist-session")
+		}
+
+		if options.ExternalId != "" {
+			roleInput.ExternalId = aws.String(options.ExternalId)
 		}
 
 		assumeRoleOutput, err := stsClient.AssumeRole(roleInput)
@@ -147,7 +158,6 @@ func New(block schema.OptionBlock) (*Provider, error) {
 		}
 
 		assumedCredentials := assumeRoleOutput.Credentials
-
 		sess, err = session.NewSession(&aws.Config{
 			Credentials: credentials.NewStaticCredentials(
 				*assumedCredentials.AccessKeyId,
@@ -168,11 +178,58 @@ func New(block schema.OptionBlock) (*Provider, error) {
 
 	provider.session = sess
 
+	// Handle DescribeRegions call with fallback for assume_role_name case
+	var regions *ec2.DescribeRegionsOutput
 	rc := ec2.New(sess)
-	regions, err := rc.DescribeRegions(&ec2.DescribeRegionsInput{})
-	if err != nil {
+	regions, err = rc.DescribeRegions(&ec2.DescribeRegionsInput{})
+
+	if err != nil && options.AssumeRoleName != "" && len(options.AccountIds) > 0 {
+		// Base user doesn't have DescribeRegions permission, try with assumed role
+		stsClient := sts.New(sess)
+		roleArn := fmt.Sprintf("arn:aws:iam::%s:role/%s", options.AccountIds[0], options.AssumeRoleName)
+
+		roleInput := &sts.AssumeRoleInput{
+			RoleArn: aws.String(roleArn),
+		}
+
+		if options.AssumeRoleSessionName != "" {
+			roleInput.RoleSessionName = aws.String(options.AssumeRoleSessionName)
+		} else {
+			roleInput.RoleSessionName = aws.String("cloudlist-session")
+		}
+
+		if options.ExternalId != "" {
+			roleInput.ExternalId = aws.String(options.ExternalId)
+		}
+
+		assumeRoleOutput, err := stsClient.AssumeRole(roleInput)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to assume role for DescribeRegions")
+		}
+
+		assumedCredentials := assumeRoleOutput.Credentials
+		tempSession, err := session.NewSession(&aws.Config{
+			Credentials: credentials.NewStaticCredentials(
+				*assumedCredentials.AccessKeyId,
+				*assumedCredentials.SecretAccessKey,
+				*assumedCredentials.SessionToken,
+			),
+			Region: config.Region,
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "could not create assumed role session for DescribeRegions")
+		}
+
+		// Use assumed role session only for DescribeRegions
+		tempRC := ec2.New(tempSession)
+		regions, err = tempRC.DescribeRegions(&ec2.DescribeRegionsInput{})
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get list of regions even with assumed role")
+		}
+	} else if err != nil {
 		return nil, errors.Wrap(err, "could not get list of regions")
 	}
+
 	provider.regions = regions
 
 	services := provider.options.Services
