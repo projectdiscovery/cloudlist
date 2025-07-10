@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 
+	asset "cloud.google.com/go/asset/apiv1"
+	assetpb "cloud.google.com/go/asset/apiv1/assetpb"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/projectdiscovery/gologger"
 	errorutil "github.com/projectdiscovery/utils/errors"
@@ -29,7 +31,24 @@ type Provider struct {
 	projects  []string
 }
 
-var Services = []string{"dns", "gke", "compute", "s3", "cloud-function", "cloud-run"}
+// OrganizationProvider is a provider for organization-level GCP Asset API
+type OrganizationProvider struct {
+	id             string
+	organizationID string
+	assetClient    *asset.Client
+	services       schema.ServiceMap
+	projects       []string
+}
+
+// Services that provide IP addresses or DNS names only
+var Services = []string{
+	"dns",            // DNS names, IPv4/IPv6 addresses from DNS records
+	"compute",        // IPv4/IPv6 addresses from VM instances
+	"gke",            // DNS names and IPs from Kubernetes ingresses
+	"cloud-function", // DNS names from function HTTPS URLs
+	"cloud-run",      // DNS names from service URLs
+	"s3",             // DNS names for storage buckets
+}
 
 const serviceAccountJSON = "gcp_service_account_key"
 const providerName = "gcp"
@@ -49,14 +68,118 @@ func (p *Provider) Services() []string {
 	return p.services.Keys()
 }
 
-// New creates a new provider client for gcp API
-func New(options schema.OptionBlock) (*Provider, error) {
+// Resources returns the provider for an resource deployment source using individual services
+func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
+	finalResources := schema.NewResources()
+
+	if p.services.Has("dns") {
+		dnsProvider := &cloudDNSProvider{
+			id:       p.id,
+			dns:      p.dns,
+			projects: p.projects,
+		}
+		dnsResources, err := dnsProvider.GetResource(ctx)
+		if err != nil {
+			gologger.Warning().Msgf("Could not get DNS resources: %s\n", err)
+		} else {
+			finalResources.Merge(dnsResources)
+		}
+	}
+
+	if p.services.Has("compute") {
+		computeProvider := &cloudVMProvider{
+			id:       p.id,
+			compute:  p.compute,
+			projects: p.projects,
+		}
+		computeResources, err := computeProvider.GetResource(ctx)
+		if err != nil {
+			gologger.Warning().Msgf("Could not get compute resources: %s\n", err)
+		} else {
+			finalResources.Merge(computeResources)
+		}
+	}
+
+	if p.services.Has("gke") {
+		gkeProvider := &gkeProvider{
+			id:       p.id,
+			gke:      p.gke,
+			projects: p.projects,
+		}
+		gkeResources, err := gkeProvider.GetResource(ctx)
+		if err != nil {
+			gologger.Warning().Msgf("Could not get gke resources: %s\n", err)
+		} else {
+			finalResources.Merge(gkeResources)
+		}
+	}
+
+	if p.services.Has("s3") {
+		storageProvider := &cloudStorageProvider{
+			id:       p.id,
+			storage:  p.storage,
+			projects: p.projects,
+		}
+		storageResources, err := storageProvider.GetResource(ctx)
+		if err != nil {
+			gologger.Warning().Msgf("Could not get storage resources: %s\n", err)
+		} else {
+			finalResources.Merge(storageResources)
+		}
+	}
+
+	if p.services.Has("cloud-function") {
+		functionProvider := &cloudFunctionsProvider{
+			id:        p.id,
+			functions: p.functions,
+			projects:  p.projects,
+		}
+		functionResources, err := functionProvider.GetResource(ctx)
+		if err != nil {
+			gologger.Warning().Msgf("Could not get function resources: %s\n", err)
+		} else {
+			finalResources.Merge(functionResources)
+		}
+	}
+
+	if p.services.Has("cloud-run") {
+		runProvider := &cloudRunProvider{
+			id:       p.id,
+			run:      p.run,
+			projects: p.projects,
+		}
+		runResources, err := runProvider.GetResource(ctx)
+		if err != nil {
+			gologger.Warning().Msgf("Could not get run resources: %s\n", err)
+		} else {
+			finalResources.Merge(runResources)
+		}
+	}
+
+	return finalResources, nil
+}
+
+func New(options schema.OptionBlock) (schema.Provider, error) {
 	JSONData, ok := options.GetMetadata(serviceAccountJSON)
 	if !ok {
 		return nil, errorutil.New("could not get API Key")
 	}
 	id, _ := options.GetMetadata("id")
 
+	gologger.Info().Msgf("Creating GCP provider with id: %s", id)
+
+	// Check if organization_id is present for organization-level discovery
+	if orgID, ok := options.GetMetadata("organization_id"); ok {
+		gologger.Info().Msgf("Found organization_id: %s, creating OrgProvider", orgID)
+		return newOrganizationProvider(options, id, JSONData, orgID)
+	}
+
+	gologger.Info().Msgf("Using individual service provider for IP/DNS discovery")
+	return newIndividualProvider(options, id, JSONData)
+}
+
+// newIndividualProvider creates the original individual service provider
+func newIndividualProvider(options schema.OptionBlock, id, JSONData string) (*Provider, error) {
 	provider := &Provider{id: id}
 	supportedServicesMap := make(map[string]struct{})
 	for _, s := range Services {
@@ -143,105 +266,318 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	return provider, err
 }
 
-// Resources returns the provider for an resource deployment source.
-func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
+// Name returns the name of the provider
+func (p *OrganizationProvider) Name() string {
+	return providerName
+}
+
+// ID returns the name of the provider id
+func (p *OrganizationProvider) ID() string {
+	return p.id
+}
+
+// Services returns the provider services
+func (p *OrganizationProvider) Services() []string {
+	return p.services.Keys()
+}
+
+// Resources returns the provider resources using organization-level Cloud Asset Inventory API
+func (p *OrganizationProvider) Resources(ctx context.Context) (*schema.Resources, error) {
+	gologger.Info().Msgf("OrgProvider.Resources called with organization_id: '%s', projects: %v, services: %v", p.organizationID, p.projects, p.services.Keys())
+
+	parent := "organizations/" + p.organizationID
+	gologger.Info().Msgf("Using organization-level discovery with parent: %s", parent)
+
 	finalResources := schema.NewResources()
 
-	if p.dns != nil {
-		cloudDNSProvider := &cloudDNSProvider{dns: p.dns, id: p.id, projects: p.projects}
-		zones, err := cloudDNSProvider.GetResource(ctx)
+	// Use Cloud Asset Inventory API to get assets
+	if p.services.Has("all") {
+		gologger.Info().Msgf("Found 'all' service, starting comprehensive asset discovery")
+		allAssets, err := p.getAllAssets(ctx, parent)
 		if err != nil {
-			return nil, err
+			gologger.Warning().Msgf("Could not get all assets: %s", err)
+		} else {
+			finalResources.Merge(allAssets)
 		}
-		finalResources.Merge(zones)
-	}
-
-	if p.gke != nil {
-		GKEProvider := &gkeProvider{svc: p.gke, id: p.id, projects: p.projects}
-		gkeData, err := GKEProvider.GetResource(ctx)
-		if err != nil {
-			gologger.Warning().Msgf("Could not get GKE resources: %s\n", err)
+	} else {
+		// Get assets for specific services
+		for _, service := range p.services.Keys() {
+			assets, err := p.getAssetsForService(ctx, parent, service)
+			if err != nil {
+				gologger.Warning().Msgf("Could not get assets for service %s: %s", service, err)
+			} else {
+				finalResources.Merge(assets)
+			}
 		}
-		finalResources.Merge(gkeData)
-	}
-
-	if p.compute != nil {
-		VMProvider := &cloudVMProvider{compute: p.compute, id: p.id, projects: p.projects}
-		vmData, err := VMProvider.GetResource(ctx)
-		if err != nil {
-			return nil, err
-		}
-		finalResources.Merge(vmData)
-	}
-
-	if p.storage != nil {
-		cloudStorageProvider := &cloudStorageProvider{id: p.id, storage: p.storage, projects: p.projects}
-		storageData, err := cloudStorageProvider.GetResource(ctx)
-		if err != nil {
-			return nil, err
-		}
-		finalResources.Merge(storageData)
-	}
-
-	if p.functions != nil {
-		cloudFunctionsProvider := &cloudFunctionsProvider{id: p.id, functions: p.functions, projects: p.projects}
-		functionsData, err := cloudFunctionsProvider.GetResource(ctx)
-		if err != nil {
-			return nil, err
-		}
-		finalResources.Merge(functionsData)
-	}
-
-	if p.run != nil {
-		cloudRunProvider := &cloudRunProvider{id: p.id, run: p.run, projects: p.projects}
-		cloudRunData, err := cloudRunProvider.GetResource(ctx)
-		if err != nil {
-			return nil, err
-		}
-		finalResources.Merge(cloudRunData)
 	}
 
 	return finalResources, nil
 }
 
-// Verify checks if the GCP provider credentials are valid
-func (p *Provider) Verify(ctx context.Context) error {
-	if len(p.projects) == 0 {
-		return errorutil.New("no accessible GCP projects found with provided credentials")
+// getAllAssets gets all assets using the Cloud Asset Inventory API
+func (p *OrganizationProvider) getAllAssets(ctx context.Context, parent string) (*schema.Resources, error) {
+	gologger.Info().Msgf("Starting Asset API discovery for parent: %s", parent)
+
+	// Define asset types that provide IP addresses or DNS names
+	assetTypes := []string{
+		"compute.googleapis.com/Instance",
+		"compute.googleapis.com/GlobalAddress",
+		"compute.googleapis.com/Address",
+		"dns.googleapis.com/ManagedZone",
+		"dns.googleapis.com/ResourceRecordSet",
+		"storage.googleapis.com/Bucket",
+		"run.googleapis.com/Service",
+		"cloudfunctions.googleapis.com/CloudFunction",
+		"container.googleapis.com/Cluster",
 	}
 
-	// For extra verification, try a minimal API call on one service
-	var err error
-	for _, project := range p.projects {
-		var success bool
-		if p.compute != nil {
-			if _, err = p.compute.Regions.List(project).Do(); err == nil {
-				success = true
-			}
-		} else if p.dns != nil {
-			if _, err = p.dns.ManagedZones.List(project).Do(); err == nil {
-				success = true
-			}
-		} else if p.storage != nil {
-			if _, err = p.storage.Buckets.List(project).Do(); err == nil {
-				success = true
-			}
-		} else if p.functions != nil {
-			if _, err = p.functions.Projects.Locations.List(project).Do(); err == nil {
-				success = true
-			}
-		} else if p.run != nil {
-			if _, err = p.run.Projects.Locations.List(project).Do(); err == nil {
-				success = true
-			}
+	finalResources := schema.NewResources()
+
+	// Process assets in batches to avoid overwhelming the API
+	batchSize := 5
+	for i := 0; i < len(assetTypes); i += batchSize {
+		end := i + batchSize
+		if end > len(assetTypes) {
+			end = len(assetTypes)
 		}
-		// For any one service to be successful, we can return nil
-		if success {
-			return nil
+
+		batch := assetTypes[i:end]
+		gologger.Debug().Msgf("Processing batch %d with asset types: %v", i/batchSize+1, batch)
+
+		batchResources, err := p.getAssetsForTypes(ctx, parent, batch)
+		if err != nil {
+			gologger.Debug().Msgf("Could not get batch assets for parent %s (batch %d): %s", parent, i/batchSize+1, err)
+			gologger.Debug().Msgf("Batch %d completed. Found 0 assets", i/batchSize+1)
+			continue
+		}
+
+		finalResources.Merge(batchResources)
+		gologger.Debug().Msgf("Batch %d completed. Found %d assets", i/batchSize+1, len(batchResources.Items))
+	}
+
+	gologger.Info().Msgf("Asset discovery completed. Found %d total assets", len(finalResources.Items))
+	gologger.Info().Msgf("Successfully retrieved resources from getAllAssets")
+	return finalResources, nil
+}
+
+// getAssetsForTypes gets assets for specific asset types
+func (p *OrganizationProvider) getAssetsForTypes(ctx context.Context, parent string, assetTypes []string) (*schema.Resources, error) {
+	req := &assetpb.ListAssetsRequest{
+		Parent:      parent,
+		AssetTypes:  assetTypes,
+		ContentType: assetpb.ContentType_RESOURCE,
+	}
+
+	resources := schema.NewResources()
+	it := p.assetClient.ListAssets(ctx, req)
+
+	for {
+		asset, err := it.Next()
+		if err != nil {
+			if err.Error() == "no more items in iterator" {
+				break
+			}
+			return nil, err
+		}
+
+		resource := p.parseAssetToResource(asset)
+		if resource != nil {
+			resources.Append(resource)
 		}
 	}
+
+	return resources, nil
+}
+
+// getAssetsForService gets assets for a specific service
+func (p *OrganizationProvider) getAssetsForService(ctx context.Context, parent string, service string) (*schema.Resources, error) {
+	var assetTypes []string
+
+	switch service {
+	case "compute":
+		assetTypes = []string{"compute.googleapis.com/Instance", "compute.googleapis.com/GlobalAddress", "compute.googleapis.com/Address"}
+	case "dns":
+		assetTypes = []string{"dns.googleapis.com/ManagedZone", "dns.googleapis.com/ResourceRecordSet"}
+	case "s3":
+		assetTypes = []string{"storage.googleapis.com/Bucket"}
+	case "cloud-run":
+		assetTypes = []string{"run.googleapis.com/Service"}
+	case "cloud-function":
+		assetTypes = []string{"cloudfunctions.googleapis.com/CloudFunction"}
+	case "gke":
+		assetTypes = []string{"container.googleapis.com/Cluster"}
+	default:
+		return schema.NewResources(), nil
+	}
+
+	return p.getAssetsForTypes(ctx, parent, assetTypes)
+}
+
+// parseAssetToResource converts an Asset to a Resource
+func (p *OrganizationProvider) parseAssetToResource(asset *assetpb.Asset) *schema.Resource {
+	if asset == nil || asset.Resource == nil {
+		return nil
+	}
+
+	resource := &schema.Resource{
+		ID:       p.id,
+		Provider: providerName,
+		Public:   true,
+	}
+
+	// Parse based on asset type
+	switch asset.AssetType {
+	case "compute.googleapis.com/Instance":
+		resource.Service = "compute"
+		// Extract IP from networkInterfaces like the individual API does
+		if data := asset.Resource.Data; data != nil {
+			if networkInterfaces, ok := data.Fields["networkInterfaces"]; ok {
+				if nicList := networkInterfaces.GetListValue(); nicList != nil && len(nicList.Values) > 0 {
+					if nicData := nicList.Values[0].GetStructValue(); nicData != nil {
+						if accessConfigs, ok := nicData.Fields["accessConfigs"]; ok {
+							if configList := accessConfigs.GetListValue(); configList != nil && len(configList.Values) > 0 {
+								if configData := configList.Values[0].GetStructValue(); configData != nil {
+									if natIP, ok := configData.Fields["natIP"]; ok {
+										resource.PublicIPv4 = natIP.GetStringValue()
+									}
+									if externalIPv6, ok := configData.Fields["externalIpv6"]; ok {
+										resource.PublicIPv6 = externalIPv6.GetStringValue()
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	case "dns.googleapis.com/ResourceRecordSet":
+		resource.Service = "dns"
+		if data := asset.Resource.Data; data != nil {
+			if name, ok := data.Fields["name"]; ok {
+				resource.DNSName = name.GetStringValue()
+			}
+			if rrdatas, ok := data.Fields["rrdatas"]; ok {
+				if rrdatas.GetListValue() != nil && len(rrdatas.GetListValue().Values) > 0 {
+					firstRecord := rrdatas.GetListValue().Values[0].GetStringValue()
+					if recordType, ok := data.Fields["type"]; ok {
+						switch recordType.GetStringValue() {
+						case "A":
+							resource.PublicIPv4 = firstRecord
+						case "AAAA":
+							resource.PublicIPv6 = firstRecord
+						}
+					}
+				}
+			}
+		}
+	case "storage.googleapis.com/Bucket":
+		resource.Service = "s3"
+		if data := asset.Resource.Data; data != nil {
+			if name, ok := data.Fields["name"]; ok {
+				resource.DNSName = name.GetStringValue() + ".storage.googleapis.com"
+			}
+		}
+	case "run.googleapis.com/Service":
+		resource.Service = "cloud-run"
+		if data := asset.Resource.Data; data != nil {
+			if status, ok := data.Fields["status"]; ok {
+				if statusData := status.GetStructValue(); statusData != nil {
+					if url, ok := statusData.Fields["url"]; ok {
+						resource.DNSName = url.GetStringValue()
+					}
+				}
+			}
+		}
+	case "cloudfunctions.googleapis.com/CloudFunction":
+		resource.Service = "cloud-function"
+		if data := asset.Resource.Data; data != nil {
+			if httpsTrigger, ok := data.Fields["httpsTrigger"]; ok {
+				if triggerData := httpsTrigger.GetStructValue(); triggerData != nil {
+					if url, ok := triggerData.Fields["url"]; ok {
+						resource.DNSName = url.GetStringValue()
+					}
+				}
+			}
+		}
+	case "container.googleapis.com/Cluster":
+		resource.Service = "gke"
+		if data := asset.Resource.Data; data != nil {
+			if endpoint, ok := data.Fields["endpoint"]; ok {
+				resource.DNSName = endpoint.GetStringValue()
+			}
+		}
+	default:
+		return nil
+	}
+
+	// Only return resources that have IP addresses or DNS names
+	if resource.PublicIPv4 == "" && resource.PublicIPv6 == "" && resource.DNSName == "" {
+		return nil
+	}
+
+	return resource
+}
+
+// newOrganizationProvider creates a new organization-level provider
+func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizationID string) (*OrganizationProvider, error) {
+	provider := &OrganizationProvider{
+		id:             id,
+		organizationID: organizationID,
+	}
+
+	// Get all available services for organization-level discovery
+	allServices := []string{
+		"compute", "dns", "s3", "cloud-run", "cloud-function", "gke", "all",
+	}
+
+	supportedServicesMap := make(map[string]struct{})
+	for _, s := range allServices {
+		supportedServicesMap[s] = struct{}{}
+	}
+
+	services := make(schema.ServiceMap)
+	if ss, ok := options.GetMetadata("services"); ok {
+		for _, s := range strings.Split(ss, ",") {
+			if _, ok := supportedServicesMap[s]; ok {
+				services[s] = struct{}{}
+			}
+		}
+	}
+	if len(services) == 0 {
+		// Default to all services for organization-level discovery
+		services["all"] = struct{}{}
+	}
+	provider.services = services
+
+	// Create Asset API client
+	creds, err := register(context.Background(), []byte(JSONData))
 	if err != nil {
-		return errorutil.NewWithErr(err).Msgf("failed to verify GCP services")
+		return nil, errorutil.NewWithErr(err).Msgf("could not register gcp service account")
 	}
-	return errorutil.New("no accessible GCP services found with provided credentials")
+
+	assetClient, err := asset.NewClient(context.Background(), creds)
+	if err != nil {
+		return nil, errorutil.NewWithErr(err).Msgf("could not create asset client")
+	}
+	provider.assetClient = assetClient
+
+	// Get projects under the organization
+	projects := []string{}
+	manager, err := cloudresourcemanager.NewService(context.Background(), creds)
+	if err != nil {
+		return nil, errorutil.NewWithErr(err).Msgf("could not create resource manager")
+	}
+	list := manager.Projects.List()
+	err = list.Pages(context.Background(), func(resp *cloudresourcemanager.ListProjectsResponse) error {
+		for _, project := range resp.Projects {
+			projects = append(projects, project.ProjectId)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errorutil.NewWithErr(err).Msgf("could not list projects")
+	}
+	provider.projects = projects
+
+	return provider, nil
 }

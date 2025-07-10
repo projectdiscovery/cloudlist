@@ -5,30 +5,51 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	asset "cloud.google.com/go/asset/apiv1"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/k8s"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	container "google.golang.org/api/container/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 )
 
-// gkeProvider is a provider for aws Route53 API
+// gkeProvider is a provider for GCP GKE API
 type gkeProvider struct {
-	id       string
-	svc      *container.Service
-	projects []string
+	id          string
+	assetClient *asset.Client      // For org-level approach
+	gke         *container.Service // For original approach
+	projects    []string
 }
 
 func (d *gkeProvider) name() string {
 	return "gke"
 }
 
-// GetResource returns all the resources in the store for a provider.
+// GetResource returns all the GKE resources in the store for a provider.
 func (d *gkeProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
+	// Use asset client approach if available (org-level)
+	if d.assetClient != nil {
+		return d.getResourcesWithAssetClient(ctx)
+	}
+
+	// Use original container.Service approach
+	return d.getResourcesWithGKEService(ctx)
+}
+
+// getResourcesWithAssetClient uses the Cloud Asset Inventory API
+func (d *gkeProvider) getResourcesWithAssetClient(ctx context.Context) (*schema.Resources, error) {
+	list := schema.NewResources()
+
+	// This method should not be called directly from individual provider
+	// It's handled by the org-level provider
+	return list, nil
+}
+
+// getResourcesWithGKEService uses the original GKE service approach
+func (d *gkeProvider) getResourcesWithGKEService(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
 
 	for _, project := range d.projects {
@@ -76,7 +97,7 @@ func (d *gkeProvider) getK8sClusterConfigs(ctx context.Context, projectId string
 	}
 
 	// Ask Google for a list of all kube clusters in the given project.
-	resp, err := d.svc.Projects.Zones.Clusters.List(projectId, "-").Context(ctx).Do()
+	resp, err := d.gke.Projects.Zones.Clusters.List(projectId, "-").Context(ctx).Do()
 	if err != nil {
 		return nil, fmt.Errorf("clusters list project=%s: %w", projectId, err)
 	}
