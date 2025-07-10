@@ -47,25 +47,79 @@ References -
    
 ### Google Cloud Platform (GCP)
 
-Google Cloud Platform can be integrated by using the following configuration block.
+Google Cloud Platform supports **two discovery approaches**:
+
+#### 1. Individual Service APIs (Project-Level Discovery)
 
 ```yaml
 - # provider is the name of the provider
   provider: gcp
   # id is the name defined by user for filtering (optional)
-  id: staging
+  id: project-discovery
   # gcp_service_account_key is the key token of service account.
-  gcp_service_account_key: '{}'
+  gcp_service_account_key: '{
+    "type": "service_account",
+    "project_id": "your-project-id",
+    "private_key_id": "...",
+    "private_key": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n",
+    "client_email": "cloudlist-sa@your-project-id.iam.gserviceaccount.com",
+    "client_id": "...",
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/cloudlist-sa%40your-project-id.iam.gserviceaccount.com",
+    "universe_domain": "googleapis.com"
+  }'
 ```
 
-`gcp_service_account_key` can be retrieved by creating a new service account. To do so, create service account with Read Only access to `cloudresourcemanager` and `dns` scopes in IAM. Next, generate a new account key for the Service Account by following steps in Reference 2. This should give you a json which can be pasted in a single line in the `gcp_service_account_key`.
+**Required Scopes:**
+1. `roles/compute.viewer` - Compute instances
+2. `roles/dns.reader` - DNS records  
+3. `roles/storage.objectViewer` - Storage buckets
+4. `roles/run.viewer` - Cloud Run services
+5. `roles/cloudfunctions.viewer` - Cloud Functions
+6. `roles/container.viewer` - GKE clusters
+7. `roles/resourcemanager.viewer` - List projects
 
-Scopes Required - 
-1. Cloud DNS
+#### 2. Organization-Level Asset API (Organization-Wide Discovery)
+
+```yaml
+- # provider is the name of the provider
+  provider: gcp
+  # id is the name defined by user for filtering (optional)
+  id: org-discovery
+  # organization_id enables Asset API for organization-wide discovery
+  organization_id: "123456789012"
+  # gcp_service_account_key with organization-level permissions
+  gcp_service_account_key: '{
+    "type": "service_account",
+    "project_id": "your-project-id",
+    "private_key_id": "...",
+    "private_key": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n",
+    "client_email": "asset-viewer-sa@your-project-id.iam.gserviceaccount.com",
+    "client_id": "...",
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/asset-viewer-sa%40your-project-id.iam.gserviceaccount.com",
+    "universe_domain": "googleapis.com"
+  }'
+```
+
+**Required Organization-Level Roles:**
+1. `roles/cloudasset.viewer` - Core Asset API access
+2. `roles/resourcemanager.viewer` - List projects in organization
+
+**Key Differences:**
+- **Individual APIs**: Fast, project-specific, detailed results
+- **Asset API**: Comprehensive, organization-wide, higher resource count
+
+📚 **For detailed setup instructions, see: [docs/GCP_ASSET_API.md](docs/GCP_ASSET_API.md)**
 
 References - 
-1. https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_examples_iam_read-only-console.html
-2. https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
+1. https://cloud.google.com/asset-inventory/docs/overview
+2. https://cloud.google.com/iam/docs/creating-managing-service-accounts
+3. https://cloud.google.com/iam/docs/understanding-roles
 
 
 ### Microsoft Azure
