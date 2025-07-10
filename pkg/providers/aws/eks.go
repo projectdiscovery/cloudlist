@@ -49,8 +49,6 @@ func (ep *eksProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 					mu.Lock()
 					list.Merge(resources)
 					mu.Unlock()
-				} else {
-					fmt.Printf("error listing EKS resources: %v\n", err)
 				}
 			}(eksClient)
 		}

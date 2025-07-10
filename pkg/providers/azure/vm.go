@@ -2,7 +2,10 @@ package azure
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
 	"github.com/Azure/azure-sdk-for-go/profiles/latest/network/mgmt/network"
@@ -17,9 +20,10 @@ import (
 
 // vmProvider is an instance provider for Azure API
 type vmProvider struct {
-	id             string
-	SubscriptionID string
-	Authorizer     autorest.Authorizer
+	id               string
+	SubscriptionID   string
+	Authorizer       autorest.Authorizer
+	extendedMetadata bool
 }
 
 func (d *vmProvider) name() string {
@@ -87,6 +91,7 @@ func (d *vmProvider) processResourceGroup(ctx context.Context, group string) ([]
 
 			for _, ipConfig := range ipconfigList {
 				if ipConfig.PublicIPAddress == nil {
+					gologger.Warning().Msgf("no public IP address found for NIC %s", res.ResourceName)
 					continue
 				}
 
@@ -96,13 +101,14 @@ func (d *vmProvider) processResourceGroup(ctx context.Context, group string) ([]
 					continue
 				}
 
-				publicIP, err := fetchPublicIP(ctx, group, res.ResourceName, d)
+				publicIP, err := fetchPublicIP(ctx, res.ResourceGroup, res.ResourceName, d)
 				if err != nil {
 					gologger.Warning().Msgf("error fetching public IP %s: %s", res.ResourceName, err)
 					continue
 				}
 
 				if publicIP.IPAddress == nil {
+					gologger.Warning().Msgf("no public IP address found for NIC %s", res.ResourceName)
 					continue
 				}
 
@@ -113,6 +119,12 @@ func (d *vmProvider) processResourceGroup(ctx context.Context, group string) ([]
 					Service:     d.name(),
 				}
 
+				var metadata map[string]string
+				if d.extendedMetadata {
+					metadata = d.getVMMetadata(vm, group)
+				}
+				resource.Metadata = metadata
+
 				if publicIP.PublicIPAddressVersion == network.IPv4 {
 					resource.PublicIPv4 = *publicIP.IPAddress
 				} else {
@@ -121,13 +133,20 @@ func (d *vmProvider) processResourceGroup(ctx context.Context, group string) ([]
 
 				resources = append(resources, resource)
 
-				if publicIP.DNSSettings.Fqdn != nil {
-					resources = append(resources, &schema.Resource{
+				if publicIP.DNSSettings != nil && publicIP.DNSSettings.Fqdn != nil {
+					dnsResource := &schema.Resource{
 						Provider: providerName,
 						ID:       d.id,
 						DNSName:  *publicIP.DNSSettings.Fqdn,
 						Service:  d.name(),
-					})
+					}
+					if metadata != nil {
+						dnsResource.Metadata = make(map[string]string)
+						for k, v := range metadata {
+							dnsResource.Metadata[k] = v
+						}
+					}
+					resources = append(resources, dnsResource)
 				}
 			}
 		}
@@ -192,4 +211,95 @@ func fetchPublicIP(ctx context.Context, group, publicIP string, sess *vmProvider
 	}
 
 	return IP, err
+}
+
+func (d *vmProvider) getVMMetadata(vm compute.VirtualMachine, resourceGroup string) map[string]string {
+	metadata := make(map[string]string)
+
+	schema.AddMetadata(metadata, "vm_name", vm.Name)
+	schema.AddMetadata(metadata, "vm_id", vm.ID)
+	metadata["resource_group"] = resourceGroup
+	metadata["subscription_id"] = d.SubscriptionID
+	schema.AddMetadata(metadata, "location", vm.Location)
+
+	if vm.VirtualMachineProperties != nil && vm.VirtualMachineProperties.HardwareProfile != nil {
+		vmSize := string(vm.VirtualMachineProperties.HardwareProfile.VMSize)
+		schema.AddMetadata(metadata, "vm_size", &vmSize)
+	}
+
+	metadata["owner_id"] = d.SubscriptionID
+
+	if vm.VirtualMachineProperties != nil {
+		schema.AddMetadata(metadata, "provisioning_state", vm.VirtualMachineProperties.ProvisioningState)
+		schema.AddMetadata(metadata, "vm_id_internal", vm.VirtualMachineProperties.VMID)
+		schema.AddMetadata(metadata, "license_type", vm.VirtualMachineProperties.LicenseType)
+
+		if vm.VirtualMachineProperties.TimeCreated != nil {
+			metadata["creation_time"] = vm.VirtualMachineProperties.TimeCreated.Format(time.RFC3339)
+		}
+
+		if vm.VirtualMachineProperties.OsProfile != nil {
+			schema.AddMetadata(metadata, "computer_name", vm.VirtualMachineProperties.OsProfile.ComputerName)
+			schema.AddMetadata(metadata, "admin_username", vm.VirtualMachineProperties.OsProfile.AdminUsername)
+		}
+
+		if vm.VirtualMachineProperties.StorageProfile != nil {
+			if vm.VirtualMachineProperties.StorageProfile.OsDisk != nil {
+				osType := string(vm.VirtualMachineProperties.StorageProfile.OsDisk.OsType)
+				schema.AddMetadata(metadata, "os_type", &osType)
+				schema.AddMetadata(metadata, "os_disk_name", vm.VirtualMachineProperties.StorageProfile.OsDisk.Name)
+			}
+			if vm.VirtualMachineProperties.StorageProfile.ImageReference != nil {
+				schema.AddMetadata(metadata, "image_publisher", vm.VirtualMachineProperties.StorageProfile.ImageReference.Publisher)
+				schema.AddMetadata(metadata, "image_offer", vm.VirtualMachineProperties.StorageProfile.ImageReference.Offer)
+				schema.AddMetadata(metadata, "image_sku", vm.VirtualMachineProperties.StorageProfile.ImageReference.Sku)
+				schema.AddMetadata(metadata, "image_version", vm.VirtualMachineProperties.StorageProfile.ImageReference.Version)
+			}
+		}
+
+		if vm.VirtualMachineProperties.AvailabilitySet != nil {
+			schema.AddMetadata(metadata, "availability_set_id", vm.VirtualMachineProperties.AvailabilitySet.ID)
+		}
+
+		if vm.VirtualMachineProperties.VirtualMachineScaleSet != nil {
+			schema.AddMetadata(metadata, "vmss_id", vm.VirtualMachineProperties.VirtualMachineScaleSet.ID)
+		}
+	}
+
+	if vm.Zones != nil && len(*vm.Zones) > 0 {
+		zones := strings.Join(*vm.Zones, ",")
+		metadata["availability_zones"] = zones
+	}
+
+	if len(vm.Tags) > 0 {
+		if tagString := buildAzureTagString(vm.Tags); tagString != "" {
+			metadata["tags"] = tagString
+		}
+	}
+
+	if vm.Identity != nil {
+		identityType := string(vm.Identity.Type)
+		schema.AddMetadata(metadata, "identity_type", &identityType)
+		if vm.Identity.PrincipalID != nil {
+			metadata["identity_principal_id"] = *vm.Identity.PrincipalID
+		}
+	}
+
+	if vm.Plan != nil {
+		schema.AddMetadata(metadata, "plan_name", vm.Plan.Name)
+		schema.AddMetadata(metadata, "plan_publisher", vm.Plan.Publisher)
+		schema.AddMetadata(metadata, "plan_product", vm.Plan.Product)
+	}
+
+	return metadata
+}
+
+func buildAzureTagString(tags map[string]*string) string {
+	var tagPairs []string
+	for key, value := range tags {
+		if value != nil {
+			tagPairs = append(tagPairs, fmt.Sprintf("%s=%s", key, *value))
+		}
+	}
+	return strings.Join(tagPairs, ",")
 }

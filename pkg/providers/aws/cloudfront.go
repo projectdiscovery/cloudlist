@@ -86,7 +86,6 @@ func (cp *cloudfrontProvider) listCloudFrontResources(cloudFrontClient *cloudfro
 func (cp *cloudfrontProvider) getDistributionMetadata(distribution *cloudfront.DistributionSummary, cloudFrontClient *cloudfront.CloudFront) map[string]string {
 	metadata := make(map[string]string)
 
-	// Basic distribution information
 	schema.AddMetadata(metadata, "distribution_id", distribution.Id)
 	schema.AddMetadata(metadata, "status", distribution.Status)
 	schema.AddMetadata(metadata, "domain_name", distribution.DomainName)
@@ -99,7 +98,6 @@ func (cp *cloudfrontProvider) getDistributionMetadata(distribution *cloudfront.D
 		arn := aws.StringValue(distribution.ARN)
 		metadata["arn"] = arn
 
-		// Extract owner ID from ARN (format: arn:aws:cloudfront::123456789012:distribution/EDFDVBD6EXAMPLE)
 		arnParts := strings.Split(arn, ":")
 		if len(arnParts) >= 5 && arnParts[4] != "" {
 			metadata["owner_id"] = arnParts[4]
@@ -118,7 +116,6 @@ func (cp *cloudfrontProvider) getDistributionMetadata(distribution *cloudfront.D
 		metadata["ipv6_enabled"] = fmt.Sprintf("%v", aws.BoolValue(distribution.IsIPV6Enabled))
 	}
 
-	// Aliases/CNAMEs
 	if distribution.Aliases != nil && distribution.Aliases.Items != nil && len(distribution.Aliases.Items) > 0 {
 		var aliases []string
 		for _, alias := range distribution.Aliases.Items {
@@ -131,7 +128,6 @@ func (cp *cloudfrontProvider) getDistributionMetadata(distribution *cloudfront.D
 		}
 	}
 
-	// Origins information
 	if distribution.Origins != nil && distribution.Origins.Items != nil && len(distribution.Origins.Items) > 0 {
 		var origins []string
 		for _, origin := range distribution.Origins.Items {
@@ -145,7 +141,6 @@ func (cp *cloudfrontProvider) getDistributionMetadata(distribution *cloudfront.D
 		schema.AddMetadataInt(metadata, "origins_count", len(distribution.Origins.Items))
 	}
 
-	// Get distribution tags if available
 	if distribution.Id != nil {
 		if tagOutput, err := cloudFrontClient.ListTagsForResource(&cloudfront.ListTagsForResourceInput{
 			Resource: distribution.ARN,
