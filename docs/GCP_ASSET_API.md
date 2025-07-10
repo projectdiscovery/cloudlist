@@ -114,18 +114,55 @@ gcloud iam service-accounts keys create asset-viewer-key.json \
 ./cloudlist -pc config.yaml -id org-discovery | grep -E "^[0-9]+\."
 ```
 
-### Supported Asset Types
+## Supported Asset Types
 
-The Asset API discovers the following asset types:
+### Organization-Level Asset API Discovery
 
-| Service | Asset Type | Returns |
-|---------|------------|---------|
-| **Compute** | `compute.googleapis.com/Instance` | Public/Private IP addresses |
-| **DNS** | `dns.googleapis.com/ResourceRecordSet` | DNS names and IP records |
-| **Storage** | `storage.googleapis.com/Bucket` | Bucket DNS names |
-| **Cloud Run** | `run.googleapis.com/Service` | Service HTTPS URLs |
-| **Cloud Functions** | `cloudfunctions.googleapis.com/CloudFunction` | Function HTTPS URLs |
-| **GKE** | `container.googleapis.com/Cluster` | Cluster endpoints |
+The Asset API approach queries the following asset types that provide IP addresses or DNS names:
+
+| Asset Type | Service | Description |
+|------------|---------|-------------|
+| `compute.googleapis.com/Instance` | compute | Compute Engine instances |
+| `compute.googleapis.com/GlobalAddress` | compute | Global static IP addresses |
+| `compute.googleapis.com/Address` | compute | Regional static IP addresses |
+| `compute.googleapis.com/ForwardingRule` | compute | Load balancer forwarding rules |
+| `dns.googleapis.com/ManagedZone` | dns | DNS managed zones |
+| `dns.googleapis.com/ResourceRecordSet` | dns | DNS resource record sets |
+| `storage.googleapis.com/Bucket` | s3 | Cloud Storage buckets |
+| `run.googleapis.com/Service` | cloud-run | Cloud Run services |
+| `cloudfunctions.googleapis.com/CloudFunction` | cloud-function | Cloud Functions |
+| `container.googleapis.com/Cluster` | gke | GKE clusters |
+| `tpu.googleapis.com/Node` | tpu | Cloud TPU nodes |
+| `file.googleapis.com/Instance` | filestore | Filestore instances |
+
+### Available Services
+
+You can specify individual services or use 'all' for comprehensive discovery:
+
+```bash
+# Individual services
+./cloudlist -pc config.yaml -id org-discovery -s compute,dns,gke
+
+# New services added
+./cloudlist -pc config.yaml -id org-discovery -s tpu,filestore
+
+# All services (comprehensive discovery)
+./cloudlist -pc config.yaml -id org-discovery -s all
+```
+
+### Service-to-Asset Mapping
+
+| Service | Asset Types |
+|---------|-------------|
+| `compute` | Instance, GlobalAddress, Address, ForwardingRule |
+| `dns` | ManagedZone, ResourceRecordSet |
+| `s3` | Bucket |
+| `cloud-run` | Service |
+| `cloud-function` | CloudFunction |
+| `gke` | Cluster |
+| `tpu` | Node |
+| `filestore` | Instance |
+| `all` | All asset types above |
 
 ## Individual Service APIs
 

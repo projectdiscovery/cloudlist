@@ -73,13 +73,15 @@ Google Cloud Platform supports **two discovery approaches**:
 ```
 
 **Required Scopes:**
-1. `roles/compute.viewer` - Compute instances
+1. `roles/compute.viewer` - Compute instances and forwarding rules
 2. `roles/dns.reader` - DNS records  
 3. `roles/storage.objectViewer` - Storage buckets
 4. `roles/run.viewer` - Cloud Run services
 5. `roles/cloudfunctions.viewer` - Cloud Functions
 6. `roles/container.viewer` - GKE clusters
-7. `roles/resourcemanager.viewer` - List projects
+7. `roles/tpu.viewer` - TPU nodes
+8. `roles/file.viewer` - Filestore instances
+9. `roles/resourcemanager.viewer` - List projects
 
 #### 2. Organization-Level Asset API (Organization-Wide Discovery)
 

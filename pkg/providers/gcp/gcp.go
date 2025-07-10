@@ -323,12 +323,15 @@ func (p *OrganizationProvider) getAllAssets(ctx context.Context, parent string) 
 		"compute.googleapis.com/Instance",
 		"compute.googleapis.com/GlobalAddress",
 		"compute.googleapis.com/Address",
+		"compute.googleapis.com/ForwardingRule",
 		"dns.googleapis.com/ManagedZone",
 		"dns.googleapis.com/ResourceRecordSet",
 		"storage.googleapis.com/Bucket",
 		"run.googleapis.com/Service",
 		"cloudfunctions.googleapis.com/CloudFunction",
 		"container.googleapis.com/Cluster",
+		"tpu.googleapis.com/Node",
+		"file.googleapis.com/Instance",
 	}
 
 	batchResources, err := p.getAssetsForTypes(ctx, parent, assetTypes)
@@ -376,7 +379,7 @@ func (p *OrganizationProvider) getAssetsForService(ctx context.Context, parent s
 
 	switch service {
 	case "compute":
-		assetTypes = []string{"compute.googleapis.com/Instance", "compute.googleapis.com/GlobalAddress", "compute.googleapis.com/Address"}
+		assetTypes = []string{"compute.googleapis.com/Instance", "compute.googleapis.com/GlobalAddress", "compute.googleapis.com/Address", "compute.googleapis.com/ForwardingRule"}
 	case "dns":
 		assetTypes = []string{"dns.googleapis.com/ManagedZone", "dns.googleapis.com/ResourceRecordSet"}
 	case "s3":
@@ -387,6 +390,10 @@ func (p *OrganizationProvider) getAssetsForService(ctx context.Context, parent s
 		assetTypes = []string{"cloudfunctions.googleapis.com/CloudFunction"}
 	case "gke":
 		assetTypes = []string{"container.googleapis.com/Cluster"}
+	case "tpu":
+		assetTypes = []string{"tpu.googleapis.com/Node"}
+	case "filestore":
+		assetTypes = []string{"file.googleapis.com/Instance"}
 	default:
 		return schema.NewResources(), nil
 	}
@@ -429,6 +436,22 @@ func (p *OrganizationProvider) parseAssetToResource(asset *assetpb.Asset) *schem
 						}
 					}
 				}
+			}
+		}
+	case "compute.googleapis.com/ForwardingRule":
+		resource.Service = "compute"
+		if data := asset.Resource.Data; data != nil {
+			if ipAddress, ok := data.Fields["IPAddress"]; ok {
+				resource.PublicIPv4 = ipAddress.GetStringValue()
+			} else if address, ok := data.Fields["address"]; ok {
+				resource.PublicIPv4 = address.GetStringValue()
+			}
+		}
+	case "compute.googleapis.com/GlobalAddress", "compute.googleapis.com/Address":
+		resource.Service = "compute"
+		if data := asset.Resource.Data; data != nil {
+			if address, ok := data.Fields["address"]; ok {
+				resource.PublicIPv4 = address.GetStringValue()
 			}
 		}
 	case "dns.googleapis.com/ResourceRecordSet":
@@ -487,6 +510,34 @@ func (p *OrganizationProvider) parseAssetToResource(asset *assetpb.Asset) *schem
 				resource.DNSName = endpoint.GetStringValue()
 			}
 		}
+	case "tpu.googleapis.com/Node":
+		resource.Service = "tpu"
+		if data := asset.Resource.Data; data != nil {
+			if networkEndpoint, ok := data.Fields["networkEndpoint"]; ok {
+				if epList := networkEndpoint.GetListValue(); epList != nil && len(epList.Values) > 0 {
+					if epData := epList.Values[0].GetStructValue(); epData != nil {
+						if ipAddress, ok := epData.Fields["ipAddress"]; ok {
+							resource.PublicIPv4 = ipAddress.GetStringValue()
+						}
+					}
+				}
+			}
+		}
+	case "file.googleapis.com/Instance":
+		resource.Service = "filestore"
+		if data := asset.Resource.Data; data != nil {
+			if networks, ok := data.Fields["networks"]; ok {
+				if netList := networks.GetListValue(); netList != nil && len(netList.Values) > 0 {
+					if netData := netList.Values[0].GetStructValue(); netData != nil {
+						if ipAddresses, ok := netData.Fields["ipAddresses"]; ok {
+							if ipList := ipAddresses.GetListValue(); ipList != nil && len(ipList.Values) > 0 {
+								resource.PublicIPv4 = ipList.Values[0].GetStringValue()
+							}
+						}
+					}
+				}
+			}
+		}
 	default:
 		return nil
 	}
@@ -508,7 +559,7 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 
 	// Get all available services for organization-level discovery
 	allServices := []string{
-		"compute", "dns", "s3", "cloud-run", "cloud-function", "gke", "all",
+		"compute", "dns", "s3", "cloud-run", "cloud-function", "gke", "tpu", "filestore", "all",
 	}
 
 	supportedServicesMap := make(map[string]struct{})
