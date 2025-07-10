@@ -331,33 +331,13 @@ func (p *OrganizationProvider) getAllAssets(ctx context.Context, parent string) 
 		"container.googleapis.com/Cluster",
 	}
 
-	finalResources := schema.NewResources()
-
-	// Process assets in batches to avoid overwhelming the API
-	batchSize := 5
-	for i := 0; i < len(assetTypes); i += batchSize {
-		end := i + batchSize
-		if end > len(assetTypes) {
-			end = len(assetTypes)
-		}
-
-		batch := assetTypes[i:end]
-		gologger.Debug().Msgf("Processing batch %d with asset types: %v", i/batchSize+1, batch)
-
-		batchResources, err := p.getAssetsForTypes(ctx, parent, batch)
-		if err != nil {
-			gologger.Debug().Msgf("Could not get batch assets for parent %s (batch %d): %s", parent, i/batchSize+1, err)
-			gologger.Debug().Msgf("Batch %d completed. Found 0 assets", i/batchSize+1)
-			continue
-		}
-
-		finalResources.Merge(batchResources)
-		gologger.Debug().Msgf("Batch %d completed. Found %d assets", i/batchSize+1, len(batchResources.Items))
+	batchResources, err := p.getAssetsForTypes(ctx, parent, assetTypes)
+	if err != nil {
+		return nil, err
 	}
 
-	gologger.Info().Msgf("Asset discovery completed. Found %d total assets", len(finalResources.Items))
-	gologger.Info().Msgf("Successfully retrieved resources from getAllAssets")
-	return finalResources, nil
+	gologger.Info().Msgf("Asset discovery completed. Found %d total assets", len(batchResources.Items))
+	return batchResources, nil
 }
 
 // getAssetsForTypes gets assets for specific asset types
@@ -366,6 +346,7 @@ func (p *OrganizationProvider) getAssetsForTypes(ctx context.Context, parent str
 		Parent:      parent,
 		AssetTypes:  assetTypes,
 		ContentType: assetpb.ContentType_RESOURCE,
+		PageSize:    1000,
 	}
 
 	resources := schema.NewResources()

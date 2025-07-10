@@ -177,6 +177,7 @@ require (
 )
 
 require (
+	cloud.google.com/go/asset v1.21.1
 	github.com/alitto/pond/v2 v2.3.2
 	github.com/dnsimple/dnsimple-go v1.7.0
 	github.com/projectdiscovery/networkpolicy v0.1.15
@@ -186,7 +187,6 @@ require (
 require (
 	cloud.google.com/go v0.120.0 // indirect
 	cloud.google.com/go/accesscontextmanager v1.9.6 // indirect
-	cloud.google.com/go/asset v1.21.1 // indirect
 	cloud.google.com/go/auth v0.16.1 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/iam v1.5.2 // indirect
