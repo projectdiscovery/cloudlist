@@ -2,6 +2,7 @@ package gcp
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	asset "cloud.google.com/go/asset/apiv1"
@@ -14,8 +15,10 @@ import (
 	"google.golang.org/api/compute/v1"
 	container "google.golang.org/api/container/v1beta1"
 	"google.golang.org/api/dns/v1"
+	"google.golang.org/api/iterator"
 	run "google.golang.org/api/run/v1"
 	"google.golang.org/api/storage/v1"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // Provider is a data provider for gcp API
@@ -358,7 +361,7 @@ func (p *OrganizationProvider) getAssetsForTypes(ctx context.Context, parent str
 	for {
 		asset, err := it.Next()
 		if err != nil {
-			if err.Error() == "no more items in iterator" {
+			if errors.Is(err, iterator.Done) {
 				break
 			}
 			return nil, err
@@ -399,155 +402,6 @@ func (p *OrganizationProvider) getAssetsForService(ctx context.Context, parent s
 	}
 
 	return p.getAssetsForTypes(ctx, parent, assetTypes)
-}
-
-// parseAssetToResource converts an Asset to a Resource
-func (p *OrganizationProvider) parseAssetToResource(asset *assetpb.Asset) *schema.Resource {
-	if asset == nil || asset.Resource == nil {
-		return nil
-	}
-
-	resource := &schema.Resource{
-		ID:       p.id,
-		Provider: providerName,
-		Public:   true,
-	}
-
-	// Parse based on asset type
-	switch asset.AssetType {
-	case "compute.googleapis.com/Instance":
-		resource.Service = "compute"
-		// Extract IP from networkInterfaces like the individual API does
-		if data := asset.Resource.Data; data != nil {
-			if networkInterfaces, ok := data.Fields["networkInterfaces"]; ok {
-				if nicList := networkInterfaces.GetListValue(); nicList != nil && len(nicList.Values) > 0 {
-					if nicData := nicList.Values[0].GetStructValue(); nicData != nil {
-						if accessConfigs, ok := nicData.Fields["accessConfigs"]; ok {
-							if configList := accessConfigs.GetListValue(); configList != nil && len(configList.Values) > 0 {
-								if configData := configList.Values[0].GetStructValue(); configData != nil {
-									if natIP, ok := configData.Fields["natIP"]; ok {
-										resource.PublicIPv4 = natIP.GetStringValue()
-									}
-									if externalIPv6, ok := configData.Fields["externalIpv6"]; ok {
-										resource.PublicIPv6 = externalIPv6.GetStringValue()
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	case "compute.googleapis.com/ForwardingRule":
-		resource.Service = "compute"
-		if data := asset.Resource.Data; data != nil {
-			if ipAddress, ok := data.Fields["IPAddress"]; ok {
-				resource.PublicIPv4 = ipAddress.GetStringValue()
-			} else if address, ok := data.Fields["address"]; ok {
-				resource.PublicIPv4 = address.GetStringValue()
-			}
-		}
-	case "compute.googleapis.com/GlobalAddress", "compute.googleapis.com/Address":
-		resource.Service = "compute"
-		if data := asset.Resource.Data; data != nil {
-			if address, ok := data.Fields["address"]; ok {
-				resource.PublicIPv4 = address.GetStringValue()
-			}
-		}
-	case "dns.googleapis.com/ResourceRecordSet":
-		resource.Service = "dns"
-		if data := asset.Resource.Data; data != nil {
-			if name, ok := data.Fields["name"]; ok {
-				resource.DNSName = name.GetStringValue()
-			}
-			if rrdatas, ok := data.Fields["rrdatas"]; ok {
-				if rrdatas.GetListValue() != nil && len(rrdatas.GetListValue().Values) > 0 {
-					firstRecord := rrdatas.GetListValue().Values[0].GetStringValue()
-					if recordType, ok := data.Fields["type"]; ok {
-						switch recordType.GetStringValue() {
-						case "A":
-							resource.PublicIPv4 = firstRecord
-						case "AAAA":
-							resource.PublicIPv6 = firstRecord
-						}
-					}
-				}
-			}
-		}
-	case "storage.googleapis.com/Bucket":
-		resource.Service = "s3"
-		if data := asset.Resource.Data; data != nil {
-			if name, ok := data.Fields["name"]; ok {
-				resource.DNSName = name.GetStringValue() + ".storage.googleapis.com"
-			}
-		}
-	case "run.googleapis.com/Service":
-		resource.Service = "cloud-run"
-		if data := asset.Resource.Data; data != nil {
-			if status, ok := data.Fields["status"]; ok {
-				if statusData := status.GetStructValue(); statusData != nil {
-					if url, ok := statusData.Fields["url"]; ok {
-						resource.DNSName = url.GetStringValue()
-					}
-				}
-			}
-		}
-	case "cloudfunctions.googleapis.com/CloudFunction":
-		resource.Service = "cloud-function"
-		if data := asset.Resource.Data; data != nil {
-			if httpsTrigger, ok := data.Fields["httpsTrigger"]; ok {
-				if triggerData := httpsTrigger.GetStructValue(); triggerData != nil {
-					if url, ok := triggerData.Fields["url"]; ok {
-						resource.DNSName = url.GetStringValue()
-					}
-				}
-			}
-		}
-	case "container.googleapis.com/Cluster":
-		resource.Service = "gke"
-		if data := asset.Resource.Data; data != nil {
-			if endpoint, ok := data.Fields["endpoint"]; ok {
-				resource.DNSName = endpoint.GetStringValue()
-			}
-		}
-	case "tpu.googleapis.com/Node":
-		resource.Service = "tpu"
-		if data := asset.Resource.Data; data != nil {
-			if networkEndpoint, ok := data.Fields["networkEndpoint"]; ok {
-				if epList := networkEndpoint.GetListValue(); epList != nil && len(epList.Values) > 0 {
-					if epData := epList.Values[0].GetStructValue(); epData != nil {
-						if ipAddress, ok := epData.Fields["ipAddress"]; ok {
-							resource.PublicIPv4 = ipAddress.GetStringValue()
-						}
-					}
-				}
-			}
-		}
-	case "file.googleapis.com/Instance":
-		resource.Service = "filestore"
-		if data := asset.Resource.Data; data != nil {
-			if networks, ok := data.Fields["networks"]; ok {
-				if netList := networks.GetListValue(); netList != nil && len(netList.Values) > 0 {
-					if netData := netList.Values[0].GetStructValue(); netData != nil {
-						if ipAddresses, ok := netData.Fields["ipAddresses"]; ok {
-							if ipList := ipAddresses.GetListValue(); ipList != nil && len(ipList.Values) > 0 {
-								resource.PublicIPv4 = ipList.Values[0].GetStringValue()
-							}
-						}
-					}
-				}
-			}
-		}
-	default:
-		return nil
-	}
-
-	// Only return resources that have IP addresses or DNS names
-	if resource.PublicIPv4 == "" && resource.PublicIPv6 == "" && resource.DNSName == "" {
-		return nil
-	}
-
-	return resource
 }
 
 // newOrganizationProvider creates a new organization-level provider
@@ -612,4 +466,194 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 	provider.projects = projects
 
 	return provider, nil
+}
+
+// parseAssetToResource converts an Asset to a Resource
+func (p *OrganizationProvider) parseAssetToResource(asset *assetpb.Asset) *schema.Resource {
+	if asset == nil || asset.Resource == nil || asset.Resource.Data == nil {
+		return nil
+	}
+
+	resource := &schema.Resource{
+		ID:       p.id,
+		Provider: providerName,
+		Public:   true,
+	}
+
+	data := asset.Resource.Data
+
+	// Parse based on asset type
+	switch asset.AssetType {
+	case "compute.googleapis.com/Instance":
+		resource.Service = "compute"
+		p.extractComputeInstanceIPs(data, resource)
+
+	case "compute.googleapis.com/ForwardingRule":
+		resource.Service = "compute"
+		resource.PublicIPv4 = getStringField(data, "IPAddress", "address")
+
+	case "compute.googleapis.com/GlobalAddress", "compute.googleapis.com/Address":
+		resource.Service = "compute"
+		resource.PublicIPv4 = getStringField(data, "address")
+
+	case "dns.googleapis.com/ResourceRecordSet":
+		resource.Service = "dns"
+		p.extractDNSRecordData(data, resource)
+
+	case "storage.googleapis.com/Bucket":
+		resource.Service = "s3"
+		if name := getStringField(data, "name"); name != "" {
+			resource.DNSName = name + ".storage.googleapis.com"
+		}
+
+	case "run.googleapis.com/Service":
+		resource.Service = "cloud-run"
+		resource.DNSName = getNestedStringField(data, "status", "url")
+
+	case "cloudfunctions.googleapis.com/CloudFunction":
+		resource.Service = "cloud-function"
+		resource.DNSName = getNestedStringField(data, "httpsTrigger", "url")
+
+	case "container.googleapis.com/Cluster":
+		resource.Service = "gke"
+		resource.DNSName = getStringField(data, "endpoint")
+
+	case "tpu.googleapis.com/Node":
+		resource.Service = "tpu"
+		p.extractTPUEndpoint(data, resource)
+
+	case "file.googleapis.com/Instance":
+		resource.Service = "filestore"
+		p.extractFilestoreIP(data, resource)
+
+	default:
+		return nil
+	}
+
+	// Only return resources that have IP addresses or DNS names
+	if resource.PublicIPv4 == "" && resource.PublicIPv6 == "" && resource.DNSName == "" {
+		return nil
+	}
+
+	return resource
+}
+
+// Helper functions to reduce nesting and improve readability
+
+func getStringField(data *structpb.Struct, fieldNames ...string) string {
+	for _, fieldName := range fieldNames {
+		if field, ok := data.Fields[fieldName]; ok {
+			return field.GetStringValue()
+		}
+	}
+	return ""
+}
+
+func getNestedStringField(data *structpb.Struct, parentField, childField string) string {
+	if parent, ok := data.Fields[parentField]; ok {
+		if parentStruct := parent.GetStructValue(); parentStruct != nil {
+			return getStringField(parentStruct, childField)
+		}
+	}
+	return ""
+}
+
+func (p *OrganizationProvider) extractComputeInstanceIPs(data *structpb.Struct, resource *schema.Resource) {
+	networkInterfaces, ok := data.Fields["networkInterfaces"]
+	if !ok {
+		return
+	}
+
+	nicList := networkInterfaces.GetListValue()
+	if nicList == nil || len(nicList.Values) == 0 {
+		return
+	}
+
+	nicData := nicList.Values[0].GetStructValue()
+	if nicData == nil {
+		return
+	}
+
+	accessConfigs, ok := nicData.Fields["accessConfigs"]
+	if !ok {
+		return
+	}
+
+	configList := accessConfigs.GetListValue()
+	if configList == nil || len(configList.Values) == 0 {
+		return
+	}
+
+	configData := configList.Values[0].GetStructValue()
+	if configData != nil {
+		resource.PublicIPv4 = getStringField(configData, "natIP")
+		resource.PublicIPv6 = getStringField(configData, "externalIpv6")
+	}
+}
+
+func (p *OrganizationProvider) extractDNSRecordData(data *structpb.Struct, resource *schema.Resource) {
+	resource.DNSName = getStringField(data, "name")
+
+	rrdatas, ok := data.Fields["rrdatas"]
+	if !ok {
+		return
+	}
+
+	rrdataList := rrdatas.GetListValue()
+	if rrdataList == nil || len(rrdataList.Values) == 0 {
+		return
+	}
+
+	firstRecord := rrdataList.Values[0].GetStringValue()
+	recordType := getStringField(data, "type")
+
+	switch recordType {
+	case "A":
+		resource.PublicIPv4 = firstRecord
+	case "AAAA":
+		resource.PublicIPv6 = firstRecord
+	}
+}
+
+func (p *OrganizationProvider) extractTPUEndpoint(data *structpb.Struct, resource *schema.Resource) {
+	networkEndpoint, ok := data.Fields["networkEndpoint"]
+	if !ok {
+		return
+	}
+
+	epList := networkEndpoint.GetListValue()
+	if epList == nil || len(epList.Values) == 0 {
+		return
+	}
+
+	if epData := epList.Values[0].GetStructValue(); epData != nil {
+		resource.PublicIPv4 = getStringField(epData, "ipAddress")
+	}
+}
+
+func (p *OrganizationProvider) extractFilestoreIP(data *structpb.Struct, resource *schema.Resource) {
+	networks, ok := data.Fields["networks"]
+	if !ok {
+		return
+	}
+
+	netList := networks.GetListValue()
+	if netList == nil || len(netList.Values) == 0 {
+		return
+	}
+
+	netData := netList.Values[0].GetStructValue()
+	if netData == nil {
+		return
+	}
+
+	ipAddresses, ok := netData.Fields["ipAddresses"]
+	if !ok {
+		return
+	}
+
+	ipList := ipAddresses.GetListValue()
+	if ipList != nil && len(ipList.Values) > 0 {
+		resource.PublicIPv4 = ipList.Values[0].GetStringValue()
+	}
 }

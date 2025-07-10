@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	asset "cloud.google.com/go/asset/apiv1"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/k8s"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
@@ -18,10 +17,9 @@ import (
 
 // gkeProvider is a provider for GCP GKE API
 type gkeProvider struct {
-	id          string
-	assetClient *asset.Client      // For org-level approach
-	gke         *container.Service // For original approach
-	projects    []string
+	id       string
+	gke      *container.Service // For original approach
+	projects []string
 }
 
 func (d *gkeProvider) name() string {
@@ -30,22 +28,7 @@ func (d *gkeProvider) name() string {
 
 // GetResource returns all the GKE resources in the store for a provider.
 func (d *gkeProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
-	// Use asset client approach if available (org-level)
-	if d.assetClient != nil {
-		return d.getResourcesWithAssetClient(ctx)
-	}
-
-	// Use original container.Service approach
 	return d.getResourcesWithGKEService(ctx)
-}
-
-// getResourcesWithAssetClient uses the Cloud Asset Inventory API
-func (d *gkeProvider) getResourcesWithAssetClient(ctx context.Context) (*schema.Resources, error) {
-	list := schema.NewResources()
-
-	// This method should not be called directly from individual provider
-	// It's handled by the org-level provider
-	return list, nil
 }
 
 // getResourcesWithGKEService uses the original GKE service approach
