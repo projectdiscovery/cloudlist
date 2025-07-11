@@ -321,8 +321,7 @@ func (p *OrganizationProvider) Resources(ctx context.Context) (*schema.Resources
 func (p *OrganizationProvider) getAllAssets(ctx context.Context, parent string) (*schema.Resources, error) {
 	gologger.Info().Msgf("Starting Asset API discovery for parent: %s", parent)
 
-	// Define asset types that provide IP addresses or DNS names
-	assetTypes := []string{
+	var assetTypesGcpListAPI = []string{
 		"compute.googleapis.com/Instance",
 		"compute.googleapis.com/GlobalAddress",
 		"compute.googleapis.com/Address",
@@ -337,7 +336,8 @@ func (p *OrganizationProvider) getAllAssets(ctx context.Context, parent string) 
 		"file.googleapis.com/Instance",
 	}
 
-	batchResources, err := p.getAssetsForTypes(ctx, parent, assetTypes)
+	// Define asset types that provide IP addresses or DNS names
+	batchResources, err := p.getAssetsForTypes(ctx, parent, assetTypesGcpListAPI)
 	if err != nil {
 		return nil, err
 	}
@@ -659,4 +659,79 @@ func (p *OrganizationProvider) extractFilestoreIP(data *structpb.Struct, resourc
 	if ipList != nil && len(ipList.Values) > 0 {
 		resource.PublicIPv4 = ipList.Values[0].GetStringValue()
 	}
+}
+
+// Verify checks if the GCP provider credentials are valid
+func (p *Provider) Verify(ctx context.Context) error {
+	if len(p.projects) == 0 {
+		return errorutil.New("no accessible GCP projects found with provided credentials")
+	}
+
+	// For extra verification, try a minimal API call on one service
+	var err error
+	for _, project := range p.projects {
+		var success bool
+		if p.compute != nil {
+			if _, err = p.compute.Regions.List(project).Do(); err == nil {
+				success = true
+			}
+		} else if p.dns != nil {
+			if _, err = p.dns.ManagedZones.List(project).Do(); err == nil {
+				success = true
+			}
+		} else if p.storage != nil {
+			if _, err = p.storage.Buckets.List(project).Do(); err == nil {
+				success = true
+			}
+		} else if p.functions != nil {
+			if _, err = p.functions.Projects.Locations.List(project).Do(); err == nil {
+				success = true
+			}
+		} else if p.run != nil {
+			if _, err = p.run.Projects.Locations.List(project).Do(); err == nil {
+				success = true
+			}
+		} else if p.gke != nil {
+			if _, err = p.gke.Projects.Locations.Clusters.List(project).Do(); err == nil {
+				success = true
+			}
+		}
+		// For any one service to be successful, we can return nil
+		if success {
+			return nil
+		}
+	}
+	if err != nil {
+		return errorutil.NewWithErr(err).Msgf("failed to verify GCP services")
+	}
+	return errorutil.New("no accessible GCP services found with provided credentials")
+}
+
+func (p *OrganizationProvider) Verify(ctx context.Context) error {
+	var assetTypesGcpListAPI = []string{
+		"compute.googleapis.com/Instance",
+		"compute.googleapis.com/Address",
+		"compute.googleapis.com/ForwardingRule",
+		"dns.googleapis.com/ManagedZone",
+		"dns.googleapis.com/ResourceRecordSet",
+		"storage.googleapis.com/Bucket",
+		"run.googleapis.com/Service",
+		"cloudfunctions.googleapis.com/CloudFunction",
+		"container.googleapis.com/Cluster",
+		"tpu.googleapis.com/Node",
+		"file.googleapis.com/Instance",
+	}
+
+	// For extra verification, try a minimal API call on one service
+	iter := p.assetClient.SearchAllResources(ctx, &assetpb.SearchAllResourcesRequest{
+		Scope:      "organizations/" + p.organizationID,
+		AssetTypes: assetTypesGcpListAPI,
+		PageSize:   1,
+	})
+
+	_, err := iter.Next()
+	if err != nil && !errors.Is(err, iterator.Done) {
+		return errorutil.NewWithErr(err).Msgf("failed to verify GCP Asset API access for organization %s", p.organizationID)
+	}
+	return nil
 }
