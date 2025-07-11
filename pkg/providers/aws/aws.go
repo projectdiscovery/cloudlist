@@ -207,41 +207,44 @@ func New(block schema.OptionBlock) (*Provider, error) {
 }
 
 func createAssumedRoleSession(options *ProviderOptions, sess *session.Session, config *aws.Config) (*session.Session, error) {
-	stsClient := sts.New(sess)
-	roleArn := fmt.Sprintf("arn:aws:iam::%s:role/%s", options.AccountIds[0], options.AssumeRoleName)
+    if len(options.AccountIds) == 0 {
+        return nil, errors.New("no account IDs provided for assume role")
+    }
+    stsClient := sts.New(sess)
+    roleArn := fmt.Sprintf("arn:aws:iam::%s:role/%s", options.AccountIds[0], options.AssumeRoleName)
 
-	roleInput := &sts.AssumeRoleInput{
-		RoleArn: aws.String(roleArn),
-	}
+    roleInput := &sts.AssumeRoleInput{
+        RoleArn: aws.String(roleArn),
+    }
 
-	if options.AssumeRoleSessionName != "" {
-		roleInput.RoleSessionName = aws.String(options.AssumeRoleSessionName)
-	} else {
-		roleInput.RoleSessionName = aws.String("cloudlist-session")
-	}
+    if options.AssumeRoleSessionName != "" {
+        roleInput.RoleSessionName = aws.String(options.AssumeRoleSessionName)
+    } else {
+        roleInput.RoleSessionName = aws.String("cloudlist-session")
+    }
 
-	if options.ExternalId != "" {
-		roleInput.ExternalId = aws.String(options.ExternalId)
-	}
+    if options.ExternalId != "" {
+        roleInput.ExternalId = aws.String(options.ExternalId)
+    }
 
-	assumeRoleOutput, err := stsClient.AssumeRole(roleInput)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to assume role for DescribeRegions")
-	}
+    assumeRoleOutput, err := stsClient.AssumeRole(roleInput)
+    if err != nil {
+        return nil, errors.Wrap(err, "failed to assume role for DescribeRegions")
+    }
 
-	assumedCredentials := assumeRoleOutput.Credentials
-	tempSession, err := session.NewSession(&aws.Config{
-		Credentials: credentials.NewStaticCredentials(
-			*assumedCredentials.AccessKeyId,
-			*assumedCredentials.SecretAccessKey,
-			*assumedCredentials.SessionToken,
-		),
-		Region: config.Region,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create assumed role session for DescribeRegions")
-	}
-	return tempSession, nil
+    assumedCredentials := assumeRoleOutput.Credentials
+    tempSession, err := session.NewSession(&aws.Config{
+        Credentials: credentials.NewStaticCredentials(
+            *assumedCredentials.AccessKeyId,
+            *assumedCredentials.SecretAccessKey,
+            *assumedCredentials.SessionToken,
+        ),
+        Region: config.Region,
+    })
+    if err != nil {
+        return nil, errors.Wrap(err, "could not create assumed role session for DescribeRegions")
+    }
+    return tempSession, nil
 }
 
 func (p *Provider) initServices(sess *session.Session) {
