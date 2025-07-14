@@ -189,7 +189,6 @@ func (ep *elbV2Provider) getElbV2AndEc2Clients(region *string) ([]*elbv2.ELBV2, 
 func (ep *elbV2Provider) getLoadBalancerMetadata(lb *elbv2.LoadBalancer, albClient *elbv2.ELBV2) map[string]string {
 	metadata := make(map[string]string)
 
-	// Basic load balancer information
 	schema.AddMetadata(metadata, "load_balancer_name", lb.LoadBalancerName)
 	schema.AddMetadata(metadata, "type", lb.Type)
 	schema.AddMetadata(metadata, "scheme", lb.Scheme)
@@ -204,9 +203,8 @@ func (ep *elbV2Provider) getLoadBalancerMetadata(lb *elbv2.LoadBalancer, albClie
 		metadata["arn"] = arn
 
 		// Extract owner ID from ARN (format: arn:aws:elasticloadbalancing:region:account-id:loadbalancer/app/name/id)
-		arnParts := strings.Split(arn, ":")
-		if len(arnParts) >= 5 && arnParts[4] != "" {
-			metadata["owner_id"] = arnParts[4]
+		if arnComponents := parseARN(arn); arnComponents != nil && arnComponents.AccountID != "" {
+			metadata["owner_id"] = arnComponents.AccountID
 		}
 	}
 
@@ -219,7 +217,6 @@ func (ep *elbV2Provider) getLoadBalancerMetadata(lb *elbv2.LoadBalancer, albClie
 		metadata["created_time"] = lb.CreatedTime.Format(time.RFC3339)
 	}
 
-	// Availability zones
 	if len(lb.AvailabilityZones) > 0 {
 		var azs []string
 		var subnets []string
@@ -238,11 +235,7 @@ func (ep *elbV2Provider) getLoadBalancerMetadata(lb *elbv2.LoadBalancer, albClie
 			metadata["subnet_ids"] = strings.Join(subnets, ",")
 		}
 	}
-
-	// Security groups
 	schema.AddMetadataList(metadata, "security_groups", lb.SecurityGroups)
-
-	// Get listeners information
 	if lb.LoadBalancerArn != nil {
 		if listeners, err := albClient.DescribeListeners(&elbv2.DescribeListenersInput{
 			LoadBalancerArn: lb.LoadBalancerArn,
@@ -267,8 +260,6 @@ func (ep *elbV2Provider) getLoadBalancerMetadata(lb *elbv2.LoadBalancer, albClie
 			}
 		}
 	}
-
-	// Get tags
 	if lb.LoadBalancerArn != nil {
 		if tagOutput, err := albClient.DescribeTags(&elbv2.DescribeTagsInput{
 			ResourceArns: []*string{lb.LoadBalancerArn},
@@ -288,7 +279,6 @@ func (ep *elbV2Provider) getLoadBalancerMetadata(lb *elbv2.LoadBalancer, albClie
 func (ep *elbV2Provider) getTargetInstanceMetadata(instance *ec2.Instance, target *elbv2.TargetHealthDescription, tg *elbv2.TargetGroup, lb *elbv2.LoadBalancer) map[string]string {
 	metadata := make(map[string]string)
 
-	// Basic instance information
 	schema.AddMetadata(metadata, "instance_id", instance.InstanceId)
 	schema.AddMetadata(metadata, "instance_type", instance.InstanceType)
 	schema.AddMetadata(metadata, "private_dns_name", instance.PrivateDnsName)
@@ -296,8 +286,6 @@ func (ep *elbV2Provider) getTargetInstanceMetadata(instance *ec2.Instance, targe
 	if instance.State != nil {
 		schema.AddMetadata(metadata, "instance_state", instance.State.Name)
 	}
-
-	// Target health information
 	if target.Target != nil && target.Target.Port != nil {
 		metadata["target_port"] = fmt.Sprintf("%d", aws.Int64Value(target.Target.Port))
 	}
@@ -306,29 +294,21 @@ func (ep *elbV2Provider) getTargetInstanceMetadata(instance *ec2.Instance, targe
 		schema.AddMetadata(metadata, "health_reason", target.TargetHealth.Reason)
 		schema.AddMetadata(metadata, "health_description", target.TargetHealth.Description)
 	}
-
-	// Target group information
 	schema.AddMetadata(metadata, "target_group_name", tg.TargetGroupName)
 	schema.AddMetadata(metadata, "target_type", tg.TargetType)
-
-	// Load balancer information
 	schema.AddMetadata(metadata, "load_balancer_name", lb.LoadBalancerName)
 	if lb.LoadBalancerArn != nil {
 		arn := aws.StringValue(lb.LoadBalancerArn)
-		// Extract owner ID from ARN
-		arnParts := strings.Split(arn, ":")
-		if len(arnParts) >= 5 && arnParts[4] != "" {
-			metadata["owner_id"] = arnParts[4]
+
+		if arnComponents := parseARN(arn); arnComponents != nil && arnComponents.AccountID != "" {
+			metadata["owner_id"] = arnComponents.AccountID
 		}
 	}
-
-	// Instance tags
 	if len(instance.Tags) > 0 {
 		if tagString := buildTagString(instance.Tags); tagString != "" {
 			metadata["instance_tags"] = tagString
 		}
 	}
-
 	return metadata
 }
 

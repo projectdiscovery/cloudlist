@@ -505,3 +505,46 @@ func (p *Provider) verify() error {
 	}
 	return errors.New("failed to verify AWS credentials: no accessible services found")
 }
+
+type ARNComponents struct {
+	Partition    string   // e.g., "aws"
+	Service      string   // e.g., "s3", "ec2", "iam"
+	Region       string   // e.g., "us-east-1"
+	AccountID    string   // e.g., "123456789012"
+	Resource     string   // e.g., "bucket/my-bucket" or "instance/i-1234567890abcdef0"
+	ResourcePath []string // Resource split by "/" for hierarchical resources
+}
+
+// parseARN parses an AWS ARN and returns its components
+func parseARN(arn string) *ARNComponents {
+	if arn == "" {
+		return nil
+	}
+
+	parts := strings.Split(arn, ":")
+	if len(parts) < 6 {
+		return nil
+	}
+
+	components := &ARNComponents{
+		Partition: parts[1],
+		Service:   parts[2],
+		Region:    parts[3],
+		AccountID: parts[4],
+		Resource:  strings.Join(parts[5:], ":"),
+	}
+
+	// Split resource by "/" for hierarchical resources
+	components.ResourcePath = strings.Split(components.Resource, "/")
+
+	return components
+}
+
+// GetResourceName returns the last component of the resource path
+// For example: "cluster/my-cluster" returns "my-cluster"
+func (a *ARNComponents) GetResourceName() string {
+	if len(a.ResourcePath) > 0 {
+		return a.ResourcePath[len(a.ResourcePath)-1]
+	}
+	return ""
+}

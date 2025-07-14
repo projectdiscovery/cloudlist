@@ -107,7 +107,7 @@ func (d *instanceProvider) getDropletMetadata(droplet *godo.Droplet) map[string]
 		schema.AddMetadataInt(metadata, "size_memory", droplet.Size.Memory)
 		schema.AddMetadataInt(metadata, "size_vcpus", droplet.Size.Vcpus)
 		schema.AddMetadataInt(metadata, "size_disk", droplet.Size.Disk)
-		schema.AddMetadata(metadata, "size_slug", &droplet.Size.Slug)
+		schema.AddMetadata(metadata, "droplet_size_slug", &droplet.Size.Slug)
 	}
 	if droplet.Created != "" {
 		if createdTime, err := time.Parse(time.RFC3339, droplet.Created); err == nil {

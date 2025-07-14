@@ -150,11 +150,11 @@ type wrappedS3Client struct {
 }
 
 func (s *s3Provider) getS3Clients() []*wrappedS3Client {
-	s3Cleints := make([]*wrappedS3Client, 0)
-	s3Cleints = append(s3Cleints, &wrappedS3Client{s3Client: s.s3})
+	s3Clients := make([]*wrappedS3Client, 0)
+	s3Clients = append(s3Clients, &wrappedS3Client{s3Client: s.s3})
 
 	if s.options.AssumeRoleName == "" || len(s.options.AccountIds) < 1 {
-		return s3Cleints
+		return s3Clients
 	}
 
 	for _, accountId := range s.options.AccountIds {
@@ -163,9 +163,9 @@ func (s *s3Provider) getS3Clients() []*wrappedS3Client {
 		if s3Client == nil {
 			continue
 		}
-		s3Cleints = append(s3Cleints, &wrappedS3Client{s3Client: s3Client, roleARN: roleARN})
+		s3Clients = append(s3Clients, &wrappedS3Client{s3Client: s3Client, roleARN: roleARN})
 	}
-	return s3Cleints
+	return s3Clients
 }
 
 func (s *s3Provider) getS3Client(region, roleARN string) *s3.S3 {

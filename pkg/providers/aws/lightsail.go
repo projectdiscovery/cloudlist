@@ -97,7 +97,6 @@ func (l *lightsailProvider) listListsailResources(lsClient *lightsail.Lightsail)
 func (l *lightsailProvider) getInstanceMetadata(instance *lightsail.Instance) map[string]string {
 	metadata := make(map[string]string)
 
-	// Basic instance information
 	schema.AddMetadata(metadata, "instance_name", instance.Name)
 	schema.AddMetadata(metadata, "blueprint_id", instance.BlueprintId)
 	schema.AddMetadata(metadata, "blueprint_name", instance.BlueprintName)
@@ -112,22 +111,17 @@ func (l *lightsailProvider) getInstanceMetadata(instance *lightsail.Instance) ma
 		metadata["arn"] = arn
 
 		// Extract owner ID from ARN (format: arn:aws:lightsail:region:account-id:Instance/instance-id)
-		arnParts := strings.Split(arn, ":")
-		if len(arnParts) >= 5 && arnParts[4] != "" {
-			metadata["owner_id"] = arnParts[4]
+		if arnComponents := parseARN(arn); arnComponents != nil && arnComponents.AccountID != "" {
+			metadata["owner_id"] = arnComponents.AccountID
 		}
 	}
 
 	if instance.State != nil {
 		schema.AddMetadata(metadata, "instance_state", instance.State.Name)
 	}
-
-	// Instance specifications
 	if instance.IsStaticIp != nil {
 		metadata["static_ip"] = fmt.Sprintf("%v", aws.BoolValue(instance.IsStaticIp))
 	}
-
-	// Hardware specifications
 	if instance.Hardware != nil {
 		if instance.Hardware.CpuCount != nil {
 			schema.AddMetadataInt(metadata, "cpu_count", int(aws.Int64Value(instance.Hardware.CpuCount)))
@@ -147,21 +141,15 @@ func (l *lightsailProvider) getInstanceMetadata(instance *lightsail.Instance) ma
 			}
 		}
 	}
-
-	// Location information
 	if instance.Location != nil {
 		schema.AddMetadata(metadata, "availability_zone", instance.Location.AvailabilityZone)
 		schema.AddMetadata(metadata, "region", instance.Location.RegionName)
 	}
-
-	// Timestamps
 	if instance.CreatedAt != nil {
 		metadata["created_at"] = instance.CreatedAt.Format(time.RFC3339)
 	}
 
-	// Networking information
 	if instance.Networking != nil {
-		// Ports information
 		if len(instance.Networking.Ports) > 0 {
 			var openPorts []string
 			for _, port := range instance.Networking.Ports {

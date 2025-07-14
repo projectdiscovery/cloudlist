@@ -248,7 +248,6 @@ func (ep *elbProvider) getLoadBalancerMetadata(lb *elb.LoadBalancerDescription, 
 func (ep *elbProvider) getTargetInstanceMetadata(instance *ec2.Instance, lb *elb.LoadBalancerDescription, reservation *ec2.Reservation) map[string]string {
 	metadata := make(map[string]string)
 
-	// Basic instance information
 	schema.AddMetadata(metadata, "instance_id", instance.InstanceId)
 	schema.AddMetadata(metadata, "instance_type", instance.InstanceType)
 	schema.AddMetadata(metadata, "private_dns_name", instance.PrivateDnsName)
@@ -256,31 +255,22 @@ func (ep *elbProvider) getTargetInstanceMetadata(instance *ec2.Instance, lb *elb
 	schema.AddMetadata(metadata, "subnet_id", instance.SubnetId)
 	schema.AddMetadata(metadata, "vpc_id", instance.VpcId)
 
-	// Instance state
 	if instance.State != nil {
 		schema.AddMetadata(metadata, "instance_state", instance.State.Name)
 	}
-
-	// Placement
 	if instance.Placement != nil {
 		schema.AddMetadata(metadata, "availability_zone", instance.Placement.AvailabilityZone)
 	}
-
-	// Owner information
 	schema.AddMetadata(metadata, "owner_id", reservation.OwnerId)
-
-	// Load balancer information
 	schema.AddMetadata(metadata, "load_balancer_name", lb.LoadBalancerName)
 	schema.AddMetadata(metadata, "load_balancer_dns", lb.DNSName)
 
-	// Instance tags
 	if len(instance.Tags) > 0 {
 		if tagString := buildTagString(instance.Tags); tagString != "" {
 			metadata["instance_tags"] = tagString
 		}
 	}
 
-	// Security groups
 	if len(instance.SecurityGroups) > 0 {
 		var sgIds, sgNames []string
 		for _, sg := range instance.SecurityGroups {

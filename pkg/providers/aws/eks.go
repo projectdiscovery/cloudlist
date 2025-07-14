@@ -154,9 +154,8 @@ func (ep *eksProvider) getClusterMetadata(cluster *eks.Cluster, eksClient *eks.E
 	schema.AddMetadata(metadata, "endpoint", cluster.Endpoint)
 
 	if cluster.Arn != nil {
-		arnParts := strings.Split(aws.StringValue(cluster.Arn), ":")
-		if len(arnParts) >= 5 && arnParts[4] != "" {
-			metadata["owner_id"] = arnParts[4]
+		if arnComponents := parseARN(aws.StringValue(cluster.Arn)); arnComponents != nil && arnComponents.AccountID != "" {
+			metadata["owner_id"] = arnComponents.AccountID
 		}
 	}
 
@@ -220,9 +219,8 @@ func (ep *eksProvider) getNodeMetadata(node *corev1.Node, cluster *eks.Cluster) 
 
 	schema.AddMetadata(metadata, "cluster_name", cluster.Name)
 	if cluster.Arn != nil {
-		arnParts := strings.Split(aws.StringValue(cluster.Arn), ":")
-		if len(arnParts) >= 5 && arnParts[4] != "" {
-			metadata["owner_id"] = arnParts[4]
+		if arnComponents := parseARN(aws.StringValue(cluster.Arn)); arnComponents != nil && arnComponents.AccountID != "" {
+			metadata["owner_id"] = arnComponents.AccountID
 		}
 	}
 

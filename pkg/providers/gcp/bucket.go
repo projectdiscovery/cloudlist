@@ -159,10 +159,5 @@ func (d *cloudStorageProvider) getBucketMetadata(bucket *storage.Bucket) map[str
 	if bucket.Billing != nil && bucket.Billing.RequesterPays {
 		metadata["requester_pays"] = "true"
 	}
-
-	if d.isBucketPublic(bucket.Name) {
-		metadata["public_access"] = "enabled"
-	}
-
 	return metadata
 }

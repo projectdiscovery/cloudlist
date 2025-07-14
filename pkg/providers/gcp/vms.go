@@ -168,14 +168,22 @@ func (d *cloudVMProvider) getInstanceMetadata(instance *compute.Instance, projec
 	}
 
 	if instance.Metadata != nil && len(instance.Metadata.Items) > 0 {
-		// Look for common metadata keys that might indicate ownership or purpose
+		sensitiveKeys := map[string]bool{
+			"ssh-keys":           true,
+			"startup-script":     true,
+			"startup-script-url": true,
+			"shutdown-script":    true,
+			"user-data":          true,
+		}
 		for _, item := range instance.Metadata.Items {
 			if item.Key != "" && item.Value != nil {
-				metadata[fmt.Sprintf("user_metadata_%s", strings.ToLower(item.Key))] = *item.Value
+				_, sensitive := sensitiveKeys[strings.ToLower(item.Key)]
+				if !sensitive {
+					metadata[fmt.Sprintf("user_metadata_%s", strings.ToLower(item.Key))] = *item.Value
+				}
 			}
 		}
 	}
-
 	return metadata
 }
 

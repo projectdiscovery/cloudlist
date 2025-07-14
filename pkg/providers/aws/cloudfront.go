@@ -98,9 +98,8 @@ func (cp *cloudfrontProvider) getDistributionMetadata(distribution *cloudfront.D
 		arn := aws.StringValue(distribution.ARN)
 		metadata["arn"] = arn
 
-		arnParts := strings.Split(arn, ":")
-		if len(arnParts) >= 5 && arnParts[4] != "" {
-			metadata["owner_id"] = arnParts[4]
+		if arnComponents := parseARN(arn); arnComponents != nil && arnComponents.AccountID != "" {
+			metadata["owner_id"] = arnComponents.AccountID
 		}
 	}
 

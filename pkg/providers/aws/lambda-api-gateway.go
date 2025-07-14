@@ -321,7 +321,6 @@ func (ap *lambdaAndapiGatewayProvider) getApiGatewayAndLamdaClients(region *stri
 func (ap *lambdaAndapiGatewayProvider) getAPIGatewayMetadata(api *apigateway.RestApi, apiGatewayClient *apigateway.APIGateway, regionName string) map[string]string {
 	metadata := make(map[string]string)
 
-	// Basic API Gateway information
 	schema.AddMetadata(metadata, "api_id", api.Id)
 	schema.AddMetadata(metadata, "api_name", api.Name)
 	schema.AddMetadata(metadata, "description", api.Description)
@@ -331,7 +330,6 @@ func (ap *lambdaAndapiGatewayProvider) getAPIGatewayMetadata(api *apigateway.Res
 		metadata["created_date"] = api.CreatedDate.Format(time.RFC3339)
 	}
 
-	// API type and endpoint configuration
 	if len(api.EndpointConfiguration.Types) > 0 {
 		var types []string
 		for _, t := range api.EndpointConfiguration.Types {
@@ -343,12 +341,8 @@ func (ap *lambdaAndapiGatewayProvider) getAPIGatewayMetadata(api *apigateway.Res
 			metadata["endpoint_types"] = strings.Join(types, ",")
 		}
 	}
-
-	// Extract owner ID from API ID or region/account context
-	// API Gateway IDs don't contain account info directly, but we can infer from context
 	metadata["region"] = regionName
 
-	// Get stages
 	if api.Id != nil {
 		if stages, err := apiGatewayClient.GetStages(&apigateway.GetStagesInput{
 			RestApiId: api.Id,
@@ -365,7 +359,6 @@ func (ap *lambdaAndapiGatewayProvider) getAPIGatewayMetadata(api *apigateway.Res
 		}
 	}
 
-	// Get tags
 	if len(api.Tags) > 0 {
 		if tagString := buildAwsMapTagString(api.Tags); tagString != "" {
 			metadata["tags"] = tagString
@@ -378,7 +371,6 @@ func (ap *lambdaAndapiGatewayProvider) getAPIGatewayMetadata(api *apigateway.Res
 func (ap *lambdaAndapiGatewayProvider) getAPIGatewayV2Metadata(api *apigatewayv2.Api, regionName string) map[string]string {
 	metadata := make(map[string]string)
 
-	// Basic API Gateway v2 information
 	schema.AddMetadata(metadata, "api_id", api.ApiId)
 	schema.AddMetadata(metadata, "api_name", api.Name)
 	schema.AddMetadata(metadata, "description", api.Description)
@@ -391,7 +383,6 @@ func (ap *lambdaAndapiGatewayProvider) getAPIGatewayV2Metadata(api *apigatewayv2
 		metadata["created_date"] = api.CreatedDate.Format(time.RFC3339)
 	}
 
-	// CORS configuration
 	if api.CorsConfiguration != nil {
 		if len(api.CorsConfiguration.AllowOrigins) > 0 {
 			var origins []string
@@ -406,14 +397,12 @@ func (ap *lambdaAndapiGatewayProvider) getAPIGatewayV2Metadata(api *apigatewayv2
 		}
 	}
 
-	// Disable execute API endpoint flag
 	if api.DisableExecuteApiEndpoint != nil {
 		metadata["disable_execute_api_endpoint"] = fmt.Sprintf("%t", aws.BoolValue(api.DisableExecuteApiEndpoint))
 	}
 
 	metadata["region"] = regionName
 
-	// Get tags
 	if len(api.Tags) > 0 {
 		if tagString := buildAwsMapTagString(api.Tags); tagString != "" {
 			metadata["tags"] = tagString

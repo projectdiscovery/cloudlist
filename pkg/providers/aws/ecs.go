@@ -35,8 +35,8 @@ func (ep *ecsProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 	var mu sync.Mutex
 
 	for _, region := range ep.regions.Regions {
-		ecsCleints, ec2Clients := ep.getEcsAndEc2Clients(region.RegionName)
-		for index := range len(ecsCleints) {
+		ecsClients, ec2Clients := ep.getEcsAndEc2Clients(region.RegionName)
+		for index := range len(ecsClients) {
 			wg.Add(1)
 
 			go func(ecsClient *ecs.ECS, ec2Client *ec2.EC2) {
@@ -46,7 +46,7 @@ func (ep *ecsProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 					list.Merge(resources)
 					mu.Unlock()
 				}
-			}(ecsCleints[index], ec2Clients[index])
+			}(ecsClients[index], ec2Clients[index])
 		}
 	}
 	wg.Wait()
@@ -252,8 +252,8 @@ func (ep *ecsProvider) processFargateTask(task *ecs.Task, ec2Client *ec2.EC2, li
 		for _, eni := range describeNetworkInterfacesOutput.NetworkInterfaces {
 			taskID := aws.StringValue(task.TaskArn)
 			if task.TaskArn != nil {
-				if parts := splitARN(*task.TaskArn); len(parts) > 0 {
-					taskID = parts[len(parts)-1]
+				if arnComponents := parseARN(*task.TaskArn); arnComponents != nil {
+					taskID = arnComponents.GetResourceName()
 				}
 			}
 
@@ -302,11 +302,6 @@ func (ep *ecsProvider) processFargateTask(task *ecs.Task, ec2Client *ec2.EC2, li
 	return nil
 }
 
-func splitARN(arn string) []string {
-	parts := strings.Split(arn, "/")
-	return parts
-}
-
 func (ep *ecsProvider) getECSTaskMetadata(task *ecs.Task, instance *ec2.Instance, reservation *ec2.Reservation, clusterArn, serviceArn *string) map[string]string {
 	metadata := make(map[string]string)
 
@@ -314,13 +309,11 @@ func (ep *ecsProvider) getECSTaskMetadata(task *ecs.Task, instance *ec2.Instance
 		taskArn := aws.StringValue(task.TaskArn)
 		metadata["task_arn"] = taskArn
 
-		if parts := splitARN(taskArn); len(parts) > 0 {
-			metadata["task_id"] = parts[len(parts)-1]
-		}
-
-		arnParts := strings.Split(taskArn, ":")
-		if len(arnParts) >= 5 && arnParts[4] != "" {
-			metadata["owner_id"] = arnParts[4]
+		if arnComponents := parseARN(taskArn); arnComponents != nil {
+			metadata["task_id"] = arnComponents.GetResourceName()
+			if arnComponents.AccountID != "" {
+				metadata["owner_id"] = arnComponents.AccountID
+			}
 		}
 	}
 
@@ -332,8 +325,8 @@ func (ep *ecsProvider) getECSTaskMetadata(task *ecs.Task, instance *ec2.Instance
 		clusterArnStr := aws.StringValue(clusterArn)
 		metadata["cluster_arn"] = clusterArnStr
 
-		if parts := strings.Split(clusterArnStr, "/"); len(parts) > 0 {
-			metadata["cluster_name"] = parts[len(parts)-1]
+		if arnComponents := parseARN(clusterArnStr); arnComponents != nil {
+			metadata["cluster_name"] = arnComponents.GetResourceName()
 		}
 	}
 
@@ -341,8 +334,8 @@ func (ep *ecsProvider) getECSTaskMetadata(task *ecs.Task, instance *ec2.Instance
 		serviceArnStr := aws.StringValue(serviceArn)
 		metadata["service_arn"] = serviceArnStr
 
-		if parts := strings.Split(serviceArnStr, "/"); len(parts) > 0 {
-			metadata["service_name"] = parts[len(parts)-1]
+		if arnComponents := parseARN(serviceArnStr); arnComponents != nil {
+			metadata["service_name"] = arnComponents.GetResourceName()
 		}
 	}
 

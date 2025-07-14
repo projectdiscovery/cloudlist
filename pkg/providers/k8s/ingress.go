@@ -10,7 +10,7 @@ import (
 	v1 "k8s.io/api/networking/v1"
 )
 
-// k8sServiceProvider is a provider for aws Route53 API
+// k8sServiceProvider is a provider for k8s ingress resources
 type K8sIngressProvider struct {
 	id               string
 	ingress          *v1.IngressList

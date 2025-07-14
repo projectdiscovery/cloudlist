@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/projectdiscovery/cloudlist/pkg/schema/validate"
 	mapsutil "github.com/projectdiscovery/utils/maps"
 )
@@ -329,13 +328,30 @@ func (d *ResourceDeduplicator) ProcessResource(resource *Resource) bool {
 // Helper functions for metadata handling
 func AddMetadata(metadata map[string]string, key string, value *string) {
 	if value != nil && *value != "" {
-		metadata[key] = aws.StringValue(value)
+		metadata[key] = ptrStringValue(value)
 	}
+}
+
+func ptrStringValue(v *string) string {
+	if v != nil {
+		return *v
+	}
+	return ""
+}
+
+func ptrStringValueSlice(src []*string) []string {
+	dst := make([]string, len(src))
+	for i := 0; i < len(src); i++ {
+		if src[i] != nil {
+			dst[i] = *(src[i])
+		}
+	}
+	return dst
 }
 
 func AddMetadataList(metadata map[string]string, key string, values []*string) {
 	if len(values) > 0 {
-		metadata[key] = strings.Join(aws.StringValueSlice(values), ",")
+		metadata[key] = strings.Join(ptrStringValueSlice(values), ",")
 	}
 }
 
