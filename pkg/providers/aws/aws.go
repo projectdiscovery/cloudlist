@@ -2,6 +2,7 @@ package aws
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -135,6 +136,7 @@ func New(block schema.OptionBlock) (*Provider, error) {
 	var sess *session.Session
 	var err error
 
+	// Handle role assumption for assume_role_arn case
 	if options.AssumeRoleArn != "" {
 		stsSession, err := session.NewSession(config)
 		if err != nil {
@@ -143,9 +145,18 @@ func New(block schema.OptionBlock) (*Provider, error) {
 
 		stsClient := sts.New(stsSession)
 		roleInput := &sts.AssumeRoleInput{
-			RoleArn:         aws.String(options.AssumeRoleArn),
-			RoleSessionName: aws.String(options.AssumeRoleSessionName),
-			ExternalId:      aws.String(options.ExternalId),
+			RoleArn: aws.String(options.AssumeRoleArn),
+		}
+
+		// Only set optional fields if they are provided
+		if options.AssumeRoleSessionName != "" {
+			roleInput.RoleSessionName = aws.String(options.AssumeRoleSessionName)
+		} else {
+			roleInput.RoleSessionName = aws.String("cloudlist-session")
+		}
+
+		if options.ExternalId != "" {
+			roleInput.ExternalId = aws.String(options.ExternalId)
 		}
 
 		assumeRoleOutput, err := stsClient.AssumeRole(roleInput)
@@ -154,7 +165,6 @@ func New(block schema.OptionBlock) (*Provider, error) {
 		}
 
 		assumedCredentials := assumeRoleOutput.Credentials
-
 		sess, err = session.NewSession(&aws.Config{
 			Credentials: credentials.NewStaticCredentials(
 				*assumedCredentials.AccessKeyId,
@@ -175,49 +185,112 @@ func New(block schema.OptionBlock) (*Provider, error) {
 
 	provider.session = sess
 
+	// Handle DescribeRegions call with fallback for assume_role_name case
+	var regions *ec2.DescribeRegionsOutput
 	rc := ec2.New(sess)
-	regions, err := rc.DescribeRegions(&ec2.DescribeRegionsInput{})
-	if err != nil {
+	regions, err = rc.DescribeRegions(&ec2.DescribeRegionsInput{})
+
+	if err != nil && options.AssumeRoleName != "" && len(options.AccountIds) > 0 {
+		// Base user doesn't have DescribeRegions permission, try with assumed role
+		tempSession, err := createAssumedRoleSession(options, sess, config)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not create assumed role session")
+		}
+
+		// Use assumed role session for DescribeRegions
+		tempRC := ec2.New(tempSession)
+		regions, err = tempRC.DescribeRegions(&ec2.DescribeRegionsInput{})
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get list of regions even with assumed role")
+		}
+	} else if err != nil {
 		return nil, errors.Wrap(err, "could not get list of regions")
 	}
+
 	provider.regions = regions
 
-	services := provider.options.Services
+	provider.initServices(sess)
+	return provider, nil
+}
+
+func createAssumedRoleSession(options *ProviderOptions, sess *session.Session, config *aws.Config) (*session.Session, error) {
+	if len(options.AccountIds) == 0 {
+		return nil, errors.New("no account IDs provided for assume role")
+	}
+	stsClient := sts.New(sess)
+	roleArn := fmt.Sprintf("arn:aws:iam::%s:role/%s", options.AccountIds[0], options.AssumeRoleName)
+
+	roleInput := &sts.AssumeRoleInput{
+		RoleArn: aws.String(roleArn),
+	}
+
+	if options.AssumeRoleSessionName != "" {
+		roleInput.RoleSessionName = aws.String(options.AssumeRoleSessionName)
+	} else {
+		roleInput.RoleSessionName = aws.String("cloudlist-session")
+	}
+
+	if options.ExternalId != "" {
+		roleInput.ExternalId = aws.String(options.ExternalId)
+	}
+
+	assumeRoleOutput, err := stsClient.AssumeRole(roleInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to assume role for DescribeRegions")
+	}
+
+	assumedCredentials := assumeRoleOutput.Credentials
+	tempSession, err := session.NewSession(&aws.Config{
+		Credentials: credentials.NewStaticCredentials(
+			*assumedCredentials.AccessKeyId,
+			*assumedCredentials.SecretAccessKey,
+			*assumedCredentials.SessionToken,
+		),
+		Region: config.Region,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create assumed role session for DescribeRegions")
+	}
+	return tempSession, nil
+}
+
+func (p *Provider) initServices(sess *session.Session) {
+	services := p.options.Services
+
 	if services.Has("ec2") || services.Has("instance") {
-		provider.ec2Client = ec2.New(sess)
+		p.ec2Client = ec2.New(sess)
 	}
 	if services.Has("route53") {
-		provider.route53Client = route53.New(sess)
+		p.route53Client = route53.New(sess)
 	}
 	if services.Has("s3") {
-		provider.s3Client = s3.New(sess)
+		p.s3Client = s3.New(sess)
 	}
 	if services.Has("ecs") {
-		provider.ecsClient = ecs.New(sess)
+		p.ecsClient = ecs.New(sess)
 	}
 	if services.Has("eks") {
-		provider.eksClient = eks.New(sess)
+		p.eksClient = eks.New(sess)
 	}
 	if services.Has("lambda") {
-		provider.lambdaClient = lambda.New(sess)
+		p.lambdaClient = lambda.New(sess)
 	}
 	if services.Has("apigateway") {
-		provider.apiGateway = apigateway.New(sess)
-		provider.apiGatewayV2 = apigatewayv2.New(sess)
+		p.apiGatewayV2 = apigatewayv2.New(sess)
+		p.apiGateway = apigateway.New(sess)
 	}
 	if services.Has("alb") {
-		provider.albClient = elbv2.New(sess)
+		p.albClient = elbv2.New(sess)
 	}
 	if services.Has("elb") {
-		provider.elbClient = elb.New(sess)
+		p.elbClient = elb.New(sess)
 	}
 	if services.Has("lightsail") {
-		provider.lightsailClient = lightsail.New(sess)
+		p.lightsailClient = lightsail.New(sess)
 	}
 	if services.Has("cloudfront") {
-		provider.cloudFrontClient = cloudfront.New(sess)
+		p.cloudFrontClient = cloudfront.New(sess)
 	}
-	return provider, nil
 }
 
 const providerName = "aws"
@@ -331,6 +404,28 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 
 // Verify checks if the provider is valid using simple API calls
 func (p *Provider) Verify(ctx context.Context) error {
+	err := p.verify()
+	if err == nil {
+		return nil
+	}
+
+	if p.options.AssumeRoleName != "" && len(p.options.AccountIds) > 0 {
+		tempSession, err := createAssumedRoleSession(p.options, p.session, p.session.Config)
+		if err != nil {
+			return err
+		}
+
+		p.initServices(tempSession)
+		err = p.verify()
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	return err
+}
+
+func (p *Provider) verify() error {
 	var success bool
 
 	// Try EC2 DescribeRegions (lightweight operation)

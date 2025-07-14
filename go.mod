@@ -1,6 +1,6 @@
 module github.com/projectdiscovery/cloudlist
 
-go 1.23.0
+go 1.24.0
 
 toolchain go1.24.2
 
@@ -30,7 +30,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/goflags v0.1.74
 	github.com/projectdiscovery/gologger v1.1.54
-	github.com/projectdiscovery/utils v0.4.17
+	github.com/projectdiscovery/utils v0.4.20
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.14
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/oauth2 v0.30.0
@@ -162,7 +162,7 @@ require (
 	golang.org/x/tools v0.33.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250603155806-513f23925822 // indirect
 	google.golang.org/grpc v1.73.0 // indirect
-	google.golang.org/protobuf v1.36.6 // indirect
+	google.golang.org/protobuf v1.36.6
 	gopkg.in/djherbis/times.v1 v1.3.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect
@@ -177,15 +177,22 @@ require (
 )
 
 require (
+	cloud.google.com/go/asset v1.21.1
 	github.com/alitto/pond/v2 v2.3.2
 	github.com/dnsimple/dnsimple-go v1.7.0
-	github.com/projectdiscovery/networkpolicy v0.1.12
-	github.com/projectdiscovery/retryablehttp-go v1.0.109
+	github.com/projectdiscovery/networkpolicy v0.1.15
+	github.com/projectdiscovery/retryablehttp-go v1.0.114
 )
 
 require (
+	cloud.google.com/go v0.120.0 // indirect
+	cloud.google.com/go/accesscontextmanager v1.9.6 // indirect
 	cloud.google.com/go/auth v0.16.2 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
+	cloud.google.com/go/iam v1.5.2 // indirect
+	cloud.google.com/go/longrunning v0.6.7 // indirect
+	cloud.google.com/go/orgpolicy v1.15.0 // indirect
+	cloud.google.com/go/osconfig v1.14.6 // indirect
 	github.com/Mzack9999/gcache v0.0.0-20230410081825-519e28eab057 // indirect
 	github.com/Mzack9999/go-http-digest-auth-client v0.6.1-0.20220414142836-eb8883508809 // indirect
 	github.com/STARRY-S/zip v0.2.1 // indirect
@@ -196,10 +203,10 @@ require (
 	github.com/bodgit/windows v1.0.1 // indirect
 	github.com/charmbracelet/lipgloss v0.13.0 // indirect
 	github.com/charmbracelet/x/ansi v0.3.2 // indirect
-	github.com/cloudflare/circl v1.3.7 // indirect
+	github.com/cloudflare/circl v1.6.1 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/gaissmai/bart v0.17.10 // indirect
+	github.com/gaissmai/bart v0.20.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
@@ -207,10 +214,10 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/mholt/archives v0.1.0 // indirect
 	github.com/nwaples/rardecode/v2 v2.0.0-beta.4.0.20241112120701-034e449c6e78 // indirect
-	github.com/projectdiscovery/fastdialer v0.4.0 // indirect
-	github.com/projectdiscovery/hmap v0.0.87 // indirect
-	github.com/projectdiscovery/retryabledns v1.0.98 // indirect
-	github.com/refraction-networking/utls v1.6.7 // indirect
+	github.com/projectdiscovery/fastdialer v0.4.1 // indirect
+	github.com/projectdiscovery/hmap v0.0.89 // indirect
+	github.com/projectdiscovery/retryabledns v1.0.101 // indirect
+	github.com/refraction-networking/utls v1.7.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/sorairolake/lzip-go v0.3.5 // indirect
@@ -225,10 +232,13 @@ require (
 	github.com/zmap/zcrypto v0.0.0-20230422215203-9a665e1e9968 // indirect
 	go.etcd.io/bbolt v1.3.7 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.61.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0 // indirect
 	go.opentelemetry.io/otel v1.36.0 // indirect
 	go.opentelemetry.io/otel/metric v1.36.0 // indirect
 	go.opentelemetry.io/otel/trace v1.36.0 // indirect
 	go4.org v0.0.0-20230225012048-214862532bf5 // indirect
 	golang.org/x/sync v0.15.0 // indirect
+	google.golang.org/genproto v0.0.0-20250505200425-f936aa4a68b2 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250505200425-f936aa4a68b2 // indirect
 )

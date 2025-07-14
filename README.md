@@ -82,6 +82,19 @@ OUTPUT:
    -silent             display only results in output
 ```
 
+# Documentation
+
+## GCP Asset API Support
+
+Cloudlist supports two approaches for GCP asset discovery:
+
+- **Organization-Level Asset API** - Comprehensive organization-wide discovery using Cloud Asset Inventory API
+- **Individual Service APIs** - Fast project-specific discovery using individual GCP service APIs  
+
+For detailed setup instructions, required permissions, service account configuration, and usage examples, see:
+
+📚 **[docs/GCP_ASSET_API.md](docs/GCP_ASSET_API.md)**
+
 # Contribution
 
 Please check [PROVIDERS.md](https://github.com/projectdiscovery/cloudlist/blob/main/PROVIDERS.md) and [DESIGN.md](https://github.com/projectdiscovery/cloudlist/blob/main/DESIGN.md) to include support for new cloud providers in Cloudlist.
