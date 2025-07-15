@@ -1,6 +1,7 @@
 package gcp
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -313,40 +314,42 @@ func (p *OrganizationProvider) fetchDNSExtendedMetadata(assetName string, data *
 		gologger.Debug().Msgf("Could not fetch zone %s: %s", zoneName, err)
 		return nil
 	}
-	recordSet := &dns.ResourceRecordSet{
-		Name: getStringField(data, "name"),
-		Type: getStringField(data, "type"),
+
+	recordName := getStringField(data, "name")
+	recordType := getStringField(data, "type")
+	if recordName == "" || recordType == "" {
+		gologger.Debug().Msgf("Missing record name or type in asset data")
+		return nil
 	}
-	if ttlField, ok := data.Fields["ttl"]; ok && ttlField != nil {
-		if ttlValue := ttlField.GetNumberValue(); ttlValue > 0 {
-			recordSet.Ttl = int64(ttlValue)
-		}
-	}
-	if rrdatas, ok := data.Fields["rrdatas"]; ok {
-		if rrdataList := rrdatas.GetListValue(); rrdataList != nil && len(rrdataList.Values) > 0 {
-			for _, val := range rrdataList.Values {
-				if strVal := val.GetStringValue(); strVal != "" {
-					recordSet.Rrdatas = append(recordSet.Rrdatas, strVal)
-				}
+
+	var targetRecord *dns.ResourceRecordSet
+	recordsCall := p.dns.ResourceRecordSets.List(project, zoneName)
+	err = recordsCall.Pages(context.Background(), func(resp *dns.ResourceRecordSetsListResponse) error {
+		for _, record := range resp.Rrsets {
+			if record.Name == recordName && record.Type == recordType {
+				targetRecord = record
+				return nil
 			}
 		}
+		return nil
+	})
+
+	if err != nil {
+		gologger.Debug().Msgf("Could not list resource records: %s", err)
+		return nil
 	}
-	if sigRrdatas, ok := data.Fields["signatureRrdatas"]; ok {
-		if sigList := sigRrdatas.GetListValue(); sigList != nil && len(sigList.Values) > 0 {
-			for _, val := range sigList.Values {
-				if strVal := val.GetStringValue(); strVal != "" {
-					recordSet.SignatureRrdatas = append(recordSet.SignatureRrdatas, strVal)
-				}
-			}
-		}
+
+	if targetRecord == nil {
+		gologger.Debug().Msgf("Could not find record %s of type %s in zone %s", recordName, recordType, zoneName)
+		return nil
 	}
 	var recordData string
-	if len(recordSet.Rrdatas) > 0 {
-		recordData = recordSet.Rrdatas[0]
+	if len(targetRecord.Rrdatas) > 0 {
+		recordData = targetRecord.Rrdatas[0]
 	}
 
 	provider := &cloudDNSProvider{extendedMetadata: true}
-	return provider.getRecordMetadata(recordSet, zone, project, recordData)
+	return provider.getRecordMetadata(targetRecord, zone, project, recordData)
 }
 
 // parseDNSAssetName extracts zone and record set details from asset name
