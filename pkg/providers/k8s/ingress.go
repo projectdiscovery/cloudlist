@@ -84,7 +84,7 @@ func (k *K8sIngressProvider) getIngressMetadata(ingress *v1.Ingress) map[string]
 	metadata["resource_version"] = ingress.ResourceVersion
 
 	if ingress.CreationTimestamp.Time != (time.Time{}) {
-		metadata["creation_timestamp"] = ingress.CreationTimestamp.Time.Format(time.RFC3339)
+		metadata["creation_timestamp"] = ingress.CreationTimestamp.Format(time.RFC3339)
 	}
 	if ingress.Spec.IngressClassName != nil {
 		metadata["ingress_class"] = *ingress.Spec.IngressClassName

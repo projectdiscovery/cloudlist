@@ -18,10 +18,6 @@ type cloudFunctionsProvider struct {
 	extendedMetadata bool
 }
 
-func (d *cloudFunctionsProvider) name() string {
-	return "cloud-function"
-}
-
 // GetResource returns all the Cloud Function resources in the store for a provider.
 func (d *cloudFunctionsProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()

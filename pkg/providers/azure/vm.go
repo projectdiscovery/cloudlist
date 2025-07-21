@@ -222,47 +222,47 @@ func (d *vmProvider) getVMMetadata(vm compute.VirtualMachine, resourceGroup stri
 	metadata["subscription_id"] = d.SubscriptionID
 	schema.AddMetadata(metadata, "location", vm.Location)
 
-	if vm.VirtualMachineProperties != nil && vm.VirtualMachineProperties.HardwareProfile != nil {
-		vmSize := string(vm.VirtualMachineProperties.HardwareProfile.VMSize)
+	if vm.VirtualMachineProperties != nil && vm.HardwareProfile != nil {
+		vmSize := string(vm.HardwareProfile.VMSize)
 		schema.AddMetadata(metadata, "vm_size", &vmSize)
 	}
 
 	metadata["owner_id"] = d.SubscriptionID
 
 	if vm.VirtualMachineProperties != nil {
-		schema.AddMetadata(metadata, "provisioning_state", vm.VirtualMachineProperties.ProvisioningState)
-		schema.AddMetadata(metadata, "vm_id_internal", vm.VirtualMachineProperties.VMID)
-		schema.AddMetadata(metadata, "license_type", vm.VirtualMachineProperties.LicenseType)
+		schema.AddMetadata(metadata, "provisioning_state", vm.ProvisioningState)
+		schema.AddMetadata(metadata, "vm_id_internal", vm.VMID)
+		schema.AddMetadata(metadata, "license_type", vm.LicenseType)
 
-		if vm.VirtualMachineProperties.TimeCreated != nil {
-			metadata["creation_time"] = vm.VirtualMachineProperties.TimeCreated.Format(time.RFC3339)
+		if vm.TimeCreated != nil {
+			metadata["creation_time"] = vm.TimeCreated.Format(time.RFC3339)
 		}
 
-		if vm.VirtualMachineProperties.OsProfile != nil {
-			schema.AddMetadata(metadata, "computer_name", vm.VirtualMachineProperties.OsProfile.ComputerName)
-			schema.AddMetadata(metadata, "admin_username", vm.VirtualMachineProperties.OsProfile.AdminUsername)
+		if vm.OsProfile != nil {
+			schema.AddMetadata(metadata, "computer_name", vm.OsProfile.ComputerName)
+			schema.AddMetadata(metadata, "admin_username", vm.OsProfile.AdminUsername)
 		}
 
-		if vm.VirtualMachineProperties.StorageProfile != nil {
-			if vm.VirtualMachineProperties.StorageProfile.OsDisk != nil {
-				osType := string(vm.VirtualMachineProperties.StorageProfile.OsDisk.OsType)
+		if vm.StorageProfile != nil {
+			if vm.StorageProfile.OsDisk != nil {
+				osType := string(vm.StorageProfile.OsDisk.OsType)
 				schema.AddMetadata(metadata, "os_type", &osType)
-				schema.AddMetadata(metadata, "os_disk_name", vm.VirtualMachineProperties.StorageProfile.OsDisk.Name)
+				schema.AddMetadata(metadata, "os_disk_name", vm.StorageProfile.OsDisk.Name)
 			}
-			if vm.VirtualMachineProperties.StorageProfile.ImageReference != nil {
-				schema.AddMetadata(metadata, "image_publisher", vm.VirtualMachineProperties.StorageProfile.ImageReference.Publisher)
-				schema.AddMetadata(metadata, "image_offer", vm.VirtualMachineProperties.StorageProfile.ImageReference.Offer)
-				schema.AddMetadata(metadata, "image_sku", vm.VirtualMachineProperties.StorageProfile.ImageReference.Sku)
-				schema.AddMetadata(metadata, "image_version", vm.VirtualMachineProperties.StorageProfile.ImageReference.Version)
+			if vm.StorageProfile.ImageReference != nil {
+				schema.AddMetadata(metadata, "image_publisher", vm.StorageProfile.ImageReference.Publisher)
+				schema.AddMetadata(metadata, "image_offer", vm.StorageProfile.ImageReference.Offer)
+				schema.AddMetadata(metadata, "image_sku", vm.StorageProfile.ImageReference.Sku)
+				schema.AddMetadata(metadata, "image_version", vm.StorageProfile.ImageReference.Version)
 			}
 		}
 
-		if vm.VirtualMachineProperties.AvailabilitySet != nil {
-			schema.AddMetadata(metadata, "availability_set_id", vm.VirtualMachineProperties.AvailabilitySet.ID)
+		if vm.AvailabilitySet != nil {
+			schema.AddMetadata(metadata, "availability_set_id", vm.AvailabilitySet.ID)
 		}
 
-		if vm.VirtualMachineProperties.VirtualMachineScaleSet != nil {
-			schema.AddMetadata(metadata, "vmss_id", vm.VirtualMachineProperties.VirtualMachineScaleSet.ID)
+		if vm.VirtualMachineScaleSet != nil {
+			schema.AddMetadata(metadata, "vmss_id", vm.VirtualMachineScaleSet.ID)
 		}
 	}
 

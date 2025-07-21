@@ -225,7 +225,7 @@ func (ep *eksProvider) getNodeMetadata(node *corev1.Node, cluster *eks.Cluster) 
 	}
 
 	if node.CreationTimestamp.Time != (time.Time{}) {
-		metadata["node_created_at"] = node.CreationTimestamp.Time.Format(time.RFC3339)
+		metadata["node_created_at"] = node.CreationTimestamp.Format(time.RFC3339)
 	}
 
 	if len(node.Labels) > 0 {

@@ -34,7 +34,7 @@ func (tmp *trafficManagerProvider) GetResource(ctx context.Context) (*schema.Res
 	}
 
 	for _, profile := range *profiles {
-		if profile.ProfileProperties != nil && profile.ProfileProperties.DNSConfig != nil && profile.ProfileProperties.DNSConfig.Fqdn != nil {
+		if profile.ProfileProperties != nil && profile.DNSConfig != nil && profile.DNSConfig.Fqdn != nil {
 			var metadata map[string]string
 			if tmp.extendedMetadata {
 				metadata = tmp.getTrafficManagerMetadata(&profile)
@@ -43,7 +43,7 @@ func (tmp *trafficManagerProvider) GetResource(ctx context.Context) (*schema.Res
 			resource := &schema.Resource{
 				Provider: providerName,
 				ID:       tmp.id,
-				DNSName:  *profile.ProfileProperties.DNSConfig.Fqdn,
+				DNSName:  *profile.DNSConfig.Fqdn,
 				Service:  tmp.name(),
 				Metadata: metadata,
 			}
@@ -167,8 +167,8 @@ func (tmp *trafficManagerProvider) getTrafficManagerMetadata(profile *trafficman
 			var endpointTypes []string
 			for _, endpoint := range *props.Endpoints {
 				if endpoint.EndpointProperties != nil {
-					if endpoint.EndpointProperties.Target != nil {
-						endpointTargets = append(endpointTargets, *endpoint.EndpointProperties.Target)
+					if endpoint.Target != nil {
+						endpointTargets = append(endpointTargets, *endpoint.Target)
 					}
 					if endpoint.Type != nil {
 						endpointTypes = append(endpointTypes, *endpoint.Type)
