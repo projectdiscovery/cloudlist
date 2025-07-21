@@ -388,6 +388,9 @@ func (p *OrganizationProvider) getAssetsForTypes(ctx context.Context, parent str
 	resources := schema.NewResources()
 	it := p.assetClient.ListAssets(ctx, req)
 
+	// Collect all assets first
+	var assetInfos []assetInfo
+
 	for {
 		asset, err := it.Next()
 		if err != nil {
@@ -399,8 +402,24 @@ func (p *OrganizationProvider) getAssetsForTypes(ctx context.Context, parent str
 
 		resource := p.parseAssetToResource(asset)
 		if resource != nil {
-			resources.Append(resource)
+			assetInfos = append(assetInfos, assetInfo{
+				asset:    asset,
+				resource: resource,
+			})
 		}
+	}
+
+	// Bulk fetch extended metadata for all collected assets (if requested)
+	if p.extendedMetadata && len(assetInfos) > 0 {
+		gologger.Info().Msgf("Bulk fetching extended metadata for %d assets", len(assetInfos))
+		if err := p.enrichAssetsWithMetadata(ctx, assetInfos); err != nil {
+			gologger.Warning().Msgf("Error enriching assets with metadata: %s", err)
+		}
+	}
+
+	// Append resources *after* enrichment so we include any added metadata
+	for _, ai := range assetInfos {
+		resources.Append(ai.resource)
 	}
 
 	return resources, nil
