@@ -165,7 +165,7 @@ require (
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/djherbis/times.v1 v1.3.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/ini.v1 v1.66.6 // indirect
+	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect
@@ -214,6 +214,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/mholt/archives v0.1.0 // indirect
 	github.com/nwaples/rardecode/v2 v2.0.0-beta.4.0.20241112120701-034e449c6e78 // indirect
+	github.com/ovh/go-ovh v1.9.0 // indirect
 	github.com/projectdiscovery/fastdialer v0.4.2 // indirect
 	github.com/projectdiscovery/hmap v0.0.91 // indirect
 	github.com/projectdiscovery/retryabledns v1.0.103 // indirect

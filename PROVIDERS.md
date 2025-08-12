@@ -481,3 +481,31 @@ The `dnssimple_api_token` can be generated from the DNSSimple account settings u
 References - 
 1. https://developer.dnsimple.com/v2/
 2. https://support.dnsimple.com/articles/api-access-token/
+
+### OVH
+
+Cloudlist supports fetching DNS records from OVH.
+
+- **Provider key**: `ovh`
+- **Services**: `dns`
+- **Required auth**:
+  - `application_key`
+  - `application_secret`
+  - `consumer_key`
+- **Endpoint**: OVH API endpoint. Defaults to `ovh-eu` if omitted. Common values: `ovh-eu`, `ovh-ca`, `ovh-us`.
+
+Configuration example (from `ovh.yaml`):
+
+```yaml
+- provider: ovh
+  id: ovh-mock
+  endpoint: ovh-ca
+  application_key: $OVH_APP_KEY
+  application_secret: $OVH_APP_SECRET
+  consumer_key: $OVH_CONSUMER_KEY
+```
+
+References - 
+1. https://eu.api.ovh.com/console/?section=%2Fdomain&branch=v1
+2. https://api.ovh.com/createToken/
+3. https://help.ovhcloud.com/csm/en-gb-api-getting-started-ovhcloud-api

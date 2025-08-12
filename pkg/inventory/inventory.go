@@ -21,6 +21,7 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/providers/namecheap"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/nomad"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/openstack"
+	"github.com/projectdiscovery/cloudlist/pkg/providers/ovh"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/scaleway"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/terraform"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
@@ -70,6 +71,7 @@ var Providers = map[string][]string{
 	"nomad":        nomad.Services,
 	"hetzner":      hetzner.Services,
 	"openstack":    openstack.Services,
+	"ovh":          ovh.Services,
 	"kubernetes":   k8s.Services,
 	"custom":       custom.Services,
 }
@@ -125,6 +127,8 @@ func nameToProvider(value string, block schema.OptionBlock) (schema.Provider, er
 		return hetzner.New(block)
 	case "openstack":
 		return openstack.New(block)
+	case "ovh":
+		return ovh.New(block)
 	case "kubernetes":
 		return k8s.New(block)
 	case "custom":
