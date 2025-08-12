@@ -488,6 +488,7 @@ Cloudlist supports fetching DNS records from OVH.
 
 - **Provider key**: `ovh`
 - **Services**: `dns`
+- **id**: An arbitrary label you choose to tag resources. It helps distinguish multiple OVH accounts/configs.
 - **Required auth**:
   - `application_key`
   - `application_secret`
@@ -498,7 +499,7 @@ Configuration example (from `ovh.yaml`):
 
 ```yaml
 - provider: ovh
-  id: ovh-mock
+  id: ovh-prod
   endpoint: ovh-ca
   application_key: $OVH_APP_KEY
   application_secret: $OVH_APP_SECRET
