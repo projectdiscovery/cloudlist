@@ -30,10 +30,11 @@ var Services = []string{"vm", "publicip", "trafficmanager"}
 
 // Provider is a data provider for Azure API
 type Provider struct {
-	id              string
-	SubscriptionIDs []string
-	Authorizer      autorest.Authorizer
-	services        schema.ServiceMap
+	id               string
+	SubscriptionIDs  []string
+	Authorizer       autorest.Authorizer
+	services         schema.ServiceMap
+	extendedMetadata bool
 }
 
 // New creates a new provider client for Azure API
@@ -94,6 +95,9 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		Authorizer: authorizer,
 		id:         ID,
 		services:   services,
+	}
+	if extendedMetadata, ok := options.GetMetadata("extended_metadata"); ok {
+		provider.extendedMetadata = extendedMetadata == "true"
 	}
 
 	// Check if a specific subscription ID was provided
@@ -158,7 +162,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		gologger.Info().Msgf("Processing subscription: %s", subscriptionID)
 
 		if p.services.Has("vm") {
-			vmp := &vmProvider{Authorizer: p.Authorizer, SubscriptionID: subscriptionID, id: p.id}
+			vmp := &vmProvider{Authorizer: p.Authorizer, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
 			vmIPs, err := vmp.GetResource(ctx)
 			if err != nil {
 				gologger.Warning().Msgf("Error listing VM public IPs for subscription %s: %s", subscriptionID, err)
@@ -168,7 +172,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		}
 
 		if p.services.Has("publicip") {
-			publicIPp := &publicIPProvider{Authorizer: p.Authorizer, SubscriptionID: subscriptionID, id: p.id}
+			publicIPp := &publicIPProvider{Authorizer: p.Authorizer, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
 			publicIPs, err := publicIPp.GetResource(ctx)
 			if err != nil {
 				gologger.Warning().Msgf("Error listing public IPs for subscription %s: %s", subscriptionID, err)
@@ -178,7 +182,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		}
 
 		if p.services.Has("trafficmanager") {
-			trafficManagerp := &trafficManagerProvider{Authorizer: p.Authorizer, SubscriptionID: subscriptionID, id: p.id}
+			trafficManagerp := &trafficManagerProvider{Authorizer: p.Authorizer, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
 			trafficManager, err := trafficManagerp.GetResource(ctx)
 			if err != nil {
 				gologger.Warning().Msgf("Error listing traffic manager for subscription %s: %s", subscriptionID, err)

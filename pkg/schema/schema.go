@@ -63,11 +63,12 @@ func init() {
 }
 
 // appendResourceWithTypeAndMeta appends a resource with a type and metadata
-func (r *Resources) appendResourceWithTypeAndMeta(resourceType validate.ResourceType, item, id, provider, service string) {
+func (r *Resources) appendResourceWithTypeAndMeta(resourceType validate.ResourceType, item, id, provider, service string, metadata map[string]string) {
 	resource := &Resource{
 		Provider: provider,
 		ID:       id,
 		Service:  service,
+		Metadata: metadata,
 	}
 	switch resourceType {
 	case validate.DNSName:
@@ -93,31 +94,31 @@ func (r *Resources) appendResourceWithTypeAndMeta(resourceType validate.Resource
 func (r *Resources) appendResource(resource *Resource) {
 	if resource.DNSName != "" && !r.deduplicator.Contains(resource.DNSName) {
 		resourceType := validator.Identify(resource.DNSName)
-		r.appendResourceWithTypeAndMeta(resourceType, resource.DNSName, resource.ID, resource.Provider, resource.Service)
+		r.appendResourceWithTypeAndMeta(resourceType, resource.DNSName, resource.ID, resource.Provider, resource.Service, resource.Metadata)
 		r.deduplicator.Add(resource.DNSName)
 	}
 
 	if resource.PublicIPv4 != "" && !r.deduplicator.Contains(resource.PublicIPv4) {
 		resourceType := validator.Identify(resource.PublicIPv4)
-		r.appendResourceWithTypeAndMeta(resourceType, resource.PublicIPv4, resource.ID, resource.Provider, resource.Service)
+		r.appendResourceWithTypeAndMeta(resourceType, resource.PublicIPv4, resource.ID, resource.Provider, resource.Service, resource.Metadata)
 		r.deduplicator.Add(resource.PublicIPv4)
 	}
 
 	if resource.PublicIPv6 != "" && !r.deduplicator.Contains(resource.PublicIPv6) {
 		resourceType := validator.Identify(resource.PublicIPv6)
-		r.appendResourceWithTypeAndMeta(resourceType, resource.PublicIPv6, resource.ID, resource.Provider, resource.Service)
+		r.appendResourceWithTypeAndMeta(resourceType, resource.PublicIPv6, resource.ID, resource.Provider, resource.Service, resource.Metadata)
 		r.deduplicator.Add(resource.PublicIPv6)
 	}
 
 	if resource.PrivateIpv4 != "" && !r.deduplicator.Contains(resource.PrivateIpv4) {
 		resourceType := validator.Identify(resource.PrivateIpv4)
-		r.appendResourceWithTypeAndMeta(resourceType, resource.PrivateIpv4, resource.ID, resource.Provider, resource.Service)
+		r.appendResourceWithTypeAndMeta(resourceType, resource.PrivateIpv4, resource.ID, resource.Provider, resource.Service, resource.Metadata)
 		r.deduplicator.Add(resource.PrivateIpv4)
 	}
 
 	if resource.PrivateIpv6 != "" && !r.deduplicator.Contains(resource.PrivateIpv6) {
 		resourceType := validator.Identify(resource.PrivateIpv6)
-		r.appendResourceWithTypeAndMeta(resourceType, resource.PrivateIpv6, resource.ID, resource.Provider, resource.Service)
+		r.appendResourceWithTypeAndMeta(resourceType, resource.PrivateIpv6, resource.ID, resource.Provider, resource.Service, resource.Metadata)
 		r.deduplicator.Add(resource.PrivateIpv6)
 	}
 }
@@ -157,6 +158,8 @@ type Resource struct {
 	PrivateIpv6 string `json:"private_ipv6,omitempty"`
 	// DNSName is the DNS name of the resource
 	DNSName string `json:"dns_name,omitempty"`
+	// Metadata is the additional metadata for the resource
+	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
 // ErrNoSuchKey means no such key exists in metadata.
@@ -320,4 +323,40 @@ func (d *ResourceDeduplicator) ProcessResource(resource *Resource) bool {
 	}
 
 	return added
+}
+
+// Helper functions for metadata handling
+func AddMetadata(metadata map[string]string, key string, value *string) {
+	if value != nil && *value != "" {
+		metadata[key] = ptrStringValue(value)
+	}
+}
+
+func ptrStringValue(v *string) string {
+	if v != nil {
+		return *v
+	}
+	return ""
+}
+
+func ptrStringValueSlice(src []*string) []string {
+	dst := make([]string, len(src))
+	for i := 0; i < len(src); i++ {
+		if src[i] != nil {
+			dst[i] = *(src[i])
+		}
+	}
+	return dst
+}
+
+func AddMetadataList(metadata map[string]string, key string, values []*string) {
+	if len(values) > 0 {
+		metadata[key] = strings.Join(ptrStringValueSlice(values), ",")
+	}
+}
+
+func AddMetadataInt(metadata map[string]string, key string, value int) {
+	if value > 0 {
+		metadata[key] = fmt.Sprintf("%d", value)
+	}
 }

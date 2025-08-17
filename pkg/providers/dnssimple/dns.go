@@ -62,9 +62,10 @@ func (d *dnsProvider) GetResource(ctx context.Context) (*schema.Resources, error
 			}
 
 			// Set IP addresses based on record type
-			if record.Type == "A" {
+			switch record.Type {
+			case "A":
 				resource.PublicIPv4 = record.Content
-			} else if record.Type == "AAAA" {
+			case "AAAA":
 				resource.PublicIPv6 = record.Content
 			}
 

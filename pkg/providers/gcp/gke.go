@@ -17,9 +17,10 @@ import (
 
 // gkeProvider is a provider for GCP GKE API
 type gkeProvider struct {
-	id       string
-	gke      *container.Service // For original approach
-	projects []string
+	id               string
+	gke              *container.Service
+	projects         []string
+	extendedMetadata bool
 }
 
 func (d *gkeProvider) name() string {
@@ -58,7 +59,7 @@ func (d *gkeProvider) getResourcesWithGKEService(ctx context.Context) (*schema.R
 			if err != nil {
 				return nil, errors.Wrap(err, "could not list kubernetes ingress")
 			}
-			k8sIngressProvider := k8s.NewK8sIngressProvider(d.id, ingress)
+			k8sIngressProvider := k8s.NewK8sIngressProvider(d.id, ingress, d.extendedMetadata)
 			ingressHosts, _ := k8sIngressProvider.GetResource(ctx)
 			for _, ingressHost := range ingressHosts.Items {
 				ingressHost.Service = d.name()

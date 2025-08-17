@@ -18,9 +18,10 @@ var Services = []string{"service", "ingress"}
 
 // Provider is a data provider for gcp API
 type Provider struct {
-	id        string
-	clientSet *kubernetes.Clientset
-	services  schema.ServiceMap
+	id               string
+	clientSet        *kubernetes.Clientset
+	services         schema.ServiceMap
+	extendedMetadata bool
 }
 
 const (
@@ -80,7 +81,11 @@ func New(options schema.OptionBlock) (*Provider, error) {
 			services[s] = struct{}{}
 		}
 	}
-	return &Provider{id: id, clientSet: clientset, services: services}, nil
+	var providerExtendedMetadata bool
+	if extendedMetadata, ok := options.GetMetadata("extended_metadata"); ok {
+		providerExtendedMetadata = extendedMetadata == "true"
+	}
+	return &Provider{id: id, clientSet: clientset, services: services, extendedMetadata: providerExtendedMetadata}, nil
 }
 
 // Name returns the name of the provider
@@ -116,7 +121,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		if err != nil {
 			return nil, errorutil.NewWithErr(err).Msgf("could not list kubernetes ingress")
 		}
-		k8sIngressProvider := K8sIngressProvider{ingress: ingress, id: p.id}
+		k8sIngressProvider := K8sIngressProvider{ingress: ingress, id: p.id, extendedMetadata: p.extendedMetadata}
 		ingressHosts, _ := k8sIngressProvider.GetResource(ctx)
 		finalList.Merge(ingressHosts)
 	}

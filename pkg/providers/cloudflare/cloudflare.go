@@ -12,9 +12,10 @@ var Services = []string{"dns"}
 
 // Provider is a data provider for cloudflare API
 type Provider struct {
-	id       string
-	client   *cloudflare.API
-	services schema.ServiceMap
+	id               string
+	client           *cloudflare.API
+	services         schema.ServiceMap
+	extendedMetadata bool
 }
 
 // New creates a new provider client for cloudflare API
@@ -66,7 +67,13 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		return nil, err
 	}
 
-	return &Provider{id: id, client: api, services: services}, nil
+	// Parse extended metadata option
+	extendedMetadata := false
+	if extMetadata, ok := options.GetMetadata("extended_metadata"); ok {
+		extendedMetadata = extMetadata == "true"
+	}
+
+	return &Provider{id: id, client: api, services: services, extendedMetadata: extendedMetadata}, nil
 }
 
 // apiToken is a cloudflare scoped API token
@@ -95,7 +102,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalResources := schema.NewResources()
 
 	if p.services.Has("dns") {
-		dnsProvider := &dnsProvider{id: p.id, client: p.client}
+		dnsProvider := &dnsProvider{id: p.id, client: p.client, extendedMetadata: p.extendedMetadata}
 		if resources, err := dnsProvider.GetResource(ctx); err == nil {
 			finalResources.Merge(resources)
 		}
