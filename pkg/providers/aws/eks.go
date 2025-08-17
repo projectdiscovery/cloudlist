@@ -107,9 +107,11 @@ func (ep *eksProvider) listEKSResources(eksClient *eks.EKS) (*schema.Resources, 
 					}
 				}
 				nodeIP := node.Status.Addresses[0].Address
+				// Generate unique ID for node using cluster name and node name
+				nodeID := fmt.Sprintf("%s-%s-%s", ep.options.Id, aws.StringValue(clusterName), node.GetName())
 				list.Append(&schema.Resource{
 					Provider:   providerName,
-					ID:         ep.options.Id,
+					ID:         nodeID,
 					PublicIPv4: nodeIP,
 					Public:     true,
 					Service:    ep.name(),
@@ -124,9 +126,11 @@ func (ep *eksProvider) listEKSResources(eksClient *eks.EKS) (*schema.Resources, 
 						podMetadata["owner_id"] = clusterMetadata["owner_id"]
 						podMetadata["node_name"] = node.GetName()
 					}
+					// Generate unique ID for pod using cluster name, node name, and pod IP
+					podID := fmt.Sprintf("%s-%s-%s-%s", ep.options.Id, aws.StringValue(clusterName), node.GetName(), strings.ReplaceAll(podIP, ".", "-"))
 					list.Append(&schema.Resource{
 						Provider:    providerName,
-						ID:          ep.options.Id,
+						ID:          podID,
 						PrivateIpv4: podIP,
 						Public:      false,
 						Service:     ep.name(),
