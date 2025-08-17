@@ -16,6 +16,7 @@ Cloudlist supports two distinct approaches for GCP asset discovery:
 | **Coverage** | 220+ resources across org | 67 resources per project |
 | **Required Permissions** | Cloud Asset Inventory roles | Individual service permissions |
 | **Best For** | Comprehensive org audits | Fast project-specific scans |
+| **Extended Metadata** | Optional with additional permissions | Always available |
 
 ## Organization-Level Asset API
 
@@ -29,11 +30,23 @@ roles:
   - roles/cloudasset.viewer          # Core Asset API access
   - roles/resourcemanager.viewer     # List projects in organization
   
-# Optional roles for enhanced data extraction:
-  - roles/compute.viewer             # Better compute instance details
-  - roles/dns.reader                 # DNS record details
-  - roles/storage.objectViewer       # Storage bucket details
+# Optional roles for extended metadata (new feature):
+  - roles/compute.viewer             # Extended metadata for compute instances
+  - roles/dns.reader                 # Extended metadata for DNS records (coming soon)
+  - roles/storage.objectViewer       # Extended metadata for storage buckets (coming soon)
+  - roles/cloudfunctions.viewer      # Extended metadata for functions (coming soon)
+  - roles/run.viewer                 # Extended metadata for Cloud Run (coming soon)
+  - roles/container.viewer           # Extended metadata for GKE (coming soon)
 ```
+
+### Extended Metadata Feature
+
+The Asset API integration now supports fetching extended metadata for resources. This feature:
+
+- **Is optional**: Works without additional permissions, but provides basic data only
+- **Graceful degradation**: If permissions are missing, it falls back to basic Asset API data
+- **Per-service permissions**: Each service requires its specific viewer role
+- **Performance impact**: Extended metadata requires additional API calls per resource
 
 ### Service Account Setup
 
@@ -63,10 +76,36 @@ gcloud organizations add-iam-policy-binding $ORG_ID \
     --member="serviceAccount:$SA_EMAIL" \
     --role="roles/resourcemanager.viewer"
 
-# Optional: Enhanced permissions for better data extraction
+# Optional: Extended metadata permissions (add as needed)
+# For compute instances
 gcloud organizations add-iam-policy-binding $ORG_ID \
     --member="serviceAccount:$SA_EMAIL" \
     --role="roles/compute.viewer"
+
+# For Cloud Functions
+gcloud organizations add-iam-policy-binding $ORG_ID \
+    --member="serviceAccount:$SA_EMAIL" \
+    --role="roles/cloudfunctions.viewer"
+
+# For Cloud Storage
+gcloud organizations add-iam-policy-binding $ORG_ID \
+    --member="serviceAccount:$SA_EMAIL" \
+    --role="roles/storage.objectViewer"
+
+# For Cloud Run
+gcloud organizations add-iam-policy-binding $ORG_ID \
+    --member="serviceAccount:$SA_EMAIL" \
+    --role="roles/run.viewer"
+
+# For DNS
+gcloud organizations add-iam-policy-binding $ORG_ID \
+    --member="serviceAccount:$SA_EMAIL" \
+    --role="roles/dns.reader"
+
+# For GKE
+gcloud organizations add-iam-policy-binding $ORG_ID \
+    --member="serviceAccount:$SA_EMAIL" \
+    --role="roles/container.viewer"
 ```
 
 #### 3. Generate Service Account Key
@@ -82,6 +121,7 @@ gcloud iam service-accounts keys create asset-viewer-key.json \
 - provider: gcp
   id: org-discovery
   organization_id: "123456789012"  # Your organization ID (REQUIRED)
+  extended_metadata: true  # Enable extended metadata collection
   gcp_service_account_key: |
     {
       "type": "service_account",

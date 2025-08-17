@@ -10,7 +10,8 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/projectdiscovery/gologger"
 	errorutil "github.com/projectdiscovery/utils/errors"
-	"google.golang.org/api/cloudfunctions/v1"
+	cloudfunctionsv1 "google.golang.org/api/cloudfunctions/v1"
+	"google.golang.org/api/cloudfunctions/v2"
 	"google.golang.org/api/cloudresourcemanager/v1"
 	"google.golang.org/api/compute/v1"
 	container "google.golang.org/api/container/v1beta1"
@@ -23,24 +24,34 @@ import (
 
 // Provider is a data provider for gcp API
 type Provider struct {
-	dns       *dns.Service
-	gke       *container.Service
-	compute   *compute.Service
-	storage   *storage.Service
-	functions *cloudfunctions.Service
-	run       *run.APIService
-	services  schema.ServiceMap
-	id        string
-	projects  []string
+	dns              *dns.Service
+	gke              *container.Service
+	compute          *compute.Service
+	storage          *storage.Service
+	functions        *cloudfunctions.Service
+	functionsV1      *cloudfunctionsv1.Service
+	run              *run.APIService
+	services         schema.ServiceMap
+	id               string
+	projects         []string
+	extendedMetadata bool
 }
 
 // OrganizationProvider is a provider for organization-level GCP Asset API
 type OrganizationProvider struct {
-	id             string
-	organizationID string
-	assetClient    *asset.Client
-	services       schema.ServiceMap
-	projects       []string
+	id               string
+	organizationID   string
+	assetClient      *asset.Client
+	services         schema.ServiceMap
+	projects         []string
+	extendedMetadata bool
+	compute          *compute.Service // For extended metadata
+	functionsV1      *cloudfunctionsv1.Service
+	functionsV2      *cloudfunctions.Service
+	run              *run.APIService
+	dns              *dns.Service
+	storage          *storage.Service
+	gke              *container.Service
 }
 
 // Services that provide IP addresses or DNS names only
@@ -77,9 +88,10 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 
 	if p.services.Has("dns") {
 		dnsProvider := &cloudDNSProvider{
-			id:       p.id,
-			dns:      p.dns,
-			projects: p.projects,
+			id:               p.id,
+			dns:              p.dns,
+			projects:         p.projects,
+			extendedMetadata: p.extendedMetadata,
 		}
 		dnsResources, err := dnsProvider.GetResource(ctx)
 		if err != nil {
@@ -91,9 +103,10 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 
 	if p.services.Has("compute") {
 		computeProvider := &cloudVMProvider{
-			id:       p.id,
-			compute:  p.compute,
-			projects: p.projects,
+			id:               p.id,
+			compute:          p.compute,
+			projects:         p.projects,
+			extendedMetadata: p.extendedMetadata,
 		}
 		computeResources, err := computeProvider.GetResource(ctx)
 		if err != nil {
@@ -105,9 +118,10 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 
 	if p.services.Has("gke") {
 		gkeProvider := &gkeProvider{
-			id:       p.id,
-			gke:      p.gke,
-			projects: p.projects,
+			id:               p.id,
+			gke:              p.gke,
+			projects:         p.projects,
+			extendedMetadata: p.extendedMetadata,
 		}
 		gkeResources, err := gkeProvider.GetResource(ctx)
 		if err != nil {
@@ -119,9 +133,10 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 
 	if p.services.Has("s3") {
 		storageProvider := &cloudStorageProvider{
-			id:       p.id,
-			storage:  p.storage,
-			projects: p.projects,
+			id:               p.id,
+			storage:          p.storage,
+			projects:         p.projects,
+			extendedMetadata: p.extendedMetadata,
 		}
 		storageResources, err := storageProvider.GetResource(ctx)
 		if err != nil {
@@ -133,9 +148,10 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 
 	if p.services.Has("cloud-function") {
 		functionProvider := &cloudFunctionsProvider{
-			id:        p.id,
-			functions: p.functions,
-			projects:  p.projects,
+			id:               p.id,
+			functions:        p.functions,
+			projects:         p.projects,
+			extendedMetadata: p.extendedMetadata,
 		}
 		functionResources, err := functionProvider.GetResource(ctx)
 		if err != nil {
@@ -147,9 +163,10 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 
 	if p.services.Has("cloud-run") {
 		runProvider := &cloudRunProvider{
-			id:       p.id,
-			run:      p.run,
-			projects: p.projects,
+			id:               p.id,
+			run:              p.run,
+			projects:         p.projects,
+			extendedMetadata: p.extendedMetadata,
 		}
 		runResources, err := runProvider.GetResource(ctx)
 		if err != nil {
@@ -184,6 +201,11 @@ func New(options schema.OptionBlock) (schema.Provider, error) {
 // newIndividualProvider creates the original individual service provider
 func newIndividualProvider(options schema.OptionBlock, id, JSONData string) (*Provider, error) {
 	provider := &Provider{id: id}
+
+	if extendedMetadata, ok := options.GetMetadata("extended_metadata"); ok {
+		provider.extendedMetadata = extendedMetadata == "true"
+	}
+
 	supportedServicesMap := make(map[string]struct{})
 	for _, s := range Services {
 		supportedServicesMap[s] = struct{}{}
@@ -238,11 +260,19 @@ func newIndividualProvider(options schema.OptionBlock, id, JSONData string) (*Pr
 		provider.storage = storageService
 	}
 	if services.Has("cloud-function") {
+		// Initialize v2 service
 		functionsService, err := cloudfunctions.NewService(context.Background(), creds)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not create functions service with api key")
+			return nil, errorutil.NewWithErr(err).Msgf("could not create functions v2 service with api key")
 		}
 		provider.functions = functionsService
+
+		// Initialize v1 service
+		functionsV1Service, err := cloudfunctionsv1.NewService(context.Background(), creds)
+		if err != nil {
+			return nil, errorutil.NewWithErr(err).Msgf("could not create functions v1 service with api key")
+		}
+		provider.functionsV1 = functionsV1Service
 	}
 
 	if services.Has("cloud-run") {
@@ -358,6 +388,9 @@ func (p *OrganizationProvider) getAssetsForTypes(ctx context.Context, parent str
 	resources := schema.NewResources()
 	it := p.assetClient.ListAssets(ctx, req)
 
+	// Collect all assets first
+	var assetInfos []assetInfo
+
 	for {
 		asset, err := it.Next()
 		if err != nil {
@@ -369,8 +402,24 @@ func (p *OrganizationProvider) getAssetsForTypes(ctx context.Context, parent str
 
 		resource := p.parseAssetToResource(asset)
 		if resource != nil {
-			resources.Append(resource)
+			assetInfos = append(assetInfos, assetInfo{
+				asset:    asset,
+				resource: resource,
+			})
 		}
+	}
+
+	// Bulk fetch extended metadata for all collected assets (if requested)
+	if p.extendedMetadata && len(assetInfos) > 0 {
+		gologger.Info().Msgf("Bulk fetching extended metadata for %d assets", len(assetInfos))
+		if err := p.enrichAssetsWithMetadata(ctx, assetInfos); err != nil {
+			gologger.Warning().Msgf("Error enriching assets with metadata: %s", err)
+		}
+	}
+
+	// Append resources *after* enrichment so we include any added metadata
+	for _, ai := range assetInfos {
+		resources.Append(ai.resource)
 	}
 
 	return resources, nil
@@ -411,6 +460,11 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 		organizationID: organizationID,
 	}
 
+	// Check for extended metadata flag
+	if extendedMetadata, ok := options.GetMetadata("extended_metadata"); ok {
+		provider.extendedMetadata = extendedMetadata == "true"
+	}
+
 	// Get all available services for organization-level discovery
 	allServices := []string{
 		"compute", "dns", "s3", "cloud-run", "cloud-function", "gke", "tpu", "filestore", "all",
@@ -447,6 +501,53 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 	}
 	provider.assetClient = assetClient
 
+	// Initialize compute service for extended metadata if enabled
+	if provider.extendedMetadata {
+		computeService, err := compute.NewService(context.Background(), creds)
+		if err != nil {
+			gologger.Warning().Msgf("Could not create compute service for extended metadata (missing permissions?): %s", err)
+		} else {
+			provider.compute = computeService
+		}
+		functionsV1Service, err := cloudfunctionsv1.NewService(context.Background(), creds)
+		if err != nil {
+			gologger.Warning().Msgf("Could not create functions v1 service for extended metadata: %s", err)
+		} else {
+			provider.functionsV1 = functionsV1Service
+		}
+		functionsV2Service, err := cloudfunctions.NewService(context.Background(), creds)
+		if err != nil {
+			gologger.Warning().Msgf("Could not create functions v2 service for extended metadata: %s", err)
+		} else {
+			provider.functionsV2 = functionsV2Service
+		}
+		runService, err := run.NewService(context.Background(), creds)
+		if err != nil {
+			gologger.Warning().Msgf("Could not create cloud run service for extended metadata: %s", err)
+		} else {
+			provider.run = runService
+		}
+		dnsService, err := dns.NewService(context.Background(), creds)
+		if err != nil {
+			gologger.Warning().Msgf("Could not create dns service for extended metadata: %s", err)
+		} else {
+			provider.dns = dnsService
+		}
+		storageService, err := storage.NewService(context.Background(), creds)
+		if err != nil {
+			gologger.Warning().Msgf("Could not create storage service for extended metadata: %s", err)
+		} else {
+			provider.storage = storageService
+		}
+		gkeService, err := container.NewService(context.Background(), creds)
+		if err != nil {
+			gologger.Warning().Msgf("Could not create GKE service for extended metadata: %s", err)
+		} else {
+			provider.gke = gkeService
+		}
+		gologger.Info().Msgf("Extended metadata enabled for organization discovery")
+	}
+
 	// Get projects under the organization
 	projects := []string{}
 	manager, err := cloudresourcemanager.NewService(context.Background(), creds)
@@ -466,76 +567,6 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 	provider.projects = projects
 
 	return provider, nil
-}
-
-// parseAssetToResource converts an Asset to a Resource
-func (p *OrganizationProvider) parseAssetToResource(asset *assetpb.Asset) *schema.Resource {
-	if asset == nil || asset.Resource == nil || asset.Resource.Data == nil {
-		return nil
-	}
-
-	resource := &schema.Resource{
-		ID:       p.id,
-		Provider: providerName,
-		Public:   true,
-	}
-
-	data := asset.Resource.Data
-
-	// Parse based on asset type
-	switch asset.AssetType {
-	case "compute.googleapis.com/Instance":
-		resource.Service = "compute"
-		p.extractComputeInstanceIPs(data, resource)
-
-	case "compute.googleapis.com/ForwardingRule":
-		resource.Service = "compute"
-		resource.PublicIPv4 = getStringField(data, "IPAddress", "address")
-
-	case "compute.googleapis.com/GlobalAddress", "compute.googleapis.com/Address":
-		resource.Service = "compute"
-		resource.PublicIPv4 = getStringField(data, "address")
-
-	case "dns.googleapis.com/ResourceRecordSet":
-		resource.Service = "dns"
-		p.extractDNSRecordData(data, resource)
-
-	case "storage.googleapis.com/Bucket":
-		resource.Service = "s3"
-		if name := getStringField(data, "name"); name != "" {
-			resource.DNSName = name + ".storage.googleapis.com"
-		}
-
-	case "run.googleapis.com/Service":
-		resource.Service = "cloud-run"
-		resource.DNSName = getNestedStringField(data, "status", "url")
-
-	case "cloudfunctions.googleapis.com/CloudFunction":
-		resource.Service = "cloud-function"
-		resource.DNSName = getNestedStringField(data, "httpsTrigger", "url")
-
-	case "container.googleapis.com/Cluster":
-		resource.Service = "gke"
-		resource.DNSName = getStringField(data, "endpoint")
-
-	case "tpu.googleapis.com/Node":
-		resource.Service = "tpu"
-		p.extractTPUEndpoint(data, resource)
-
-	case "file.googleapis.com/Instance":
-		resource.Service = "filestore"
-		p.extractFilestoreIP(data, resource)
-
-	default:
-		return nil
-	}
-
-	// Only return resources that have IP addresses or DNS names
-	if resource.PublicIPv4 == "" && resource.PublicIPv6 == "" && resource.DNSName == "" {
-		return nil
-	}
-
-	return resource
 }
 
 // Helper functions to reduce nesting and improve readability
@@ -559,6 +590,17 @@ func getNestedStringField(data *structpb.Struct, parentField, childField string)
 		}
 	}
 	return ""
+}
+
+func getStringFieldPointer(data *structpb.Struct, fieldName string) *string {
+	if data == nil {
+		return nil
+	}
+	if field, ok := data.Fields[fieldName]; ok {
+		value := field.GetStringValue()
+		return &value
+	}
+	return nil
 }
 
 func (p *OrganizationProvider) extractComputeInstanceIPs(data *structpb.Struct, resource *schema.Resource) {
@@ -685,6 +727,10 @@ func (p *Provider) Verify(ctx context.Context) error {
 			}
 		} else if p.functions != nil {
 			if _, err = p.functions.Projects.Locations.List(project).Do(); err == nil {
+				success = true
+			}
+		} else if p.functionsV1 != nil {
+			if _, err = p.functionsV1.Projects.Locations.List(project).Do(); err == nil {
 				success = true
 			}
 		} else if p.run != nil {
