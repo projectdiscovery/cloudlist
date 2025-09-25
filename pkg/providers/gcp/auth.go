@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/option"
@@ -40,14 +40,14 @@ func register(ctx context.Context, serviceAccountKey []byte) (option.ClientOptio
 		// If the service account key is not provided, use default credentials (https://cloud.google.com/docs/authentication/provide-credentials-adc)
 		defaultCreds, err := google.FindDefaultCredentials(ctx, scope)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("failed to find default google credentials")
+			return nil, errkit.Wrap(err, "failed to find default google credentials")
 		}
 		creds = defaultCreds
 	} else {
 		// If the service account key is not provided, use the service account key provided by the config
 		saKeyCreds, err := google.CredentialsFromJSON(ctx, serviceAccountKey, scope)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("failed to parse specified GCP service account key")
+			return nil, errkit.Wrap(err, "failed to parse specified GCP service account key")
 		}
 		creds = saKeyCreds
 	}
