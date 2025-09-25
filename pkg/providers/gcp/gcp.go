@@ -3,13 +3,14 @@ package gcp
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	asset "cloud.google.com/go/asset/apiv1"
 	assetpb "cloud.google.com/go/asset/apiv1/assetpb"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/projectdiscovery/gologger"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	cloudfunctionsv1 "google.golang.org/api/cloudfunctions/v1"
 	"google.golang.org/api/cloudfunctions/v2"
 	"google.golang.org/api/cloudresourcemanager/v1"
@@ -182,7 +183,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 func New(options schema.OptionBlock) (schema.Provider, error) {
 	JSONData, ok := options.GetMetadata(serviceAccountJSON)
 	if !ok {
-		return nil, errorutil.New("could not get API Key")
+		return nil, errkit.New("could not get API Key")
 	}
 	id, _ := options.GetMetadata("id")
 
@@ -227,19 +228,19 @@ func newIndividualProvider(options schema.OptionBlock, id, JSONData string) (*Pr
 
 	creds, err := register(context.Background(), []byte(JSONData))
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not register gcp service account")
+		return nil, errkit.Wrap(err, "could not register gcp service account")
 	}
 	if services.Has("dns") {
 		dnsService, err := dns.NewService(context.Background(), creds)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not create dns service with api key")
+			return nil, errkit.Wrap(err, "could not create dns service with api key")
 		}
 		provider.dns = dnsService
 	}
 	if services.Has("compute") {
 		computeService, err := compute.NewService(context.Background(), creds)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not create compute service with api key")
+			return nil, errkit.Wrap(err, "could not create compute service with api key")
 		}
 		provider.compute = computeService
 	}
@@ -247,7 +248,7 @@ func newIndividualProvider(options schema.OptionBlock, id, JSONData string) (*Pr
 	if services.Has("gke") {
 		containerService, err := container.NewService(context.Background(), creds)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not create container service with api key")
+			return nil, errkit.Wrap(err, "could not create container service with api key")
 		}
 		provider.gke = containerService
 	}
@@ -255,7 +256,7 @@ func newIndividualProvider(options schema.OptionBlock, id, JSONData string) (*Pr
 	if services.Has("s3") {
 		storageService, err := storage.NewService(context.Background(), creds)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not create storage service with api key")
+			return nil, errkit.Wrap(err, "could not create storage service with api key")
 		}
 		provider.storage = storageService
 	}
@@ -263,14 +264,14 @@ func newIndividualProvider(options schema.OptionBlock, id, JSONData string) (*Pr
 		// Initialize v2 service
 		functionsService, err := cloudfunctions.NewService(context.Background(), creds)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not create functions v2 service with api key")
+			return nil, errkit.Wrap(err, "could not create functions v2 service with api key")
 		}
 		provider.functions = functionsService
 
 		// Initialize v1 service
 		functionsV1Service, err := cloudfunctionsv1.NewService(context.Background(), creds)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not create functions v1 service with api key")
+			return nil, errkit.Wrap(err, "could not create functions v1 service with api key")
 		}
 		provider.functionsV1 = functionsV1Service
 	}
@@ -278,7 +279,7 @@ func newIndividualProvider(options schema.OptionBlock, id, JSONData string) (*Pr
 	if services.Has("cloud-run") {
 		cloudRunService, err := run.NewService(context.Background(), creds)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not create cloud run service with api key")
+			return nil, errkit.Wrap(err, "could not create cloud run service with api key")
 		}
 		provider.run = cloudRunService
 	}
@@ -286,7 +287,7 @@ func newIndividualProvider(options schema.OptionBlock, id, JSONData string) (*Pr
 	projects := []string{}
 	manager, err := cloudresourcemanager.NewService(context.Background(), creds)
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not list projects")
+		return nil, errkit.Wrap(err, "could not list projects")
 	}
 	list := manager.Projects.List()
 	err = list.Pages(context.Background(), func(resp *cloudresourcemanager.ListProjectsResponse) error {
@@ -492,12 +493,12 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 	// Create Asset API client
 	creds, err := register(context.Background(), []byte(JSONData))
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not register gcp service account")
+		return nil, errkit.Wrap(err, "could not register gcp service account")
 	}
 
 	assetClient, err := asset.NewClient(context.Background(), creds)
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not create asset client")
+		return nil, errkit.Wrap(err, "could not create asset client")
 	}
 	provider.assetClient = assetClient
 
@@ -552,7 +553,7 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 	projects := []string{}
 	manager, err := cloudresourcemanager.NewService(context.Background(), creds)
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not create resource manager")
+		return nil, errkit.Wrap(err, "could not create resource manager")
 	}
 	list := manager.Projects.List()
 	err = list.Pages(context.Background(), func(resp *cloudresourcemanager.ListProjectsResponse) error {
@@ -562,7 +563,7 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 		return nil
 	})
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not list projects")
+		return nil, errkit.Wrap(err, "could not list projects")
 	}
 	provider.projects = projects
 
@@ -706,7 +707,7 @@ func (p *OrganizationProvider) extractFilestoreIP(data *structpb.Struct, resourc
 // Verify checks if the GCP provider credentials are valid
 func (p *Provider) Verify(ctx context.Context) error {
 	if len(p.projects) == 0 {
-		return errorutil.New("no accessible GCP projects found with provided credentials")
+		return errkit.New("no accessible GCP projects found with provided credentials")
 	}
 
 	// For extra verification, try a minimal API call on one service
@@ -748,9 +749,9 @@ func (p *Provider) Verify(ctx context.Context) error {
 		}
 	}
 	if err != nil {
-		return errorutil.NewWithErr(err).Msgf("failed to verify GCP services")
+		return errkit.Wrap(err, "failed to verify GCP services")
 	}
-	return errorutil.New("no accessible GCP services found with provided credentials")
+	return errkit.New("no accessible GCP services found with provided credentials")
 }
 
 func (p *OrganizationProvider) Verify(ctx context.Context) error {
@@ -777,7 +778,7 @@ func (p *OrganizationProvider) Verify(ctx context.Context) error {
 
 	_, err := iter.Next()
 	if err != nil && !errors.Is(err, iterator.Done) {
-		return errorutil.NewWithErr(err).Msgf("failed to verify GCP Asset API access for organization %s", p.organizationID)
+		return errkit.Wrap(err, fmt.Sprintf("failed to verify GCP Asset API access for organization %s", p.organizationID))
 	}
 	return nil
 }
