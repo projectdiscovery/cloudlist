@@ -8,7 +8,7 @@ import (
 	assetpb "cloud.google.com/go/asset/apiv1/assetpb"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/projectdiscovery/gologger"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/dns/v1"
 	"google.golang.org/api/storage/v1"
@@ -434,13 +434,13 @@ func (p *OrganizationProvider) bulkFetchDNSMetadata(ctx context.Context, assetsB
 
 func parseComputeAssetName(assetName string) (project, zone, instance string, err error) {
 	if !strings.HasPrefix(assetName, "//compute.googleapis.com/") {
-		return "", "", "", errorutil.New("invalid compute asset name format")
+		return "", "", "", errkit.New("invalid compute asset name format")
 	}
 	path := strings.TrimPrefix(assetName, "//compute.googleapis.com/")
 	parts := strings.Split(path, "/")
 
 	if len(parts) < 6 || parts[0] != "projects" || parts[2] != "zones" || parts[4] != "instances" {
-		return "", "", "", errorutil.New("unexpected compute asset name format")
+		return "", "", "", errkit.New("unexpected compute asset name format")
 	}
 	return parts[1], parts[3], parts[5], nil
 }
@@ -449,14 +449,14 @@ func parseComputeAssetName(assetName string) (project, zone, instance string, er
 // Format: //cloudfunctions.googleapis.com/projects/PROJECT/locations/LOCATION/functions/FUNCTION
 func parseFunctionAssetName(assetName string) (project, location, function string, err error) {
 	if !strings.HasPrefix(assetName, "//cloudfunctions.googleapis.com/") {
-		return "", "", "", errorutil.New("invalid function asset name format")
+		return "", "", "", errkit.New("invalid function asset name format")
 	}
 
 	path := strings.TrimPrefix(assetName, "//cloudfunctions.googleapis.com/")
 	parts := strings.Split(path, "/")
 
 	if len(parts) < 6 || parts[0] != "projects" || parts[2] != "locations" || parts[4] != "functions" {
-		return "", "", "", errorutil.New("unexpected function asset name format")
+		return "", "", "", errkit.New("unexpected function asset name format")
 	}
 
 	return parts[1], parts[3], parts[5], nil
@@ -466,14 +466,14 @@ func parseFunctionAssetName(assetName string) (project, location, function strin
 // Format: //run.googleapis.com/projects/PROJECT/locations/LOCATION/services/SERVICE
 func parseCloudRunAssetName(assetName string) (project, location, service string, err error) {
 	if !strings.HasPrefix(assetName, "//run.googleapis.com/") {
-		return "", "", "", errorutil.New("invalid cloud run asset name format")
+		return "", "", "", errkit.New("invalid cloud run asset name format")
 	}
 
 	path := strings.TrimPrefix(assetName, "//run.googleapis.com/")
 	parts := strings.Split(path, "/")
 
 	if len(parts) < 6 || parts[0] != "projects" || parts[2] != "locations" || parts[4] != "services" {
-		return "", "", "", errorutil.New("unexpected cloud run asset name format")
+		return "", "", "", errkit.New("unexpected cloud run asset name format")
 	}
 
 	return parts[1], parts[3], parts[5], nil
@@ -483,7 +483,7 @@ func parseCloudRunAssetName(assetName string) (project, location, service string
 // Format: //dns.googleapis.com/projects/PROJECT/managedZones/ZONE/rrsets/NAME/TYPE
 func parseDNSAssetName(assetName string) (project, zone, recordName, recordType string, err error) {
 	if !strings.HasPrefix(assetName, "//dns.googleapis.com/") {
-		return "", "", "", "", errorutil.New("invalid DNS asset name format")
+		return "", "", "", "", errkit.New("invalid DNS asset name format")
 	}
 
 	path := strings.TrimPrefix(assetName, "//dns.googleapis.com/")
@@ -500,5 +500,5 @@ func parseDNSAssetName(assetName string) (project, zone, recordName, recordType 
 		return project, zone, recordName, recordType, nil
 	}
 
-	return "", "", "", "", errorutil.New("unexpected DNS asset name format")
+	return "", "", "", "", errkit.New("unexpected DNS asset name format")
 }

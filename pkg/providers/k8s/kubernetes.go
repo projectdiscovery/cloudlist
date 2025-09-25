@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -37,7 +37,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	configEncoded, strOk := options.GetMetadata(encodedKubeConfig)
 
 	if !ok && !strOk {
-		return nil, errorutil.New("no kubeconfig_file or kubeconfig_encoded  provided")
+		return nil, errkit.New("no kubeconfig_file or kubeconfig_encoded  provided")
 	}
 	context, _ := options.GetMetadata("context")
 
@@ -46,22 +46,22 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	if strOk {
 		decodedConfig, err := base64.StdEncoding.DecodeString(configEncoded)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not decode kubeconfig")
+			return nil, errkit.Wrap(err, "could not decode kubeconfig")
 		}
 		kubeConfig, err = buildConfigFromStr(context, decodedConfig)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not build kubeconfig")
+			return nil, errkit.Wrap(err, "could not build kubeconfig")
 		}
 	} else {
 		kubeConfig, err = buildConfigWithContext(context, configFile)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not build kubeconfig")
+			return nil, errkit.Wrap(err, "could not build kubeconfig")
 		}
 	}
 
 	clientset, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not create kubernetes clientset")
+		return nil, errkit.Wrap(err, "could not create kubernetes clientset")
 	}
 
 	supportedServicesMap := make(map[string]struct{})
@@ -108,7 +108,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalList := schema.NewResources()
 	services, err := p.clientSet.CoreV1().Services("").List(ctx, metav1.ListOptions{})
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not list kubernetes services")
+		return nil, errkit.Wrap(err, "could not list kubernetes services")
 	}
 	if p.services.Has("service") {
 		k8sServiceProvider := K8sServiceProvider{serviceClient: services, id: p.id}
@@ -119,7 +119,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	if p.services.Has("ingress") {
 		ingress, err := p.clientSet.NetworkingV1().Ingresses("").List(ctx, metav1.ListOptions{})
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not list kubernetes ingress")
+			return nil, errkit.Wrap(err, "could not list kubernetes ingress")
 		}
 		k8sIngressProvider := K8sIngressProvider{ingress: ingress, id: p.id, extendedMetadata: p.extendedMetadata}
 		ingressHosts, _ := k8sIngressProvider.GetResource(ctx)
@@ -132,7 +132,7 @@ func buildConfigWithContext(context string, kubeconfigPath string) (*rest.Config
 	if context == "" {
 		kubeConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
 		if err != nil {
-			return kubeConfig, errorutil.NewWithErr(err).Msgf("could not read kubeconfig file")
+			return kubeConfig, errkit.Wrap(err, "could not read kubeconfig file")
 		}
 		return kubeConfig, nil
 	}
@@ -147,16 +147,16 @@ func buildConfigFromStr(contextName string, config []byte) (*rest.Config, error)
 
 	clientConfig, err := clientcmd.NewClientConfigFromBytes(config)
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not read kubeconfig file")
+		return nil, errkit.Wrap(err, "could not read kubeconfig file")
 	}
 	rawConfig, err := clientConfig.RawConfig()
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not read kubeconfig file")
+		return nil, errkit.Wrap(err, "could not read kubeconfig file")
 	}
 	if contextName != "" {
 		// Check if the context exists in the kubeconfig
 		if _, exists := rawConfig.Contexts[contextName]; !exists {
-			return nil, fmt.Errorf("context %q does not exist in the kubeconfig", contextName)
+			return nil, errkit.Newf("context %q does not exist in the kubeconfig", contextName)
 		}
 		rawConfig.CurrentContext = contextName
 	}
