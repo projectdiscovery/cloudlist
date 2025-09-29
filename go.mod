@@ -29,10 +29,10 @@ require (
 	github.com/namecheap/go-namecheap-sdk/v2 v2.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/goflags v0.1.74
-	github.com/projectdiscovery/gologger v1.1.55
-	github.com/projectdiscovery/utils v0.5.0
+	github.com/projectdiscovery/gologger v1.1.56
+	github.com/projectdiscovery/utils v0.6.0
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.14
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	golang.org/x/oauth2 v0.30.0
 	google.golang.org/api v0.240.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -180,8 +180,8 @@ require (
 	cloud.google.com/go/asset v1.21.1
 	github.com/alitto/pond/v2 v2.3.2
 	github.com/dnsimple/dnsimple-go v1.7.0
-	github.com/projectdiscovery/networkpolicy v0.1.20
-	github.com/projectdiscovery/retryablehttp-go v1.0.120
+	github.com/projectdiscovery/networkpolicy v0.1.25
+	github.com/projectdiscovery/retryablehttp-go v1.0.125
 )
 
 require (
@@ -206,7 +206,7 @@ require (
 	github.com/cloudflare/circl v1.6.1 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/gaissmai/bart v0.23.1 // indirect
+	github.com/gaissmai/bart v0.25.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
@@ -214,9 +214,9 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/mholt/archives v0.1.0 // indirect
 	github.com/nwaples/rardecode/v2 v2.0.0-beta.4.0.20241112120701-034e449c6e78 // indirect
-	github.com/projectdiscovery/fastdialer v0.4.6 // indirect
+	github.com/projectdiscovery/fastdialer v0.4.11 // indirect
 	github.com/projectdiscovery/hmap v0.0.94 // indirect
-	github.com/projectdiscovery/retryabledns v1.0.105 // indirect
+	github.com/projectdiscovery/retryabledns v1.0.107 // indirect
 	github.com/refraction-networking/utls v1.7.1 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
