@@ -2,6 +2,7 @@ package aws
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/apigateway"
+	"github.com/aws/aws-sdk-go/service/apigatewayv2"
 	"github.com/aws/aws-sdk-go/service/cloudfront"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ecs"
@@ -19,24 +21,30 @@ import (
 	"github.com/aws/aws-sdk-go/service/lightsail"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	sliceutil "github.com/projectdiscovery/utils/slice"
 )
 
-var Services = []string{"ec2", "instance", "route53", "s3", "ecs", "eks", "lambda", "apigateway", "alb", "elb", "lightsail", "cloudfront"}
+var Services = []string{"ec2", "instance", "route53", "s3", "ecs", "eks", "lambda", "apigateway", "apigatewayv2", "alb", "elb", "lightsail", "cloudfront"}
 
 type ProviderOptions struct {
-	Id             string
-	AccessKey      string
-	SecretKey      string
-	Token          string
-	AssumeRoleName string
-	AccountIds     []string
-	Services       schema.ServiceMap
+	Id                    string
+	AccessKey             string
+	SecretKey             string
+	Token                 string
+	AssumeRoleArn         string
+	AssumeRoleSessionName string
+	ExternalId            string
+	AssumeRoleName        string
+	AccountIds            []string
+	Services              schema.ServiceMap
+	ExtendedMetadata      bool
 }
 
 func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
+	p.Id, _ = block.GetMetadata("id")
 	accessKey, ok := block.GetMetadata(apiAccessKey)
 	if !ok {
 		return &schema.ErrNoSuchKey{Name: apiAccessKey}
@@ -46,7 +54,23 @@ func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
 		return &schema.ErrNoSuchKey{Name: apiSecretKey}
 	}
 	p.Token, _ = block.GetMetadata(sessionToken)
-	p.Id, _ = block.GetMetadata("id")
+	p.AccessKey = accessKey
+	p.SecretKey = accessToken
+
+	if assumeRoleArn, ok := block.GetMetadata(assumeRoleArn); ok {
+		p.AssumeRoleArn = assumeRoleArn
+	}
+	if assumeRoleSessionName, ok := block.GetMetadata(assumeRoleSessionName); ok {
+		p.AssumeRoleSessionName = assumeRoleSessionName
+	}
+
+	if externalId, ok := block.GetMetadata(externalId); ok {
+		p.ExternalId = externalId
+	}
+
+	if assumeRoleName, ok := block.GetMetadata(assumeRoleName); ok {
+		p.AssumeRoleName = assumeRoleName
+	}
 
 	supportedServicesMap := make(map[string]struct{})
 	for _, s := range Services {
@@ -66,13 +90,10 @@ func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
 			services[s] = struct{}{}
 		}
 	}
-
-	p.AccessKey = accessKey
-	p.SecretKey = accessToken
 	p.Services = services
 
-	if assumeRoleName, ok := block.GetMetadata(assumeRoleName); ok {
-		p.AssumeRoleName = assumeRoleName
+	if extendedMetadata, ok := block.GetMetadata("extended_metadata"); ok {
+		p.ExtendedMetadata = extendedMetadata == "true"
 	}
 
 	if accountIds, ok := block.GetMetadata(accountIds); ok {
@@ -91,6 +112,7 @@ type Provider struct {
 	eksClient        *eks.EKS
 	lambdaClient     *lambda.Lambda
 	apiGateway       *apigateway.APIGateway
+	apiGatewayV2     *apigatewayv2.ApiGatewayV2
 	albClient        *elbv2.ELBV2
 	elbClient        *elb.ELB
 	lightsailClient  *lightsail.Lightsail
@@ -111,54 +133,164 @@ func New(block schema.OptionBlock) (*Provider, error) {
 	config.WithRegion("us-east-1")
 	config.WithCredentials(credentials.NewStaticCredentials(options.AccessKey, options.SecretKey, options.Token))
 
-	session, err := session.NewSession(config)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not extablish a session")
-	}
-	provider.session = session
+	var sess *session.Session
+	var err error
 
-	rc := ec2.New(session)
-	regions, err := rc.DescribeRegions(&ec2.DescribeRegionsInput{})
-	if err != nil {
+	// Handle role assumption for assume_role_arn case
+	if options.AssumeRoleArn != "" {
+		stsSession, err := session.NewSession(config)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not establish session with AWS config")
+		}
+
+		stsClient := sts.New(stsSession)
+		roleInput := &sts.AssumeRoleInput{
+			RoleArn: aws.String(options.AssumeRoleArn),
+		}
+
+		// Only set optional fields if they are provided
+		if options.AssumeRoleSessionName != "" {
+			roleInput.RoleSessionName = aws.String(options.AssumeRoleSessionName)
+		} else {
+			roleInput.RoleSessionName = aws.String("cloudlist-session")
+		}
+
+		if options.ExternalId != "" {
+			roleInput.ExternalId = aws.String(options.ExternalId)
+		}
+
+		assumeRoleOutput, err := stsClient.AssumeRole(roleInput)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to assume role")
+		}
+
+		assumedCredentials := assumeRoleOutput.Credentials
+		sess, err = session.NewSession(&aws.Config{
+			Credentials: credentials.NewStaticCredentials(
+				*assumedCredentials.AccessKeyId,
+				*assumedCredentials.SecretAccessKey,
+				*assumedCredentials.SessionToken,
+			),
+			Region: config.Region,
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "could not assume role")
+		}
+	} else {
+		sess, err = session.NewSession(config)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not establish a session")
+		}
+	}
+
+	provider.session = sess
+
+	// Handle DescribeRegions call with fallback for assume_role_name case
+	var regions *ec2.DescribeRegionsOutput
+	rc := ec2.New(sess)
+	regions, err = rc.DescribeRegions(&ec2.DescribeRegionsInput{})
+
+	if err != nil && options.AssumeRoleName != "" && len(options.AccountIds) > 0 {
+		// Base user doesn't have DescribeRegions permission, try with assumed role
+		tempSession, err := createAssumedRoleSession(options, sess, config)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not create assumed role session")
+		}
+
+		// Use assumed role session for DescribeRegions
+		tempRC := ec2.New(tempSession)
+		regions, err = tempRC.DescribeRegions(&ec2.DescribeRegionsInput{})
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get list of regions even with assumed role")
+		}
+	} else if err != nil {
 		return nil, errors.Wrap(err, "could not get list of regions")
 	}
+
 	provider.regions = regions
 
-	services := provider.options.Services
+	provider.initServices(sess)
+	return provider, nil
+}
+
+func createAssumedRoleSession(options *ProviderOptions, sess *session.Session, config *aws.Config) (*session.Session, error) {
+	if len(options.AccountIds) == 0 {
+		return nil, errors.New("no account IDs provided for assume role")
+	}
+	stsClient := sts.New(sess)
+	roleArn := fmt.Sprintf("arn:aws:iam::%s:role/%s", options.AccountIds[0], options.AssumeRoleName)
+
+	roleInput := &sts.AssumeRoleInput{
+		RoleArn: aws.String(roleArn),
+	}
+
+	if options.AssumeRoleSessionName != "" {
+		roleInput.RoleSessionName = aws.String(options.AssumeRoleSessionName)
+	} else {
+		roleInput.RoleSessionName = aws.String("cloudlist-session")
+	}
+
+	if options.ExternalId != "" {
+		roleInput.ExternalId = aws.String(options.ExternalId)
+	}
+
+	assumeRoleOutput, err := stsClient.AssumeRole(roleInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to assume role for DescribeRegions")
+	}
+
+	assumedCredentials := assumeRoleOutput.Credentials
+	tempSession, err := session.NewSession(&aws.Config{
+		Credentials: credentials.NewStaticCredentials(
+			*assumedCredentials.AccessKeyId,
+			*assumedCredentials.SecretAccessKey,
+			*assumedCredentials.SessionToken,
+		),
+		Region: config.Region,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create assumed role session for DescribeRegions")
+	}
+	return tempSession, nil
+}
+
+func (p *Provider) initServices(sess *session.Session) {
+	services := p.options.Services
+
 	if services.Has("ec2") || services.Has("instance") {
-		provider.ec2Client = ec2.New(session)
+		p.ec2Client = ec2.New(sess)
 	}
 	if services.Has("route53") {
-		provider.route53Client = route53.New(session)
+		p.route53Client = route53.New(sess)
 	}
 	if services.Has("s3") {
-		provider.s3Client = s3.New(session)
+		p.s3Client = s3.New(sess)
 	}
 	if services.Has("ecs") {
-		provider.ecsClient = ecs.New(session)
+		p.ecsClient = ecs.New(sess)
 	}
 	if services.Has("eks") {
-		provider.eksClient = eks.New(session)
+		p.eksClient = eks.New(sess)
 	}
 	if services.Has("lambda") {
-		provider.lambdaClient = lambda.New(session)
+		p.lambdaClient = lambda.New(sess)
 	}
 	if services.Has("apigateway") {
-		provider.apiGateway = apigateway.New(session)
+		p.apiGatewayV2 = apigatewayv2.New(sess)
+		p.apiGateway = apigateway.New(sess)
 	}
 	if services.Has("alb") {
-		provider.albClient = elbv2.New(session)
+		p.albClient = elbv2.New(sess)
 	}
 	if services.Has("elb") {
-		provider.elbClient = elb.New(session)
+		p.elbClient = elb.New(sess)
 	}
 	if services.Has("lightsail") {
-		provider.lightsailClient = lightsail.New(session)
+		p.lightsailClient = lightsail.New(sess)
 	}
 	if services.Has("cloudfront") {
-		provider.cloudFrontClient = cloudfront.New(session)
+		p.cloudFrontClient = cloudfront.New(sess)
 	}
-	return provider, nil
 }
 
 const providerName = "aws"
@@ -166,6 +298,9 @@ const apiAccessKey = "aws_access_key"
 const apiSecretKey = "aws_secret_key"
 const sessionToken = "aws_session_token"
 const assumeRoleName = "assume_role_name"
+const assumeRoleArn = "assume_role_arn"
+const externalId = "external_id"
+const assumeRoleSessionName = "assume_role_session_name"
 const accountIds = "account_ids"
 
 // Name returns the name of the provider
@@ -229,9 +364,9 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		eksProvider := &eksProvider{eksClient: p.eksClient, options: *p.options, session: p.session, regions: p.regions}
 		assignWorker(eksProvider.GetResource)
 	}
-	if p.apiGateway != nil && p.lambdaClient != nil {
-		lamdaAndApiGatewayProvider := &lambdaAndapiGatewayProvider{apiGateway: p.apiGateway, lambdaClient: p.lambdaClient, options: *p.options, session: p.session, regions: p.regions}
-		assignWorker(lamdaAndApiGatewayProvider.GetResource)
+	if (p.apiGateway != nil || p.apiGatewayV2 != nil) && p.lambdaClient != nil {
+		lambdaAndApiGatewayProvider := &lambdaAndapiGatewayProvider{apiGateway: p.apiGateway, apiGatewayV2: p.apiGatewayV2, lambdaClient: p.lambdaClient, options: *p.options, session: p.session, regions: p.regions}
+		assignWorker(lambdaAndApiGatewayProvider.GetResource)
 	}
 	if p.albClient != nil {
 		albProvider := &elbV2Provider{albClient: p.albClient, options: *p.options, session: p.session, regions: p.regions}
@@ -265,4 +400,151 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		finalResources.Merge(result.resources)
 	}
 	return finalResources, nil
+}
+
+// Verify checks if the provider is valid using simple API calls
+func (p *Provider) Verify(ctx context.Context) error {
+	err := p.verify()
+	if err == nil {
+		return nil
+	}
+
+	if p.options.AssumeRoleName != "" && len(p.options.AccountIds) > 0 {
+		tempSession, err := createAssumedRoleSession(p.options, p.session, p.session.Config)
+		if err != nil {
+			return err
+		}
+
+		p.initServices(tempSession)
+		err = p.verify()
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	return err
+}
+
+func (p *Provider) verify() error {
+	var success bool
+
+	// Try EC2 DescribeRegions (lightweight operation)
+	if p.ec2Client != nil {
+		_, err := p.ec2Client.DescribeRegions(&ec2.DescribeRegionsInput{})
+		if err == nil {
+			success = true
+		}
+	}
+
+	// Try other services with simple operations if EC2 failed
+	if !success && p.route53Client != nil {
+		_, err := p.route53Client.ListHostedZones(&route53.ListHostedZonesInput{})
+		if err == nil {
+			success = true
+		}
+	}
+
+	if !success && p.s3Client != nil {
+		_, err := p.s3Client.ListBuckets(&s3.ListBucketsInput{})
+		if err == nil {
+			success = true
+		}
+	}
+
+	if !success && p.lambdaClient != nil {
+		_, err := p.lambdaClient.ListFunctions(&lambda.ListFunctionsInput{})
+		if err == nil {
+			success = true
+		}
+	}
+
+	if !success && p.apiGateway != nil {
+		_, err := p.apiGateway.GetRestApis(&apigateway.GetRestApisInput{})
+		if err == nil {
+			success = true
+		}
+	}
+
+	if !success && p.apiGatewayV2 != nil {
+		_, err := p.apiGatewayV2.GetApis(&apigatewayv2.GetApisInput{})
+		if err == nil {
+			success = true
+		}
+	}
+
+	if !success && p.albClient != nil {
+		_, err := p.albClient.DescribeLoadBalancers(&elbv2.DescribeLoadBalancersInput{})
+		if err == nil {
+			success = true
+		}
+	}
+
+	if !success && p.elbClient != nil {
+		_, err := p.elbClient.DescribeLoadBalancers(&elb.DescribeLoadBalancersInput{})
+		if err == nil {
+			success = true
+		}
+	}
+
+	if !success && p.lightsailClient != nil {
+		_, err := p.lightsailClient.GetRegions(&lightsail.GetRegionsInput{})
+		if err == nil {
+			success = true
+		}
+	}
+
+	if !success && p.cloudFrontClient != nil {
+		_, err := p.cloudFrontClient.ListDistributions(&cloudfront.ListDistributionsInput{})
+		if err == nil {
+			success = true
+		}
+	}
+
+	if success {
+		return nil
+	}
+	return errors.New("failed to verify AWS credentials: no accessible services found")
+}
+
+type ARNComponents struct {
+	Partition    string   // e.g., "aws"
+	Service      string   // e.g., "s3", "ec2", "iam"
+	Region       string   // e.g., "us-east-1"
+	AccountID    string   // e.g., "123456789012"
+	Resource     string   // e.g., "bucket/my-bucket" or "instance/i-1234567890abcdef0"
+	ResourcePath []string // Resource split by "/" for hierarchical resources
+}
+
+// parseARN parses an AWS ARN and returns its components
+func parseARN(arn string) *ARNComponents {
+	if arn == "" {
+		return nil
+	}
+
+	parts := strings.Split(arn, ":")
+	if len(parts) < 6 {
+		return nil
+	}
+
+	components := &ARNComponents{
+		Partition: parts[1],
+		Service:   parts[2],
+		Region:    parts[3],
+		AccountID: parts[4],
+		Resource:  strings.Join(parts[5:], ":"),
+	}
+
+	// Split resource by "/" for hierarchical resources
+	components.ResourcePath = strings.Split(components.Resource, "/")
+
+	return components
+}
+
+// GetResourceName returns the last component of the resource path
+// For example: "cluster/my-cluster" returns "my-cluster"
+func (a *ARNComponents) GetResourceName() string {
+	if len(a.ResourcePath) > 0 {
+		return a.ResourcePath[len(a.ResourcePath)-1]
+	}
+	return ""
 }

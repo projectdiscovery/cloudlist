@@ -3,7 +3,9 @@ package aws
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
@@ -64,7 +66,14 @@ func (i *instanceProvider) getEC2Resources(ec2Client *ec2.EC2) (*schema.Resource
 		for _, reservation := range resp.Reservations {
 			for _, instance := range reservation.Instances {
 				ip4 := aws.StringValue(instance.PublicIpAddress)
+				ip6 := aws.StringValue(instance.Ipv6Address)
 				privateIp4 := aws.StringValue(instance.PrivateIpAddress)
+
+				// Extract metadata for this instance
+				var metadata map[string]string
+				if i.options.ExtendedMetadata {
+					metadata = i.getInstanceMetadata(instance, reservation)
+				}
 
 				if privateIp4 != "" {
 					list.Append(&schema.Resource{
@@ -73,14 +82,17 @@ func (i *instanceProvider) getEC2Resources(ec2Client *ec2.EC2) (*schema.Resource
 						PrivateIpv4: privateIp4,
 						Public:      false,
 						Service:     i.name(),
+						Metadata:    metadata,
 					})
 				}
 				list.Append(&schema.Resource{
 					ID:         i.options.Id,
 					Provider:   providerName,
 					PublicIPv4: ip4,
+					PublicIPv6: ip6,
 					Public:     true,
 					Service:    i.name(),
+					Metadata:   metadata,
 				})
 			}
 		}
@@ -90,6 +102,72 @@ func (i *instanceProvider) getEC2Resources(ec2Client *ec2.EC2) (*schema.Resource
 		req.SetNextToken(aws.StringValue(resp.NextToken))
 	}
 	return list, nil
+}
+
+func (i *instanceProvider) getInstanceMetadata(instance *ec2.Instance, reservation *ec2.Reservation) map[string]string {
+	metadata := make(map[string]string)
+
+	schema.AddMetadata(metadata, "instance_id", instance.InstanceId)
+	schema.AddMetadata(metadata, "instance_type", instance.InstanceType)
+	schema.AddMetadata(metadata, "ami_id", instance.ImageId)
+	schema.AddMetadata(metadata, "architecture", instance.Architecture)
+	schema.AddMetadata(metadata, "platform_details", instance.PlatformDetails)
+	schema.AddMetadata(metadata, "owner_id", reservation.OwnerId)
+	schema.AddMetadata(metadata, "key_name", instance.KeyName)
+
+	if instance.State != nil {
+		schema.AddMetadata(metadata, "instance_state", instance.State.Name)
+	}
+
+	if len(instance.SecurityGroups) > 0 {
+		var sgIds []string
+		var sgNames []string
+		for _, sg := range instance.SecurityGroups {
+			if sg.GroupId != nil {
+				sgIds = append(sgIds, aws.StringValue(sg.GroupId))
+			}
+			if sg.GroupName != nil {
+				sgNames = append(sgNames, aws.StringValue(sg.GroupName))
+			}
+		}
+		if len(sgIds) > 0 {
+			metadata["security_group_ids"] = strings.Join(sgIds, ",")
+		}
+		if len(sgNames) > 0 {
+			metadata["security_group_names"] = strings.Join(sgNames, ",")
+		}
+	}
+
+	schema.AddMetadata(metadata, "vpc_id", instance.VpcId)
+	schema.AddMetadata(metadata, "subnet_id", instance.SubnetId)
+
+	if instance.Placement != nil {
+		schema.AddMetadata(metadata, "availability_zone", instance.Placement.AvailabilityZone)
+	}
+
+	schema.AddMetadata(metadata, "private_dns_name", instance.PrivateDnsName)
+	schema.AddMetadata(metadata, "public_dns_name", instance.PublicDnsName)
+
+	if instance.LaunchTime != nil {
+		metadata["launch_time"] = instance.LaunchTime.Format(time.RFC3339)
+	}
+
+	if instance.Monitoring != nil {
+		schema.AddMetadata(metadata, "monitoring_state", instance.Monitoring.State)
+	}
+
+	if len(instance.Tags) > 0 {
+		if tagString := buildTagString(instance.Tags); tagString != "" {
+			metadata["tags"] = tagString
+		}
+	}
+
+	// IAM Instance Profile (often contains role/ownership information)
+	if instance.IamInstanceProfile != nil {
+		schema.AddMetadata(metadata, "iam_instance_profile", instance.IamInstanceProfile.Arn)
+	}
+
+	return metadata
 }
 
 func (i *instanceProvider) getEc2Clients(region *string) []*ec2.EC2 {
@@ -122,4 +200,15 @@ func (i *instanceProvider) getEc2Clients(region *string) []*ec2.EC2 {
 		ec2Clients = append(ec2Clients, ec2.New(assumeSession))
 	}
 	return ec2Clients
+}
+
+func buildTagString(tags []*ec2.Tag) string {
+	var tagPairs []string
+	for _, tag := range tags {
+		if tag.Key != nil && tag.Value != nil {
+			tagPairs = append(tagPairs, fmt.Sprintf("%s=%s",
+				aws.StringValue(tag.Key), aws.StringValue(tag.Value)))
+		}
+	}
+	return strings.Join(tagPairs, ",")
 }

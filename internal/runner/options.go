@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strings"
 
 	"github.com/projectdiscovery/cloudlist/pkg/inventory"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
@@ -28,9 +29,10 @@ type Options struct {
 	Config             string              // Config is the location of the config file.
 	Output             string              // Output is the file to write found results too.
 	ExcludePrivate     bool                // ExcludePrivate excludes private IPs from results
-	Provider           []string            // Provider specifies what providers to fetch assets for.
+	Providers          goflags.StringSlice // Providers specifies what providers to fetch assets for.
 	Id                 goflags.StringSlice // Id specifies what id's to fetch assets for.
-	Services           []string            // Services specifies what services to fetch assets for a provider.
+	Services           goflags.StringSlice // Services specifies what services to fetch assets for a provider.
+	ExtendedMetadata   bool                // ExtendedMetadata enables extended metadata for providers.
 	ProviderConfig     string              // ProviderConfig is the location of the provider config file.
 	DisableUpdateCheck bool                // DisableUpdateCheck disable automatic update check
 }
@@ -38,19 +40,19 @@ type Options struct {
 var (
 	defaultConfigLocation             = filepath.Join(userHomeDir(), ".config/cloudlist/config.yaml")
 	defaultProviderConfigLocation     = filepath.Join(userHomeDir(), ".config/cloudlist/provider-config.yaml")
-	defaultProviders, defaultServies  = []goflags.EnumVariable{}, []goflags.EnumVariable{}
-	allowedProviders, allowedServices = goflags.AllowdTypes{}, goflags.AllowdTypes{}
+	defaultProviders, defaultServies  = []string{}, []string{}
+	allowedProviders, allowedServices = []string{}, []string{}
 )
 
 func init() {
-	for i, provider := range inventory.GetProviders() {
-		allowedProviders[provider] = goflags.EnumVariable(i)
-		defaultProviders = append(defaultProviders, goflags.EnumVariable(i))
+	for _, provider := range inventory.GetProviders() {
+		allowedProviders = append(allowedProviders, provider)
+		defaultProviders = append(defaultProviders, provider)
 	}
 
-	for i, service := range inventory.GetServices() {
-		defaultServies = append(defaultServies, goflags.EnumVariable(i))
-		allowedServices[service] = goflags.EnumVariable(i)
+	for _, service := range inventory.GetServices() {
+		defaultServies = append(defaultServies, service)
+		allowedServices = append(allowedServices, service)
 	}
 }
 
@@ -77,11 +79,12 @@ func ParseOptions() *Options {
 		flagSet.StringVarP(&options.ProviderConfig, "provider-config", "pc", defaultProviderConfigLocation, "provider config file"),
 	)
 	flagSet.CreateGroup("filter", "Filters",
-		flagSet.EnumSliceVarP(&options.Provider, "provider", "p", defaultProviders, "display results for given providers (comma-separated)", allowedProviders),
+		flagSet.StringSliceVarP(&options.Providers, "provider", "p", nil, "display results for given providers (comma-separated) (default "+strings.Join(defaultProviders, ",")+")", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVar(&options.Id, "id", nil, "display results for given ids (comma-separated)", goflags.NormalizedStringSliceOptions),
 		flagSet.BoolVar(&options.Hosts, "host", false, "display only hostnames in results"),
 		flagSet.BoolVar(&options.IPAddress, "ip", false, "display only ips in results"),
-		flagSet.EnumSliceVarP(&options.Services, "service", "s", defaultServies, "query and display results from given service (comma-separated))", allowedServices),
+		flagSet.BoolVar(&options.ExtendedMetadata, "extended-metadata", false, "enable extended metadata for providers"),
+		flagSet.StringSliceVarP(&options.Services, "service", "s", nil, "query and display results from given service (comma-separated)) (default "+strings.Join(defaultServies, ",")+")", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.BoolVarP(&options.ExcludePrivate, "exclude-private", "ep", false, "exclude private ips in cli output"),
 	)
 	flagSet.CreateGroup("update", "Update",
@@ -137,7 +140,11 @@ func readProviderConfig(configFile string) (schema.Options, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			gologger.Error().Msgf("Could not close provider config file: %s\n", err)
+		}
+	}()
 
 	config := schema.Options{}
 	if err := yaml.NewDecoder(file).Decode(&config); err != nil {

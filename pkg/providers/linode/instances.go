@@ -36,6 +36,7 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 		list.Append(&schema.Resource{
 			Provider:   providerName,
 			PublicIPv4: ip4,
+			PublicIPv6: inst.IPv6,
 			ID:         d.id,
 			Public:     ip4 != "",
 			Service:    d.name(),

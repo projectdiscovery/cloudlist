@@ -12,9 +12,10 @@ var Services = []string{"droplet", "app", "instance"}
 
 // Provider is a data provider for digitalocean API
 type Provider struct {
-	id       string
-	client   *godo.Client
-	services schema.ServiceMap
+	id               string
+	client           *godo.Client
+	services         schema.ServiceMap
+	extendedMetadata bool
 }
 
 // New creates a new provider client for digitalocean API
@@ -42,7 +43,19 @@ func New(options schema.OptionBlock) (*Provider, error) {
 			services[s] = struct{}{}
 		}
 	}
-	return &Provider{id: id, client: godo.NewFromToken(token), services: services}, nil
+
+	// Check for extended metadata option
+	extendedMetadata := false
+	if em, ok := options.GetMetadata("extended_metadata"); ok {
+		extendedMetadata = em == "true"
+	}
+
+	return &Provider{
+		id:               id,
+		client:           godo.NewFromToken(token),
+		services:         services,
+		extendedMetadata: extendedMetadata,
+	}, nil
 }
 
 const providerName = "digitalocean"
@@ -69,7 +82,11 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalResources := schema.NewResources()
 
 	if p.services.Has("droplet") || p.services.Has("instance") {
-		instanceprovider := &instanceProvider{client: p.client, id: p.id}
+		instanceprovider := &instanceProvider{
+			client:           p.client,
+			id:               p.id,
+			extendedMetadata: p.extendedMetadata,
+		}
 		instances, err := instanceprovider.GetResource(ctx)
 		if err != nil {
 			return nil, err
@@ -78,7 +95,11 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	}
 
 	if p.services.Has("app") {
-		appprovider := &appsProvider{client: p.client, id: p.id}
+		appprovider := &appsProvider{
+			client:           p.client,
+			id:               p.id,
+			extendedMetadata: p.extendedMetadata,
+		}
 		apps, err := appprovider.GetResource(ctx)
 		if err != nil {
 			return nil, err

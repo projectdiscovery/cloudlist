@@ -31,6 +31,20 @@ func New(options *Options) (*Runner, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// CLI overrides config
+	if len(options.Services) == 0 {
+		options.Services = append(options.Services, config.GetServiceNames()...)
+	}
+
+	// assign default services if not provided
+	if len(options.Services) == 0 {
+		options.Services = append(options.Services, defaultServies...)
+	}
+	if len(options.Providers) == 0 {
+		options.Providers = append(options.Providers, defaultProviders...)
+	}
+
 	return &Runner{config: config, options: options}, nil
 }
 
@@ -52,9 +66,13 @@ func (r *Runner) Enumerate() {
 		if len(services) > 0 {
 			item["services"] = strings.Join(services, ",")
 		}
+		if r.options.ExtendedMetadata {
+			item["extended_metadata"] = "true"
+		}
+
 		// Validate and only pass the correct items to input
-		if len(r.options.Provider) != 0 || len(r.options.Id) != 0 {
-			if len(r.options.Provider) != 0 && !Contains(r.options.Provider, item["provider"]) {
+		if len(r.options.Providers) != 0 || len(r.options.Id) != 0 {
+			if len(r.options.Providers) != 0 && !Contains(r.options.Providers, item["provider"]) {
 				continue
 			}
 			if len(r.options.Id) != 0 && !Contains(r.options.Id, item["id"]) {
@@ -81,6 +99,7 @@ func (r *Runner) Enumerate() {
 	}
 
 	builder := &bytes.Buffer{}
+	deduplicator := schema.NewResourceDeduplicator()
 	for _, provider := range inventory.Providers {
 		gologger.Info().Msgf("Listing assets from provider: %s services: %s id: %s", provider.Name(), strings.Join(provider.Services(), ","), provider.ID())
 
@@ -91,6 +110,11 @@ func (r *Runner) Enumerate() {
 		}
 		var hostsCount, ipCount int
 		for _, instance := range instances.Items {
+			// Skip if already processed
+			if !deduplicator.ProcessResource(instance) {
+				continue
+			}
+
 			builder.Reset()
 
 			if r.options.JSON {
@@ -108,7 +132,13 @@ func (r *Runner) Enumerate() {
 					if instance.PrivateIpv4 != "" {
 						ipCount++
 					}
+					if instance.PrivateIpv6 != "" {
+						ipCount++
+					}
 					if instance.PublicIPv4 != "" {
+						ipCount++
+					}
+					if instance.PublicIPv6 != "" {
 						ipCount++
 					}
 					gologger.Silent().Msgf("%s", builder.String())
@@ -137,6 +167,14 @@ func (r *Runner) Enumerate() {
 					builder.Reset()
 					gologger.Silent().Msgf("%s", instance.PublicIPv4)
 				}
+				if instance.PublicIPv6 != "" {
+					ipCount++
+					builder.WriteString(instance.PublicIPv6)
+					builder.WriteRune('\n')
+					output.WriteString(builder.String()) //nolint
+					builder.Reset()
+					gologger.Silent().Msgf("%s", instance.PublicIPv6)
+				}
 				if instance.PrivateIpv4 != "" && !r.options.ExcludePrivate {
 					ipCount++
 					builder.WriteString(instance.PrivateIpv4)
@@ -144,6 +182,14 @@ func (r *Runner) Enumerate() {
 					output.WriteString(builder.String()) //nolint
 					builder.Reset()
 					gologger.Silent().Msgf("%s", instance.PrivateIpv4)
+				}
+				if instance.PrivateIpv6 != "" && !r.options.ExcludePrivate {
+					ipCount++
+					builder.WriteString(instance.PrivateIpv6)
+					builder.WriteRune('\n')
+					output.WriteString(builder.String()) //nolint
+					builder.Reset()
+					gologger.Silent().Msgf("%s", instance.PrivateIpv6)
 				}
 				continue
 			}
@@ -164,6 +210,14 @@ func (r *Runner) Enumerate() {
 				builder.Reset()
 				gologger.Silent().Msgf("%s", instance.PublicIPv4)
 			}
+			if instance.PublicIPv6 != "" {
+				ipCount++
+				builder.WriteString(instance.PublicIPv6)
+				builder.WriteRune('\n')
+				output.WriteString(builder.String()) //nolint
+				builder.Reset()
+				gologger.Silent().Msgf("%s", instance.PublicIPv6)
+			}
 			if instance.PrivateIpv4 != "" && !r.options.ExcludePrivate {
 				ipCount++
 				builder.WriteString(instance.PrivateIpv4)
@@ -171,6 +225,14 @@ func (r *Runner) Enumerate() {
 				output.WriteString(builder.String()) //nolint
 				builder.Reset()
 				gologger.Silent().Msgf("%s", instance.PrivateIpv4)
+			}
+			if instance.PrivateIpv6 != "" && !r.options.ExcludePrivate {
+				ipCount++
+				builder.WriteString(instance.PrivateIpv6)
+				builder.WriteRune('\n')
+				output.WriteString(builder.String()) //nolint
+				builder.Reset()
+				gologger.Silent().Msgf("%s", instance.PrivateIpv6)
 			}
 		}
 		logBuilder := &strings.Builder{}

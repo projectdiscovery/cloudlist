@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Azure/azure-sdk-for-go/profiles/latest/network/mgmt/network"
+	"github.com/Azure/azure-sdk-for-go/profiles/latest/resources/mgmt/resources"
+	"github.com/Azure/azure-sdk-for-go/profiles/latest/resources/mgmt/subscriptions"
+	"github.com/Azure/azure-sdk-for-go/profiles/latest/trafficmanager/mgmt/trafficmanager"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
@@ -16,32 +20,27 @@ const (
 	tenantID       = `tenant_id`
 	clientID       = `client_id`
 	clientSecret   = `client_secret`
-	subscriptionID = `subscription_id`
+	subscriptionID = `subscription_id` // optional
 	useCliAuth     = `use_cli_auth`
 
 	providerName = "azure"
 )
 
-var Services = []string{"vm", "publicip"}
+var Services = []string{"vm", "publicip", "trafficmanager"}
 
 // Provider is a data provider for Azure API
 type Provider struct {
-	id             string
-	SubscriptionID string
-	Authorizer     autorest.Authorizer
-	services       schema.ServiceMap
+	id               string
+	SubscriptionIDs  []string
+	Authorizer       autorest.Authorizer
+	services         schema.ServiceMap
+	extendedMetadata bool
 }
 
 // New creates a new provider client for Azure API
 func New(options schema.OptionBlock) (*Provider, error) {
-	SubscriptionID, ok := options.GetMetadata(subscriptionID)
-	if !ok {
-		return nil, &schema.ErrNoSuchKey{Name: subscriptionID}
-	}
-
-	UseCliAuth, _ := options.GetMetadata(useCliAuth)
-
 	ID, _ := options.GetMetadata(id)
+	UseCliAuth, _ := options.GetMetadata(useCliAuth)
 
 	var authorizer autorest.Authorizer
 	var err error
@@ -73,6 +72,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		}
 	}
 
+	// Parse services
 	supportedServicesMap := make(map[string]struct{})
 	for _, s := range Services {
 		supportedServicesMap[s] = struct{}{}
@@ -90,8 +90,52 @@ func New(options schema.OptionBlock) (*Provider, error) {
 			services[s] = struct{}{}
 		}
 	}
-	return &Provider{Authorizer: authorizer, SubscriptionID: SubscriptionID, id: ID, services: services}, nil
 
+	provider := &Provider{
+		Authorizer: authorizer,
+		id:         ID,
+		services:   services,
+	}
+	if extendedMetadata, ok := options.GetMetadata("extended_metadata"); ok {
+		provider.extendedMetadata = extendedMetadata == "true"
+	}
+
+	// Check if a specific subscription ID was provided
+	specifiedSubID, hasSpecificSub := options.GetMetadata(subscriptionID)
+
+	// If a specific subscription was provided, use only that one
+	if hasSpecificSub && specifiedSubID != "" {
+		provider.SubscriptionIDs = []string{specifiedSubID}
+		return provider, nil
+	}
+
+	// Otherwise, discover all available subscriptions
+	gologger.Info().Msgf("Listing subscriptions from provider: azure")
+
+	ctx := context.Background()
+	subsClient := subscriptions.NewClient()
+	subsClient.Authorizer = authorizer
+
+	var subIDs []string
+	for subsList, err := subsClient.List(ctx); subsList.NotDone(); err = subsList.NextWithContext(ctx) {
+		if err != nil {
+			return nil, fmt.Errorf("failed to list subscriptions: %v", err)
+		}
+
+		for _, sub := range subsList.Values() {
+			if sub.SubscriptionID != nil {
+				subIDs = append(subIDs, *sub.SubscriptionID)
+				gologger.Info().Msgf("Discovered subscription: %s", *sub.SubscriptionID)
+			}
+		}
+	}
+
+	if len(subIDs) == 0 {
+		return nil, fmt.Errorf("no subscriptions found for the provided credentials")
+	}
+
+	provider.SubscriptionIDs = subIDs
+	return provider, nil
 }
 
 // Name returns the name of the provider
@@ -113,23 +157,79 @@ func (p *Provider) Services() []string {
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	resources := schema.NewResources()
 
-	if p.services.Has("vm") {
-		vmp := &vmProvider{Authorizer: p.Authorizer, SubscriptionID: p.SubscriptionID, id: p.id}
-		vmIPs, err := vmp.GetResource(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("error listing VM public ips: %s", err)
-		}
-		resources.Merge(vmIPs)
-	}
+	// Process each subscription
+	for _, subscriptionID := range p.SubscriptionIDs {
+		gologger.Info().Msgf("Processing subscription: %s", subscriptionID)
 
-	if p.services.Has("publicip") {
-
-		publicIPp := &publicIPProvider{Authorizer: p.Authorizer, SubscriptionID: p.SubscriptionID, id: p.id}
-		publicIPs, err := publicIPp.GetResource(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("error listing public ips: %s", err)
+		if p.services.Has("vm") {
+			vmp := &vmProvider{Authorizer: p.Authorizer, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
+			vmIPs, err := vmp.GetResource(ctx)
+			if err != nil {
+				gologger.Warning().Msgf("Error listing VM public IPs for subscription %s: %s", subscriptionID, err)
+				continue
+			}
+			resources.Merge(vmIPs)
 		}
-		resources.Merge(publicIPs)
+
+		if p.services.Has("publicip") {
+			publicIPp := &publicIPProvider{Authorizer: p.Authorizer, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
+			publicIPs, err := publicIPp.GetResource(ctx)
+			if err != nil {
+				gologger.Warning().Msgf("Error listing public IPs for subscription %s: %s", subscriptionID, err)
+				continue
+			}
+			resources.Merge(publicIPs)
+		}
+
+		if p.services.Has("trafficmanager") {
+			trafficManagerp := &trafficManagerProvider{Authorizer: p.Authorizer, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
+			trafficManager, err := trafficManagerp.GetResource(ctx)
+			if err != nil {
+				gologger.Warning().Msgf("Error listing traffic manager for subscription %s: %s", subscriptionID, err)
+				continue
+			}
+			resources.Merge(trafficManager)
+		}
 	}
 	return resources, nil
+}
+
+// Verify checks if the provider is valid using simple API call
+func (p *Provider) Verify(ctx context.Context) error {
+	for _, subscriptionID := range p.SubscriptionIDs {
+		groupsClient := resources.NewGroupsClient(subscriptionID)
+		groupsClient.Authorizer = p.Authorizer
+
+		pClient := network.NewPublicIPAddressesClient(subscriptionID)
+		pClient.Authorizer = p.Authorizer
+
+		trafficManagerClient := trafficmanager.NewProfilesClient(subscriptionID)
+		trafficManagerClient.Authorizer = p.Authorizer
+
+		// Try a lightweight operation - just list the first group
+		var success bool
+		if p.services.Has("vm") {
+			_, err := groupsClient.List(ctx, "", nil)
+			if err != nil {
+				return fmt.Errorf("failed to verify Azure credentials: %v", err)
+			}
+			success = true
+		} else if p.services.Has("publicip") && !success {
+			_, err := pClient.ListAllComplete(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to verify Azure credentials: %v", err)
+			}
+			success = true
+		} else if p.services.Has("trafficmanager") && !success {
+			_, err := trafficManagerClient.ListBySubscription(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to verify Azure credentials: %v", err)
+			}
+			success = true
+		}
+		if success {
+			return nil
+		}
+	}
+	return fmt.Errorf("no accessible Azure services found with provided credentials")
 }
