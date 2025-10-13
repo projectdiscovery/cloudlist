@@ -47,9 +47,25 @@ References -
    
 ### Google Cloud Platform (GCP)
 
-Google Cloud Platform supports **two discovery approaches**:
+Google Cloud Platform supports **two discovery approaches** and **two authentication modes**:
+
+#### Authentication Modes
+
+**A. Traditional Authentication (Static Credentials)**
+- Service account keys (JSON files) - long-lived
+- Application Default Credentials (ADC) - often long-lived
+
+**B. Short-lived Credentials (Recommended for Enhanced Security)**
+- Generate temporary access tokens (1-12 hours)
+- Eliminates reliance on static service account keys
+- Uses Service Account Credentials API for token generation
+- Supports service account impersonation
+
+---
 
 #### 1. Individual Service APIs (Project-Level Discovery)
+
+**Option 1: Traditional Static Credentials**
 
 ```yaml
 - # provider is the name of the provider
@@ -72,9 +88,52 @@ Google Cloud Platform supports **two discovery approaches**:
   }'
 ```
 
-**Required Scopes:**
+**Option 2: Short-lived Credentials (Developer Workflow - Zero Keys)**
+
+```yaml
+- provider: gcp
+  id: dev-discovery
+  use_short_lived_credentials: true
+  service_account_email: "cloudlist@project.iam.gserviceaccount.com"
+  # Uses: gcloud auth login → ADC → short-lived token
+  # No service account key file needed!
+```
+
+**Option 3: Short-lived Credentials (CI/CD with Minimal Permissions)**
+
+```yaml
+- provider: gcp
+  id: ci-discovery
+  use_short_lived_credentials: true
+  service_account_email: "powerful-sa@project.iam.gserviceaccount.com"
+  source_credentials: "minimal-ci-sa.json"  # Only has impersonation permission
+  token_lifetime: "7200s"  # 2 hours
+```
+
+**Option 4: Short-lived Credentials (GKE/Compute Engine - Zero Secrets)**
+
+```yaml
+- provider: gcp
+  id: workload-discovery
+  use_short_lived_credentials: true
+  service_account_email: "cloudlist@project.iam.gserviceaccount.com"
+  # Uses workload identity automatically
+```
+
+**Option 5: Short-lived Credentials (Migration from Existing Keys)**
+
+```yaml
+- provider: gcp
+  id: migrating-discovery
+  use_short_lived_credentials: true
+  service_account_email: "cloudlist@project.iam.gserviceaccount.com"
+  gcp_service_account_key: "existing-key.json"  # Generates short-lived from static key
+  token_lifetime: "3600s"  # 1 hour (default)
+```
+
+**Required Scopes (Traditional Authentication):**
 1. `roles/compute.viewer` - Compute instances and forwarding rules
-2. `roles/dns.reader` - DNS records  
+2. `roles/dns.reader` - DNS records
 3. `roles/storage.objectViewer` - Storage buckets
 4. `roles/run.viewer` - Cloud Run services
 5. `roles/cloudfunctions.viewer` - Cloud Functions
@@ -83,7 +142,22 @@ Google Cloud Platform supports **two discovery approaches**:
 8. `roles/file.viewer` - Filestore instances
 9. `roles/resourcemanager.viewer` - List projects
 
+**Additional Requirements for Short-lived Credentials:**
+- **Source credentials** need: `roles/iam.serviceAccountTokenCreator` or `iam.serviceAccounts.generateAccessToken` permission on the target service account
+- **Target service account** needs: Same viewer roles listed above
+- **Service Account Credentials API** must be enabled in the project
+
+**Configuration Parameters:**
+- `use_short_lived_credentials` (bool): Enable short-lived token generation (default: false)
+- `service_account_email` (string, required if short-lived): Target service account to impersonate
+- `source_credentials` (string, optional): Path to source credentials file (uses ADC if not provided)
+- `token_lifetime` (string, optional): Token lifetime in seconds (e.g., "3600s") or Go duration format (e.g., "1h"). Range: 1s to 43200s (12 hours). Default: "3600s"
+
+---
+
 #### 2. Organization-Level Asset API (Organization-Wide Discovery)
+
+**Traditional Authentication:**
 
 ```yaml
 - # provider is the name of the provider
@@ -108,20 +182,35 @@ Google Cloud Platform supports **two discovery approaches**:
   }'
 ```
 
+**Short-lived Credentials (Organization-Level):**
+
+```yaml
+- provider: gcp
+  id: org-discovery-secure
+  organization_id: "123456789012"
+  use_short_lived_credentials: true
+  service_account_email: "asset-viewer-sa@project.iam.gserviceaccount.com"
+  token_lifetime: "7200s"  # 2 hours
+```
+
 **Required Organization-Level Roles:**
 1. `roles/cloudasset.viewer` - Core Asset API access
 2. `roles/resourcemanager.viewer` - List projects in organization
+3. (For short-lived) `roles/iam.serviceAccountTokenCreator` - On source credentials
 
 **Key Differences:**
 - **Individual APIs**: Fast, project-specific, detailed results
 - **Asset API**: Comprehensive, organization-wide, higher resource count
+- **Short-lived Credentials**: Enhanced security, tokens auto-expire (1-12 hours)
 
 📚 **For detailed setup instructions, see: [docs/GCP_ASSET_API.md](docs/GCP_ASSET_API.md)**
 
-References - 
+References -
 1. https://cloud.google.com/asset-inventory/docs/overview
 2. https://cloud.google.com/iam/docs/creating-managing-service-accounts
 3. https://cloud.google.com/iam/docs/understanding-roles
+4. https://cloud.google.com/iam/docs/service-account-creds (Short-lived credentials)
+5. https://cloud.google.com/docs/authentication/provide-credentials-adc (Application Default Credentials)
 
 
 ### Microsoft Azure
