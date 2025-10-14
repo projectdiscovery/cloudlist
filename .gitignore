@@ -5,3 +5,4 @@ dist
 provider-config.yaml
 /cloudlist
 /terraform/
+azure-readonly-config.yaml
