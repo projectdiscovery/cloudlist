@@ -113,7 +113,7 @@ func (agp *applicationGatewayProvider) GetResource(ctx context.Context) (*schema
 		}
 
 		// Handle custom domains configured in HTTP listeners
-		if agp.extendedMetadata && gateway.Properties != nil && gateway.Properties.HTTPListeners != nil {
+		if gateway.Properties != nil && gateway.Properties.HTTPListeners != nil {
 			var metadata map[string]string
 			if agp.extendedMetadata {
 				metadata = agp.getApplicationGatewayMetadata(gateway)

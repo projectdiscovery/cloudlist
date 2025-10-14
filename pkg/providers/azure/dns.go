@@ -254,7 +254,7 @@ func (dp *dnsProvider) getDNSRecordMetadata(zone *armdns.Zone, recordSet *armdns
 		}
 
 		// Record-specific metadata
-		if recordSet.Properties.Metadata != nil && len(recordSet.Properties.Metadata) > 0 {
+		if len(recordSet.Properties.Metadata) > 0 {
 			var metaPairs []string
 			for key, value := range recordSet.Properties.Metadata {
 				if value != nil {

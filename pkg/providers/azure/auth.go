@@ -7,7 +7,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
-	"github.com/projectdiscovery/gologger"
 )
 
 // Configuration constants for Track 2 authentication
@@ -36,7 +35,6 @@ const (
 func createCredential(options schema.OptionBlock) (azcore.TokenCredential, error) {
 	// Option 1: Azure CLI (BACKWARD COMPATIBLE - explicit, only tries CLI)
 	if UseCliAuth, _ := options.GetMetadata(useCliAuth); UseCliAuth == "true" {
-		gologger.Info().Msg("Using AzureCLICredential (explicit, backward compatible with Track 1)")
 		cred, err := azidentity.NewAzureCLICredential(nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create AzureCLICredential: %w", err)
@@ -46,7 +44,6 @@ func createCredential(options schema.OptionBlock) (azcore.TokenCredential, error
 
 	// Option 2: Workload Identity (Kubernetes, GitHub Actions OIDC) - EXPLICIT
 	if useWorkload, _ := options.GetMetadata(useWorkloadIdentity); useWorkload == "true" {
-		gologger.Info().Msg("Using WorkloadIdentityCredential (explicit)")
 		cred, err := azidentity.NewWorkloadIdentityCredential(nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create WorkloadIdentityCredential: %w", err)
@@ -56,15 +53,11 @@ func createCredential(options schema.OptionBlock) (azcore.TokenCredential, error
 
 	// Option 3: Managed Identity (Azure VMs, App Service, Container Apps, AKS) - EXPLICIT
 	if useManaged, _ := options.GetMetadata(useManagedIdentity); useManaged == "true" {
-		gologger.Info().Msg("Using ManagedIdentityCredential (explicit)")
 		opts := &azidentity.ManagedIdentityCredentialOptions{}
 
 		// Support user-assigned managed identity
 		if clientID, ok := options.GetMetadata(managedIdentityID); ok {
 			opts.ID = azidentity.ClientID(clientID)
-			gologger.Info().Msgf("Using user-assigned managed identity: %s", clientID)
-		} else {
-			gologger.Info().Msg("Using system-assigned managed identity")
 		}
 
 		cred, err := azidentity.NewManagedIdentityCredential(opts)
@@ -76,8 +69,6 @@ func createCredential(options schema.OptionBlock) (azcore.TokenCredential, error
 
 	// Option 4: Client Certificate (enterprise security) - EXPLICIT
 	if certPath, ok := options.GetMetadata(certificatePath); ok {
-		gologger.Info().Msg("Using ClientCertificateCredential (explicit)")
-
 		TenantID, ok := options.GetMetadata(tenantID)
 		if !ok {
 			return nil, &schema.ErrNoSuchKey{Name: tenantID}
@@ -134,7 +125,6 @@ func createCredential(options schema.OptionBlock) (azcore.TokenCredential, error
 			return nil, &schema.ErrNoSuchKey{Name: tenantID}
 		}
 
-		gologger.Info().Msg("Using ClientSecretCredential (explicit, backward compatible with Track 1)")
 		cred, err := azidentity.NewClientSecretCredential(TenantID, ClientID, ClientSecret, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create ClientSecretCredential: %w", err)
@@ -145,36 +135,10 @@ func createCredential(options schema.OptionBlock) (azcore.TokenCredential, error
 
 	// Option 6: DefaultAzureCredential (FALLBACK - no explicit auth specified)
 	// This auto-detects: env vars → workload identity → managed identity → Azure CLI
-	gologger.Info().Msg("No explicit authentication specified, using DefaultAzureCredential (auto-detection)")
-	gologger.Info().Msg("DefaultAzureCredential will try: Environment → Workload Identity → Managed Identity → Azure CLI")
 	cred, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create DefaultAzureCredential: %w", err)
 	}
 
 	return cred, nil
-}
-
-// getAuthenticationSummary returns a summary of the authentication method being used
-// for logging and debugging purposes.
-func getAuthenticationSummary(options schema.OptionBlock) string {
-	if UseCliAuth, _ := options.GetMetadata(useCliAuth); UseCliAuth == "true" {
-		return "AzureCLICredential (explicit)"
-	}
-	if useWorkload, _ := options.GetMetadata(useWorkloadIdentity); useWorkload == "true" {
-		return "WorkloadIdentityCredential (explicit)"
-	}
-	if useManaged, _ := options.GetMetadata(useManagedIdentity); useManaged == "true" {
-		if clientID, ok := options.GetMetadata(managedIdentityID); ok {
-			return fmt.Sprintf("ManagedIdentityCredential (user-assigned: %s)", clientID)
-		}
-		return "ManagedIdentityCredential (system-assigned)"
-	}
-	if certPath, ok := options.GetMetadata(certificatePath); ok {
-		return fmt.Sprintf("ClientCertificateCredential (%s)", certPath)
-	}
-	if _, ok := options.GetMetadata(clientID); ok {
-		return "ClientSecretCredential (explicit)"
-	}
-	return "DefaultAzureCredential (auto-detection fallback)"
 }

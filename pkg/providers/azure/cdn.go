@@ -73,13 +73,13 @@ func (cdn *cdnProvider) GetResource(ctx context.Context) (*schema.Resources, err
 			list.Append(resource)
 
 			// Add custom domains if present
-			if cdn.extendedMetadata && endpoint.Properties.CustomDomains != nil {
+			if endpoint.Properties.CustomDomains != nil {
 				for _, customDomain := range endpoint.Properties.CustomDomains {
-					if customDomain.Name != nil {
+					if customDomain.Properties != nil && customDomain.Properties.HostName != nil {
 						customDomainResource := &schema.Resource{
 							Provider: providerName,
 							ID:       cdn.id,
-							DNSName:  *customDomain.Name,
+							DNSName:  *customDomain.Properties.HostName,
 							Service:  cdn.name(),
 						}
 						if metadata != nil {
@@ -230,7 +230,7 @@ func (cdn *cdnProvider) getCDNMetadata(profile *armcdn.Profile, endpoint *armcdn
 		}
 
 		// Origin information
-		if props.Origins != nil && len(props.Origins) > 0 {
+		if len(props.Origins) > 0 {
 			var originHosts []string
 			for _, origin := range props.Origins {
 				if origin.Properties != nil && origin.Properties.HostName != nil {
@@ -258,7 +258,7 @@ func (cdn *cdnProvider) getCDNMetadata(profile *armcdn.Profile, endpoint *armcdn
 		}
 
 		// Content types to compress
-		if props.ContentTypesToCompress != nil && len(props.ContentTypesToCompress) > 0 {
+		if len(props.ContentTypesToCompress) > 0 {
 			var contentTypes []string
 			for _, ct := range props.ContentTypesToCompress {
 				if ct != nil {

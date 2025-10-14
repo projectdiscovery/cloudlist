@@ -229,7 +229,7 @@ func (amp *apiManagementProvider) getAPIManagementMetadata(service *armapimanage
 			metadata["virtual_network_type"] = string(*props.VirtualNetworkType)
 		}
 
-		if props.PublicIPAddresses != nil && len(props.PublicIPAddresses) > 0 {
+		if len(props.PublicIPAddresses) > 0 {
 			var ips []string
 			for _, ip := range props.PublicIPAddresses {
 				if ip != nil {
@@ -241,7 +241,7 @@ func (amp *apiManagementProvider) getAPIManagementMetadata(service *armapimanage
 			}
 		}
 
-		if props.PrivateIPAddresses != nil && len(props.PrivateIPAddresses) > 0 {
+		if len(props.PrivateIPAddresses) > 0 {
 			var ips []string
 			for _, ip := range props.PrivateIPAddresses {
 				if ip != nil {
@@ -265,7 +265,7 @@ func (amp *apiManagementProvider) getAPIManagementMetadata(service *armapimanage
 			metadata["developer_portal_url"] = *props.DeveloperPortalURL
 		}
 
-		if props.HostnameConfigurations != nil && len(props.HostnameConfigurations) > 0 {
+		if len(props.HostnameConfigurations) > 0 {
 			var hostnames []string
 			for _, config := range props.HostnameConfigurations {
 				if config.HostName != nil {
@@ -313,7 +313,7 @@ func (amp *apiManagementProvider) getAPIManagementMetadata(service *armapimanage
 	}
 
 	// Zones
-	if service.Zones != nil && len(service.Zones) > 0 {
+	if len(service.Zones) > 0 {
 		var zones []string
 		for _, z := range service.Zones {
 			if z != nil {

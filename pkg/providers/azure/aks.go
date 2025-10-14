@@ -235,7 +235,7 @@ func (ap *aksProvider) getAKSMetadata(cluster *armcontainerservice.ManagedCluste
 				metadata["private_cluster"] = fmt.Sprintf("%v", *props.APIServerAccessProfile.EnablePrivateCluster)
 			}
 
-			if props.APIServerAccessProfile.AuthorizedIPRanges != nil && len(props.APIServerAccessProfile.AuthorizedIPRanges) > 0 {
+			if len(props.APIServerAccessProfile.AuthorizedIPRanges) > 0 {
 				var ipRanges []string
 				for _, ipRange := range props.APIServerAccessProfile.AuthorizedIPRanges {
 					if ipRange != nil {
@@ -249,7 +249,7 @@ func (ap *aksProvider) getAKSMetadata(cluster *armcontainerservice.ManagedCluste
 		}
 
 		// Agent pool profiles (node pools)
-		if props.AgentPoolProfiles != nil && len(props.AgentPoolProfiles) > 0 {
+		if len(props.AgentPoolProfiles) > 0 {
 			metadata["agent_pool_count"] = fmt.Sprintf("%d", len(props.AgentPoolProfiles))
 
 			var poolNames []string
@@ -280,7 +280,7 @@ func (ap *aksProvider) getAKSMetadata(cluster *armcontainerservice.ManagedCluste
 		}
 
 		// Add-ons and features
-		if props.AddonProfiles != nil && len(props.AddonProfiles) > 0 {
+		if len(props.AddonProfiles) > 0 {
 			var enabledAddons []string
 			for addonName, addonProfile := range props.AddonProfiles {
 				if addonProfile.Enabled != nil && *addonProfile.Enabled {

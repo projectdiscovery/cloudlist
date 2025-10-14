@@ -43,8 +43,6 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		return nil, fmt.Errorf("failed to create Azure credential: %w", err)
 	}
 
-	gologger.Info().Msgf("Azure authentication method: %s", getAuthenticationSummary(options))
-
 	// Parse services
 	supportedServicesMap := make(map[string]struct{})
 	for _, s := range Services {
@@ -83,8 +81,6 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	}
 
 	// Otherwise, discover all available subscriptions using Track 2 SDK
-	gologger.Info().Msgf("Listing subscriptions from provider: azure")
-
 	ctx := context.Background()
 	subsClient, err := armsubscriptions.NewClient(credential, nil)
 	if err != nil {
@@ -102,7 +98,6 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		for _, sub := range page.Value {
 			if sub.SubscriptionID != nil {
 				subIDs = append(subIDs, *sub.SubscriptionID)
-				gologger.Info().Msgf("Discovered subscription: %s", *sub.SubscriptionID)
 			}
 		}
 	}
@@ -136,8 +131,6 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 
 	// Process each subscription
 	for _, subscriptionID := range p.SubscriptionIDs {
-		gologger.Info().Msgf("Processing subscription: %s", subscriptionID)
-
 		if p.services.Has("vm") {
 			vmp := &vmProvider{Credential: p.Credential, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
 			vmIPs, err := vmp.GetResource(ctx)
@@ -303,21 +296,26 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 
 // Verify checks if the provider is valid using simple API call with Track 2 SDK
 func (p *Provider) Verify(ctx context.Context) error {
-	// Simple verification: try to create a subscriptions client and list one subscription
+	// Simple verification: try to create a subscriptions client and ensure at least one subscription exists
 	subsClient, err := armsubscriptions.NewClient(p.Credential, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create subscriptions client: %w", err)
 	}
 
-	// Try to list at least one subscription
 	pager := subsClient.NewListPager(nil)
-	if !pager.More() {
-		return fmt.Errorf("no subscriptions found with provided credentials")
+	found := false
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to verify Azure credentials: %w", err)
+		}
+		if len(page.Value) > 0 {
+			found = true
+			break
+		}
 	}
-
-	_, err = pager.NextPage(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to verify Azure credentials: %w", err)
+	if !found {
+		return fmt.Errorf("no subscriptions found with provided credentials")
 	}
 
 	gologger.Info().Msg("Azure credentials verified successfully")

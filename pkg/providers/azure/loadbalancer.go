@@ -30,7 +30,7 @@ func (lbp *loadBalancerProvider) GetResource(ctx context.Context) (*schema.Resou
 	list := schema.NewResources()
 	mu := &sync.Mutex{}
 
-	groups, err := fetchResouceGroups(ctx, lbp.SubscriptionID, lbp.Credential)
+	groups, err := fetchResourceGroups(ctx, lbp.SubscriptionID, lbp.Credential)
 	if err != nil {
 		return nil, err
 	}

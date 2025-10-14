@@ -34,7 +34,7 @@ func (d *vmProvider) GetResource(ctx context.Context) (*schema.Resources, error)
 	list := schema.NewResources()
 	mu := &sync.Mutex{}
 
-	groups, err := fetchResouceGroups(ctx, d.SubscriptionID, d.Credential)
+	groups, err := fetchResourceGroups(ctx, d.SubscriptionID, d.Credential)
 	if err != nil {
 		return nil, err
 	}
@@ -185,7 +185,7 @@ func parseAzureResourceID(resourceID string) (resourceName, resourceGroup string
 	return resourceName, resourceGroup
 }
 
-func fetchResouceGroups(ctx context.Context, subscriptionID string, credential azcore.TokenCredential) (resGrpList []string, err error) {
+func fetchResourceGroups(ctx context.Context, subscriptionID string, credential azcore.TokenCredential) (resGrpList []string, err error) {
 	// Track 2: Create resource groups client directly
 	grClient, err := armresources.NewResourceGroupsClient(subscriptionID, credential, nil)
 	if err != nil {

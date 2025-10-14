@@ -55,7 +55,7 @@ func (asp *appServiceProvider) GetResource(ctx context.Context) (*schema.Resourc
 		}
 
 		// Extract custom domains if configured
-		if app.Properties.HostNames != nil && len(app.Properties.HostNames) > 0 {
+		if len(app.Properties.HostNames) > 0 {
 			for _, hostname := range app.Properties.HostNames {
 				if hostname == nil || *hostname == "" {
 					continue
@@ -216,7 +216,7 @@ func (asp *appServiceProvider) getAppServiceMetadata(app *armappservice.Site) ma
 		schema.AddMetadata(metadata, "outbound_ip_addresses", props.OutboundIPAddresses)
 		schema.AddMetadata(metadata, "possible_outbound_ip_addresses", props.PossibleOutboundIPAddresses)
 
-		if props.EnabledHostNames != nil && len(props.EnabledHostNames) > 0 {
+		if len(props.EnabledHostNames) > 0 {
 			var enabledHostnames []string
 			for _, hostname := range props.EnabledHostNames {
 				if hostname != nil {
@@ -228,7 +228,7 @@ func (asp *appServiceProvider) getAppServiceMetadata(app *armappservice.Site) ma
 			}
 		}
 
-		if props.HostNames != nil && len(props.HostNames) > 0 {
+		if len(app.Properties.HostNames) > 0 {
 			var customDomains []string
 			for _, hostname := range props.HostNames {
 				if hostname != nil && props.DefaultHostName != nil && *hostname != *props.DefaultHostName {

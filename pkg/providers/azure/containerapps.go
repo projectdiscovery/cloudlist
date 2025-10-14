@@ -77,7 +77,7 @@ func (cap *containerAppsProvider) GetResource(ctx context.Context) (*schema.Reso
 		}
 
 		// Extract outbound IPs (public)
-		if app.Properties.OutboundIPAddresses != nil && len(app.Properties.OutboundIPAddresses) > 0 {
+		if len(app.Properties.OutboundIPAddresses) > 0 {
 			for _, ip := range app.Properties.OutboundIPAddresses {
 				if ip != nil {
 					ipResource := &schema.Resource{
@@ -192,7 +192,7 @@ func (cap *containerAppsProvider) getContainerAppMetadata(app *armappcontainers.
 				metadata["ingress_transport"] = transport
 			}
 
-			if ingress.Traffic != nil && len(ingress.Traffic) > 0 {
+			if len(ingress.Traffic) > 0 {
 				metadata["traffic_weights_count"] = fmt.Sprintf("%d", len(ingress.Traffic))
 			}
 

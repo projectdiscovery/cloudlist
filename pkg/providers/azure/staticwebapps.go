@@ -51,12 +51,15 @@ func (swp *staticWebAppsProvider) GetResource(ctx context.Context) (*schema.Reso
 		}
 
 		// Extract custom domains if configured
-		if swp.extendedMetadata && site.Properties != nil && site.Properties.CustomDomains != nil {
+		if site.Properties != nil && site.Properties.CustomDomains != nil {
 			for _, customDomain := range site.Properties.CustomDomains {
 				if customDomain != nil && *customDomain != "" {
-					metadata := swp.getStaticSiteMetadata(site)
-					// Add indicator that this is a custom domain
-					metadata["domain_type"] = "custom"
+					var metadata map[string]string
+					if swp.extendedMetadata {
+						metadata = swp.getStaticSiteMetadata(site)
+						// Add indicator that this is a custom domain
+						metadata["domain_type"] = "custom"
+					}
 
 					resource := &schema.Resource{
 						Provider: providerName,

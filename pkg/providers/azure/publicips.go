@@ -49,11 +49,20 @@ func (pip *publicIPProvider) GetResource(ctx context.Context) (*schema.Resources
 			Metadata: metadata,
 		}
 
-		// Track 2: Use pointer dereference safely
-		if ip.Properties.PublicIPAddressVersion != nil && *ip.Properties.PublicIPAddressVersion == armnetwork.IPVersionIPv4 {
-			resource.PublicIPv4 = *ip.Properties.IPAddress
-		} else if ip.Properties.PublicIPAddressVersion != nil {
-			resource.PublicIPv6 = *ip.Properties.IPAddress
+		// Determine IP version; fall back to parsing the address when version is nil
+		ipStr := *ip.Properties.IPAddress
+		switch {
+		case ip.Properties.PublicIPAddressVersion != nil && *ip.Properties.PublicIPAddressVersion == armnetwork.IPVersionIPv4:
+			resource.PublicIPv4 = ipStr
+		case ip.Properties.PublicIPAddressVersion != nil && *ip.Properties.PublicIPAddressVersion == armnetwork.IPVersionIPv6:
+			resource.PublicIPv6 = ipStr
+		default:
+			// When version is nil, infer from address format
+			if strings.Contains(ipStr, ":") {
+				resource.PublicIPv6 = ipStr
+			} else {
+				resource.PublicIPv4 = ipStr
+			}
 		}
 
 		list.Append(resource)
@@ -157,13 +166,7 @@ func (pip *publicIPProvider) getPublicIPMetadata(ip *armnetwork.PublicIPAddress)
 			schema.AddMetadata(metadata, "public_ip_prefix_id", props.PublicIPPrefix.ID)
 		}
 
-		if props.DdosSettings != nil {
-			if props.DdosSettings.ProtectedIP != nil {
-				protected := fmt.Sprintf("%v", *props.DdosSettings.ProtectedIP)
-				metadata["ddos_protected_ip"] = protected
-			}
-		}
-
+		// DDoS settings fields vary by SDK version and are not included in current build
 		if props.IPTags != nil && len(props.IPTags) > 0 {
 			var ipTagStrings []string
 			for _, ipTag := range props.IPTags {
