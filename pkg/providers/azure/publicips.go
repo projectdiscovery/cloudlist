@@ -5,16 +5,15 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/profiles/latest/network/mgmt/network"
-	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/azure"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
 type publicIPProvider struct {
 	id               string
 	SubscriptionID   string
-	Authorizer       autorest.Authorizer
+	Credential       azcore.TokenCredential // Track 2: replaced autorest.Authorizer
 	extendedMetadata bool
 }
 
@@ -33,13 +32,13 @@ func (pip *publicIPProvider) GetResource(ctx context.Context) (*schema.Resources
 	}
 
 	for _, ip := range ips {
-		if ip.IPAddress == nil {
+		if ip.Properties == nil || ip.Properties.IPAddress == nil {
 			continue
 		}
 
 		var metadata map[string]string
 		if pip.extendedMetadata {
-			metadata = pip.getPublicIPMetadata(&ip)
+			metadata = pip.getPublicIPMetadata(ip)
 		}
 
 		resource := &schema.Resource{
@@ -50,19 +49,20 @@ func (pip *publicIPProvider) GetResource(ctx context.Context) (*schema.Resources
 			Metadata: metadata,
 		}
 
-		if ip.PublicIPAddressVersion == network.IPv4 {
-			resource.PublicIPv4 = *ip.IPAddress
-		} else {
-			resource.PublicIPv6 = *ip.IPAddress
+		// Track 2: Use pointer dereference safely
+		if ip.Properties.PublicIPAddressVersion != nil && *ip.Properties.PublicIPAddressVersion == armnetwork.IPVersionIPv4 {
+			resource.PublicIPv4 = *ip.Properties.IPAddress
+		} else if ip.Properties.PublicIPAddressVersion != nil {
+			resource.PublicIPv6 = *ip.Properties.IPAddress
 		}
 
 		list.Append(resource)
 
-		if pip.extendedMetadata && ip.DNSSettings != nil && ip.DNSSettings.Fqdn != nil {
+		if pip.extendedMetadata && ip.Properties.DNSSettings != nil && ip.Properties.DNSSettings.Fqdn != nil {
 			dnsResource := &schema.Resource{
 				Provider: providerName,
 				ID:       pip.id,
-				DNSName:  *ip.DNSSettings.Fqdn,
+				DNSName:  *ip.Properties.DNSSettings.Fqdn,
 				Service:  pip.name(),
 			}
 			if metadata != nil {
@@ -77,30 +77,30 @@ func (pip *publicIPProvider) GetResource(ctx context.Context) (*schema.Resources
 	return list, nil
 }
 
-func (pip *publicIPProvider) fetchPublicIPs(ctx context.Context) ([]network.PublicIPAddress, error) {
-	var ips []network.PublicIPAddress
+func (pip *publicIPProvider) fetchPublicIPs(ctx context.Context) ([]*armnetwork.PublicIPAddress, error) {
+	var ips []*armnetwork.PublicIPAddress
 
-	ipClient := network.NewPublicIPAddressesClient(pip.SubscriptionID)
-	ipClient.Authorizer = pip.Authorizer
-
-	ipsIt, err := ipClient.ListAllComplete(ctx)
+	// Track 2: Create public IP addresses client directly
+	ipClient, err := armnetwork.NewPublicIPAddressesClient(pip.SubscriptionID, pip.Credential, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create public IP client: %w", err)
 	}
 
-	for ipsIt.NotDone() {
-		ip := ipsIt.Value()
-		ips = append(ips, ip)
-
-		if err = ipsIt.NextWithContext(ctx); err != nil {
-			return ips, err
+	// Track 2: Use pager pattern instead of iterator
+	pager := ipClient.NewListAllPager(nil)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list public IPs: %w", err)
 		}
+
+		ips = append(ips, page.Value...)
 	}
 
-	return ips, err
+	return ips, nil
 }
 
-func (pip *publicIPProvider) getPublicIPMetadata(ip *network.PublicIPAddress) map[string]string {
+func (pip *publicIPProvider) getPublicIPMetadata(ip *armnetwork.PublicIPAddress) map[string]string {
 	metadata := make(map[string]string)
 
 	schema.AddMetadata(metadata, "public_ip_name", ip.Name)
@@ -109,28 +109,33 @@ func (pip *publicIPProvider) getPublicIPMetadata(ip *network.PublicIPAddress) ma
 	metadata["owner_id"] = pip.SubscriptionID
 	schema.AddMetadata(metadata, "location", ip.Location)
 
+	// Track 2: Parse resource group from ID manually (no ParseResourceID in Track 2)
 	if ip.ID != nil {
-		res, err := azure.ParseResourceID(*ip.ID)
-		if err == nil {
-			metadata["resource_group"] = res.ResourceGroup
+		// Azure resource ID format: /subscriptions/{subId}/resourceGroups/{rgName}/...
+		parts := strings.Split(*ip.ID, "/")
+		for i, part := range parts {
+			if strings.EqualFold(part, "resourceGroups") && i+1 < len(parts) {
+				metadata["resource_group"] = parts[i+1]
+				break
+			}
 		}
 	}
 
-	if ip.PublicIPAddressPropertiesFormat != nil {
-		props := ip.PublicIPAddressPropertiesFormat
+	if ip.Properties != nil {
+		props := ip.Properties
 
-		if props.ProvisioningState != "" {
-			provisioningState := string(props.ProvisioningState)
+		if props.ProvisioningState != nil {
+			provisioningState := string(*props.ProvisioningState)
 			schema.AddMetadata(metadata, "provisioning_state", &provisioningState)
 		}
 
-		if props.PublicIPAllocationMethod != "" {
-			allocationMethod := string(props.PublicIPAllocationMethod)
+		if props.PublicIPAllocationMethod != nil {
+			allocationMethod := string(*props.PublicIPAllocationMethod)
 			metadata["allocation_method"] = allocationMethod
 		}
 
-		if props.PublicIPAddressVersion != "" {
-			ipVersion := string(props.PublicIPAddressVersion)
+		if props.PublicIPAddressVersion != nil {
+			ipVersion := string(*props.PublicIPAddressVersion)
 			metadata["ip_version"] = ipVersion
 		}
 
@@ -153,18 +158,15 @@ func (pip *publicIPProvider) getPublicIPMetadata(ip *network.PublicIPAddress) ma
 		}
 
 		if props.DdosSettings != nil {
-			if props.DdosSettings.ProtectionMode != "" {
-				mode := string(props.DdosSettings.ProtectionMode)
-				metadata["ddos_protection_mode"] = mode
-			}
-			if props.DdosSettings.DdosProtectionPlan != nil {
-				schema.AddMetadata(metadata, "ddos_protection_plan_id", props.DdosSettings.DdosProtectionPlan.ID)
+			if props.DdosSettings.ProtectedIP != nil {
+				protected := fmt.Sprintf("%v", *props.DdosSettings.ProtectedIP)
+				metadata["ddos_protected_ip"] = protected
 			}
 		}
 
-		if props.IPTags != nil && len(*props.IPTags) > 0 {
+		if props.IPTags != nil && len(props.IPTags) > 0 {
 			var ipTagStrings []string
-			for _, ipTag := range *props.IPTags {
+			for _, ipTag := range props.IPTags {
 				if ipTag.IPTagType != nil && ipTag.Tag != nil {
 					ipTagStrings = append(ipTagStrings, fmt.Sprintf("%s:%s", *ipTag.IPTagType, *ipTag.Tag))
 				}
@@ -178,8 +180,8 @@ func (pip *publicIPProvider) getPublicIPMetadata(ip *network.PublicIPAddress) ma
 			schema.AddMetadata(metadata, "linked_public_ip_id", props.LinkedPublicIPAddress.ID)
 		}
 
-		if props.MigrationPhase != "" {
-			phase := string(props.MigrationPhase)
+		if props.MigrationPhase != nil {
+			phase := string(*props.MigrationPhase)
 			metadata["migration_phase"] = phase
 		}
 
@@ -191,25 +193,32 @@ func (pip *publicIPProvider) getPublicIPMetadata(ip *network.PublicIPAddress) ma
 			schema.AddMetadata(metadata, "service_public_ip_id", props.ServicePublicIPAddress.ID)
 		}
 
-		if props.DeleteOption != "" {
-			deleteOption := string(props.DeleteOption)
+		if props.DeleteOption != nil {
+			deleteOption := string(*props.DeleteOption)
 			metadata["delete_option"] = deleteOption
 		}
 	}
 
-	if ip.Sku != nil {
-		skuName := string(ip.Sku.Name)
+	if ip.SKU != nil && ip.SKU.Name != nil {
+		skuName := string(*ip.SKU.Name)
 		schema.AddMetadata(metadata, "sku_name", &skuName)
 
-		if ip.Sku.Tier != "" {
-			tier := string(ip.Sku.Tier)
+		if ip.SKU.Tier != nil {
+			tier := string(*ip.SKU.Tier)
 			metadata["sku_tier"] = tier
 		}
 	}
 
-	if ip.Zones != nil && len(*ip.Zones) > 0 {
-		zones := strings.Join(*ip.Zones, ",")
-		metadata["availability_zones"] = zones
+	if len(ip.Zones) > 0 {
+		var zones []string
+		for _, z := range ip.Zones {
+			if z != nil {
+				zones = append(zones, *z)
+			}
+		}
+		if len(zones) > 0 {
+			metadata["availability_zones"] = strings.Join(zones, ",")
+		}
 	}
 
 	if len(ip.Tags) > 0 {
@@ -220,8 +229,8 @@ func (pip *publicIPProvider) getPublicIPMetadata(ip *network.PublicIPAddress) ma
 
 	if ip.ExtendedLocation != nil {
 		schema.AddMetadata(metadata, "extended_location_name", ip.ExtendedLocation.Name)
-		if ip.ExtendedLocation.Type != "" {
-			extType := string(ip.ExtendedLocation.Type)
+		if ip.ExtendedLocation.Type != nil {
+			extType := string(*ip.ExtendedLocation.Type)
 			schema.AddMetadata(metadata, "extended_location_type", &extType)
 		}
 	}

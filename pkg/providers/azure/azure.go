@@ -5,12 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/profiles/latest/network/mgmt/network"
-	"github.com/Azure/azure-sdk-for-go/profiles/latest/resources/mgmt/resources"
-	"github.com/Azure/azure-sdk-for-go/profiles/latest/resources/mgmt/subscriptions"
-	"github.com/Azure/azure-sdk-for-go/profiles/latest/trafficmanager/mgmt/trafficmanager"
-	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/azure/auth"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/projectdiscovery/gologger"
 )
@@ -28,49 +24,26 @@ const (
 
 var Services = []string{"vm", "publicip", "trafficmanager"}
 
-// Provider is a data provider for Azure API
+// Provider is a data provider for Azure API using Track 2 SDK
 type Provider struct {
 	id               string
 	SubscriptionIDs  []string
-	Authorizer       autorest.Authorizer
+	Credential       azcore.TokenCredential // Track 2: replaced autorest.Authorizer
 	services         schema.ServiceMap
 	extendedMetadata bool
 }
 
-// New creates a new provider client for Azure API
+// New creates a new provider client for Azure API using Track 2 SDK
 func New(options schema.OptionBlock) (*Provider, error) {
 	ID, _ := options.GetMetadata(id)
-	UseCliAuth, _ := options.GetMetadata(useCliAuth)
 
-	var authorizer autorest.Authorizer
-	var err error
-
-	if UseCliAuth == "true" {
-		authorizer, err = auth.NewAuthorizerFromCLI()
-		if err != nil {
-			gologger.Error().Msgf("Couldn't authorize using cli: %s\n", err)
-			return nil, err
-		}
-	} else {
-		ClientID, ok := options.GetMetadata(clientID)
-		if !ok {
-			return nil, &schema.ErrNoSuchKey{Name: clientID}
-		}
-		ClientSecret, ok := options.GetMetadata(clientSecret)
-		if !ok {
-			return nil, &schema.ErrNoSuchKey{Name: clientSecret}
-		}
-		TenantID, ok := options.GetMetadata(tenantID)
-		if !ok {
-			return nil, &schema.ErrNoSuchKey{Name: tenantID}
-		}
-
-		config := auth.NewClientCredentialsConfig(ClientID, ClientSecret, TenantID)
-		authorizer, err = config.Authorizer()
-		if err != nil {
-			return nil, err
-		}
+	// Track 2: Create credential using new authentication layer
+	credential, err := createCredential(options)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Azure credential: %w", err)
 	}
+
+	gologger.Info().Msgf("Azure authentication method: %s", getAuthenticationSummary(options))
 
 	// Parse services
 	supportedServicesMap := make(map[string]struct{})
@@ -92,7 +65,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	}
 
 	provider := &Provider{
-		Authorizer: authorizer,
+		Credential: credential, // Track 2: use credential instead of authorizer
 		id:         ID,
 		services:   services,
 	}
@@ -109,20 +82,24 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		return provider, nil
 	}
 
-	// Otherwise, discover all available subscriptions
+	// Otherwise, discover all available subscriptions using Track 2 SDK
 	gologger.Info().Msgf("Listing subscriptions from provider: azure")
 
 	ctx := context.Background()
-	subsClient := subscriptions.NewClient()
-	subsClient.Authorizer = authorizer
+	subsClient, err := armsubscriptions.NewClient(credential, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create subscriptions client: %w", err)
+	}
 
 	var subIDs []string
-	for subsList, err := subsClient.List(ctx); subsList.NotDone(); err = subsList.NextWithContext(ctx) {
+	pager := subsClient.NewListPager(nil)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to list subscriptions: %v", err)
+			return nil, fmt.Errorf("failed to list subscriptions: %w", err)
 		}
 
-		for _, sub := range subsList.Values() {
+		for _, sub := range page.Value {
 			if sub.SubscriptionID != nil {
 				subIDs = append(subIDs, *sub.SubscriptionID)
 				gologger.Info().Msgf("Discovered subscription: %s", *sub.SubscriptionID)
@@ -162,7 +139,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		gologger.Info().Msgf("Processing subscription: %s", subscriptionID)
 
 		if p.services.Has("vm") {
-			vmp := &vmProvider{Authorizer: p.Authorizer, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
+			vmp := &vmProvider{Credential: p.Credential, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
 			vmIPs, err := vmp.GetResource(ctx)
 			if err != nil {
 				gologger.Warning().Msgf("Error listing VM public IPs for subscription %s: %s", subscriptionID, err)
@@ -172,7 +149,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		}
 
 		if p.services.Has("publicip") {
-			publicIPp := &publicIPProvider{Authorizer: p.Authorizer, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
+			publicIPp := &publicIPProvider{Credential: p.Credential, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
 			publicIPs, err := publicIPp.GetResource(ctx)
 			if err != nil {
 				gologger.Warning().Msgf("Error listing public IPs for subscription %s: %s", subscriptionID, err)
@@ -182,7 +159,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		}
 
 		if p.services.Has("trafficmanager") {
-			trafficManagerp := &trafficManagerProvider{Authorizer: p.Authorizer, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
+			trafficManagerp := &trafficManagerProvider{Credential: p.Credential, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
 			trafficManager, err := trafficManagerp.GetResource(ctx)
 			if err != nil {
 				gologger.Warning().Msgf("Error listing traffic manager for subscription %s: %s", subscriptionID, err)
@@ -194,42 +171,25 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	return resources, nil
 }
 
-// Verify checks if the provider is valid using simple API call
+// Verify checks if the provider is valid using simple API call with Track 2 SDK
 func (p *Provider) Verify(ctx context.Context) error {
-	for _, subscriptionID := range p.SubscriptionIDs {
-		groupsClient := resources.NewGroupsClient(subscriptionID)
-		groupsClient.Authorizer = p.Authorizer
-
-		pClient := network.NewPublicIPAddressesClient(subscriptionID)
-		pClient.Authorizer = p.Authorizer
-
-		trafficManagerClient := trafficmanager.NewProfilesClient(subscriptionID)
-		trafficManagerClient.Authorizer = p.Authorizer
-
-		// Try a lightweight operation - just list the first group
-		var success bool
-		if p.services.Has("vm") {
-			_, err := groupsClient.List(ctx, "", nil)
-			if err != nil {
-				return fmt.Errorf("failed to verify Azure credentials: %v", err)
-			}
-			success = true
-		} else if p.services.Has("publicip") && !success {
-			_, err := pClient.ListAllComplete(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to verify Azure credentials: %v", err)
-			}
-			success = true
-		} else if p.services.Has("trafficmanager") && !success {
-			_, err := trafficManagerClient.ListBySubscription(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to verify Azure credentials: %v", err)
-			}
-			success = true
-		}
-		if success {
-			return nil
-		}
+	// Simple verification: try to create a subscriptions client and list one subscription
+	subsClient, err := armsubscriptions.NewClient(p.Credential, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create subscriptions client: %w", err)
 	}
-	return fmt.Errorf("no accessible Azure services found with provided credentials")
+
+	// Try to list at least one subscription
+	pager := subsClient.NewListPager(nil)
+	if !pager.More() {
+		return fmt.Errorf("no subscriptions found with provided credentials")
+	}
+
+	_, err = pager.NextPage(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to verify Azure credentials: %w", err)
+	}
+
+	gologger.Info().Msg("Azure credentials verified successfully")
+	return nil
 }

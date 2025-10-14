@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/profiles/latest/trafficmanager/mgmt/trafficmanager"
-	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/azure"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/trafficmanager/armtrafficmanager"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
@@ -15,7 +14,7 @@ import (
 type trafficManagerProvider struct {
 	id               string
 	SubscriptionID   string
-	Authorizer       autorest.Authorizer
+	Credential       azcore.TokenCredential // Track 2: replaced autorest.Authorizer
 	extendedMetadata bool
 }
 
@@ -33,17 +32,17 @@ func (tmp *trafficManagerProvider) GetResource(ctx context.Context) (*schema.Res
 		return nil, err
 	}
 
-	for _, profile := range *profiles {
-		if profile.ProfileProperties != nil && profile.DNSConfig != nil && profile.DNSConfig.Fqdn != nil {
+	for _, profile := range profiles {
+		if profile.Properties != nil && profile.Properties.DNSConfig != nil && profile.Properties.DNSConfig.Fqdn != nil {
 			var metadata map[string]string
 			if tmp.extendedMetadata {
-				metadata = tmp.getTrafficManagerMetadata(&profile)
+				metadata = tmp.getTrafficManagerMetadata(profile)
 			}
 
 			resource := &schema.Resource{
 				Provider: providerName,
 				ID:       tmp.id,
-				DNSName:  *profile.DNSConfig.Fqdn,
+				DNSName:  *profile.Properties.DNSConfig.Fqdn,
 				Service:  tmp.name(),
 				Metadata: metadata,
 			}
@@ -53,19 +52,29 @@ func (tmp *trafficManagerProvider) GetResource(ctx context.Context) (*schema.Res
 	return list, nil
 }
 
-func (tmp *trafficManagerProvider) fetchTrafficManagerProfiles(ctx context.Context) (*[]trafficmanager.Profile, error) {
-	client := trafficmanager.NewProfilesClient(tmp.SubscriptionID)
-	client.Authorizer = tmp.Authorizer
-
-	profilesIt, err := client.ListBySubscription(ctx)
+func (tmp *trafficManagerProvider) fetchTrafficManagerProfiles(ctx context.Context) ([]*armtrafficmanager.Profile, error) {
+	// Track 2: Create profiles client directly
+	client, err := armtrafficmanager.NewProfilesClient(tmp.SubscriptionID, tmp.Credential, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create traffic manager profiles client: %w", err)
 	}
 
-	return profilesIt.Value, nil
+	// Track 2: Use pager pattern
+	var profiles []*armtrafficmanager.Profile
+	pager := client.NewListBySubscriptionPager(nil)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list traffic manager profiles: %w", err)
+		}
+
+		profiles = append(profiles, page.Value...)
+	}
+
+	return profiles, nil
 }
 
-func (tmp *trafficManagerProvider) getTrafficManagerMetadata(profile *trafficmanager.Profile) map[string]string {
+func (tmp *trafficManagerProvider) getTrafficManagerMetadata(profile *armtrafficmanager.Profile) map[string]string {
 	metadata := make(map[string]string)
 
 	schema.AddMetadata(metadata, "profile_name", profile.Name)
@@ -75,28 +84,32 @@ func (tmp *trafficManagerProvider) getTrafficManagerMetadata(profile *trafficman
 	schema.AddMetadata(metadata, "location", profile.Location)
 	schema.AddMetadata(metadata, "type", profile.Type)
 
+	// Track 2: Parse resource group from ID manually
 	if profile.ID != nil {
-		res, err := azure.ParseResourceID(*profile.ID)
-		if err == nil {
-			metadata["resource_group"] = res.ResourceGroup
+		parts := strings.Split(*profile.ID, "/")
+		for i, part := range parts {
+			if strings.EqualFold(part, "resourceGroups") && i+1 < len(parts) {
+				metadata["resource_group"] = parts[i+1]
+				break
+			}
 		}
 	}
 
-	if profile.ProfileProperties != nil {
-		props := profile.ProfileProperties
+	if profile.Properties != nil {
+		props := profile.Properties
 
-		if props.ProfileStatus != "" {
-			profileStatus := string(props.ProfileStatus)
+		if props.ProfileStatus != nil {
+			profileStatus := string(*props.ProfileStatus)
 			metadata["profile_status"] = profileStatus
 		}
 
-		if props.TrafficRoutingMethod != "" {
-			routingMethod := string(props.TrafficRoutingMethod)
+		if props.TrafficRoutingMethod != nil {
+			routingMethod := string(*props.TrafficRoutingMethod)
 			metadata["traffic_routing_method"] = routingMethod
 		}
 
-		if props.TrafficViewEnrollmentStatus != "" {
-			trafficViewStatus := string(props.TrafficViewEnrollmentStatus)
+		if props.TrafficViewEnrollmentStatus != nil {
+			trafficViewStatus := string(*props.TrafficViewEnrollmentStatus)
 			metadata["traffic_view_enrollment_status"] = trafficViewStatus
 		}
 
@@ -113,12 +126,12 @@ func (tmp *trafficManagerProvider) getTrafficManagerMetadata(profile *trafficman
 		}
 
 		if props.MonitorConfig != nil {
-			if props.MonitorConfig.ProfileMonitorStatus != "" {
-				monitorStatus := string(props.MonitorConfig.ProfileMonitorStatus)
+			if props.MonitorConfig.ProfileMonitorStatus != nil {
+				monitorStatus := string(*props.MonitorConfig.ProfileMonitorStatus)
 				metadata["monitor_status"] = monitorStatus
 			}
-			if props.MonitorConfig.Protocol != "" {
-				protocol := string(props.MonitorConfig.Protocol)
+			if props.MonitorConfig.Protocol != nil {
+				protocol := string(*props.MonitorConfig.Protocol)
 				metadata["monitor_protocol"] = protocol
 			}
 			if props.MonitorConfig.Port != nil {
@@ -135,9 +148,9 @@ func (tmp *trafficManagerProvider) getTrafficManagerMetadata(profile *trafficman
 				metadata["monitor_tolerated_failures"] = fmt.Sprintf("%d", *props.MonitorConfig.ToleratedNumberOfFailures)
 			}
 
-			if props.MonitorConfig.CustomHeaders != nil && len(*props.MonitorConfig.CustomHeaders) > 0 {
+			if props.MonitorConfig.CustomHeaders != nil && len(props.MonitorConfig.CustomHeaders) > 0 {
 				var headers []string
-				for _, header := range *props.MonitorConfig.CustomHeaders {
+				for _, header := range props.MonitorConfig.CustomHeaders {
 					if header.Name != nil && header.Value != nil {
 						headers = append(headers, fmt.Sprintf("%s=%s", *header.Name, *header.Value))
 					}
@@ -147,9 +160,9 @@ func (tmp *trafficManagerProvider) getTrafficManagerMetadata(profile *trafficman
 				}
 			}
 
-			if props.MonitorConfig.ExpectedStatusCodeRanges != nil && len(*props.MonitorConfig.ExpectedStatusCodeRanges) > 0 {
+			if props.MonitorConfig.ExpectedStatusCodeRanges != nil && len(props.MonitorConfig.ExpectedStatusCodeRanges) > 0 {
 				var ranges []string
-				for _, statusRange := range *props.MonitorConfig.ExpectedStatusCodeRanges {
+				for _, statusRange := range props.MonitorConfig.ExpectedStatusCodeRanges {
 					if statusRange.Min != nil && statusRange.Max != nil {
 						ranges = append(ranges, fmt.Sprintf("%d-%d", *statusRange.Min, *statusRange.Max))
 					}
@@ -160,15 +173,15 @@ func (tmp *trafficManagerProvider) getTrafficManagerMetadata(profile *trafficman
 			}
 		}
 
-		if props.Endpoints != nil && len(*props.Endpoints) > 0 {
-			metadata["endpoints_count"] = fmt.Sprintf("%d", len(*props.Endpoints))
+		if props.Endpoints != nil && len(props.Endpoints) > 0 {
+			metadata["endpoints_count"] = fmt.Sprintf("%d", len(props.Endpoints))
 
 			var endpointTargets []string
 			var endpointTypes []string
-			for _, endpoint := range *props.Endpoints {
-				if endpoint.EndpointProperties != nil {
-					if endpoint.Target != nil {
-						endpointTargets = append(endpointTargets, *endpoint.Target)
+			for _, endpoint := range props.Endpoints {
+				if endpoint.Properties != nil {
+					if endpoint.Properties.Target != nil {
+						endpointTargets = append(endpointTargets, *endpoint.Properties.Target)
 					}
 					if endpoint.Type != nil {
 						endpointTypes = append(endpointTypes, *endpoint.Type)
@@ -183,10 +196,12 @@ func (tmp *trafficManagerProvider) getTrafficManagerMetadata(profile *trafficman
 			}
 		}
 
-		if props.AllowedEndpointRecordTypes != nil && len(*props.AllowedEndpointRecordTypes) > 0 {
+		if len(props.AllowedEndpointRecordTypes) > 0 {
 			var recordTypes []string
-			for _, rt := range *props.AllowedEndpointRecordTypes {
-				recordTypes = append(recordTypes, string(rt))
+			for _, rt := range props.AllowedEndpointRecordTypes {
+				if rt != nil {
+					recordTypes = append(recordTypes, string(*rt))
+				}
 			}
 			metadata["allowed_endpoint_record_types"] = strings.Join(recordTypes, ",")
 		}
