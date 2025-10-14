@@ -134,43 +134,88 @@ func TestShortLivedTokenSource_ValidateLifetime(t *testing.T) {
 	}
 }
 
-func TestRegisterWithOptions_Validation(t *testing.T) {
+func TestValidateShortLivedConfig(t *testing.T) {
 	tests := []struct {
 		name                 string
 		useShortLived        bool
 		targetServiceAccount string
+		tokenLifetime        string
 		expectError          bool
-		errorMsg             string
+		errorContains        string
 	}{
+		{
+			name:                 "traditional auth - no validation needed",
+			useShortLived:        false,
+			targetServiceAccount: "",
+			tokenLifetime:        "",
+			expectError:          false,
+		},
 		{
 			name:                 "short-lived without service account email",
 			useShortLived:        true,
 			targetServiceAccount: "",
+			tokenLifetime:        "3600s",
 			expectError:          true,
-			errorMsg:             "service_account_email is required when use_short_lived_credentials is true",
+			errorContains:        "service_account_email is required",
 		},
 		{
-			name:                 "short-lived with service account email",
+			name:                 "short-lived with valid config",
 			useShortLived:        true,
 			targetServiceAccount: "test@project.iam.gserviceaccount.com",
+			tokenLifetime:        "3600s",
 			expectError:          false,
 		},
 		{
-			name:                 "traditional auth without service account email",
-			useShortLived:        false,
-			targetServiceAccount: "",
+			name:                 "short-lived with valid token lifetime (1h)",
+			useShortLived:        true,
+			targetServiceAccount: "test@project.iam.gserviceaccount.com",
+			tokenLifetime:        "1h",
+			expectError:          false,
+		},
+		{
+			name:                 "short-lived with invalid token lifetime (too long)",
+			useShortLived:        true,
+			targetServiceAccount: "test@project.iam.gserviceaccount.com",
+			tokenLifetime:        "7200s",
+			expectError:          true,
+			errorContains:        "token lifetime must be between 1 second and 1 hour",
+		},
+		{
+			name:                 "short-lived with invalid token lifetime (zero)",
+			useShortLived:        true,
+			targetServiceAccount: "test@project.iam.gserviceaccount.com",
+			tokenLifetime:        "0s",
+			expectError:          true,
+			errorContains:        "token lifetime must be between 1 second and 1 hour",
+		},
+		{
+			name:                 "short-lived with invalid token lifetime format",
+			useShortLived:        true,
+			targetServiceAccount: "test@project.iam.gserviceaccount.com",
+			tokenLifetime:        "invalid",
+			expectError:          true,
+			errorContains:        "invalid token lifetime",
+		},
+		{
+			name:                 "short-lived with minimum valid lifetime (1s)",
+			useShortLived:        true,
+			targetServiceAccount: "test@project.iam.gserviceaccount.com",
+			tokenLifetime:        "1s",
 			expectError:          false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// This test validates the validation logic
-			// We can't actually call registerWithOptions without valid GCP credentials
-			// So we just verify the validation logic
-			if tt.useShortLived && tt.targetServiceAccount == "" {
-				// This should fail validation
-				assert.True(t, tt.expectError)
+			err := validateShortLivedConfig(tt.useShortLived, tt.targetServiceAccount, tt.tokenLifetime)
+
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}

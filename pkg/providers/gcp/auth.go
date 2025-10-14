@@ -128,6 +128,29 @@ func parseDuration(lifetime string) (time.Duration, error) {
 	return duration, nil
 }
 
+// validateShortLivedConfig validates the configuration for short-lived credentials
+func validateShortLivedConfig(useShortLived bool, targetServiceAccount, tokenLifetime string) error {
+	if !useShortLived {
+		return nil
+	}
+
+	if targetServiceAccount == "" {
+		return errkit.New("service_account_email is required when use_short_lived_credentials is true")
+	}
+
+	// Validate token lifetime
+	lifetimeDuration, err := parseDuration(tokenLifetime)
+	if err != nil {
+		return errkit.Wrap(err, "invalid token lifetime")
+	}
+
+	if lifetimeDuration < time.Second || lifetimeDuration > time.Hour {
+		return errkit.New("token lifetime must be between 1 second and 1 hour (3600s)")
+	}
+
+	return nil
+}
+
 func register(ctx context.Context, serviceAccountKey []byte) (option.ClientOption, error) {
 	return registerWithOptions(ctx, serviceAccountKey, false, "", "", "3600s")
 }
@@ -141,6 +164,11 @@ func registerWithOptions(
 	sourceCredentialsPath string,
 	tokenLifetime string,
 ) (option.ClientOption, error) {
+	// Validate configuration first
+	if err := validateShortLivedConfig(useShortLived, targetServiceAccount, tokenLifetime); err != nil {
+		return nil, err
+	}
+
 	// Step 1: Obtain source credentials
 	var sourceCreds *google.Credentials
 	var err error
@@ -175,10 +203,6 @@ func registerWithOptions(
 	// Step 2: If short-lived credentials are requested, generate them
 	var finalTokenSource oauth2.TokenSource
 	if useShortLived {
-		if targetServiceAccount == "" {
-			return nil, errkit.New("service_account_email is required when use_short_lived_credentials is true")
-		}
-
 		gologger.Info().Msgf("Configuring short-lived credentials for service account: %s", targetServiceAccount)
 
 		// Create short-lived token source
