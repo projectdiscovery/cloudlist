@@ -167,7 +167,7 @@ func (pip *publicIPProvider) getPublicIPMetadata(ip *armnetwork.PublicIPAddress)
 		}
 
 		// DDoS settings fields vary by SDK version and are not included in current build
-		if props.IPTags != nil && len(props.IPTags) > 0 {
+		if len(props.IPTags) > 0 {
 			var ipTagStrings []string
 			for _, ipTag := range props.IPTags {
 				if ipTag.IPTagType != nil && ipTag.Tag != nil {

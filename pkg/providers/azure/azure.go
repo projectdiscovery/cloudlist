@@ -318,6 +318,5 @@ func (p *Provider) Verify(ctx context.Context) error {
 		return fmt.Errorf("no subscriptions found with provided credentials")
 	}
 
-	gologger.Info().Msg("Azure credentials verified successfully")
 	return nil
 }

@@ -47,12 +47,12 @@ func (cip *containerInstancesProvider) GetResource(ctx context.Context) (*schema
 			// Public IP resource
 			if cg.Properties.IPAddress.IP != nil {
 				resource := &schema.Resource{
-					Provider:    providerName,
-					ID:          cip.id,
-					Public:      true,
-					Service:     cip.name(),
-					PublicIPv4:  *cg.Properties.IPAddress.IP,
-					Metadata:    metadata,
+					Provider:   providerName,
+					ID:         cip.id,
+					Public:     true,
+					Service:    cip.name(),
+					PublicIPv4: *cg.Properties.IPAddress.IP,
+					Metadata:   metadata,
 				}
 				list.Append(resource)
 			}
@@ -76,19 +76,19 @@ func (cip *containerInstancesProvider) GetResource(ctx context.Context) (*schema
 		}
 
 		// Extract private IPs from subnet IDs (VNet integration)
-		if cg.Properties.SubnetIDs != nil && len(cg.Properties.SubnetIDs) > 0 {
+		if len(cg.Properties.SubnetIDs) > 0 {
 			// Container groups with VNet integration have private IPs
 			// The private IP is available in IPAddress even for VNet-integrated groups
 			if cg.Properties.IPAddress != nil && cg.Properties.IPAddress.IP != nil {
 				// Check if this is a private IP (VNet-integrated)
 				if cg.Properties.IPAddress.Type != nil && *cg.Properties.IPAddress.Type == armcontainerinstance.ContainerGroupIPAddressTypePrivate {
 					resource := &schema.Resource{
-						Provider:     providerName,
-						ID:           cip.id,
-						Public:       false,
-						Service:      cip.name(),
-						PrivateIpv4:  *cg.Properties.IPAddress.IP,
-						Metadata:     metadata,
+						Provider:    providerName,
+						ID:          cip.id,
+						Public:      false,
+						Service:     cip.name(),
+						PrivateIpv4: *cg.Properties.IPAddress.IP,
+						Metadata:    metadata,
 					}
 					list.Append(resource)
 				}
@@ -184,7 +184,7 @@ func (cip *containerInstancesProvider) getContainerGroupMetadata(cg *armcontaine
 			schema.AddMetadata(metadata, "dns_name_label", props.IPAddress.DNSNameLabel)
 
 			// Ports
-			if props.IPAddress.Ports != nil && len(props.IPAddress.Ports) > 0 {
+			if len(props.IPAddress.Ports) > 0 {
 				var ports []string
 				for _, port := range props.IPAddress.Ports {
 					if port.Port != nil {
@@ -202,7 +202,7 @@ func (cip *containerInstancesProvider) getContainerGroupMetadata(cg *armcontaine
 		}
 
 		// Containers Information
-		if props.Containers != nil && len(props.Containers) > 0 {
+		if len(props.Containers) > 0 {
 			metadata["containers_count"] = fmt.Sprintf("%d", len(props.Containers))
 
 			var containerNames []string
@@ -224,7 +224,7 @@ func (cip *containerInstancesProvider) getContainerGroupMetadata(cg *armcontaine
 		}
 
 		// Image Registry Credentials
-		if props.ImageRegistryCredentials != nil && len(props.ImageRegistryCredentials) > 0 {
+		if len(props.ImageRegistryCredentials) > 0 {
 			var registries []string
 			for _, cred := range props.ImageRegistryCredentials {
 				if cred.Server != nil {
@@ -237,7 +237,7 @@ func (cip *containerInstancesProvider) getContainerGroupMetadata(cg *armcontaine
 		}
 
 		// Init Containers
-		if props.InitContainers != nil && len(props.InitContainers) > 0 {
+		if len(props.InitContainers) > 0 {
 			metadata["init_containers_count"] = fmt.Sprintf("%d", len(props.InitContainers))
 		}
 
@@ -247,7 +247,7 @@ func (cip *containerInstancesProvider) getContainerGroupMetadata(cg *armcontaine
 		}
 
 		// Subnet IDs (VNet integration)
-		if props.SubnetIDs != nil && len(props.SubnetIDs) > 0 {
+		if len(props.SubnetIDs) > 0 {
 			var subnetIDs []string
 			for _, subnetID := range props.SubnetIDs {
 				if subnetID.ID != nil {
@@ -261,7 +261,7 @@ func (cip *containerInstancesProvider) getContainerGroupMetadata(cg *armcontaine
 
 		// DNS Config
 		if props.DNSConfig != nil {
-			if props.DNSConfig.NameServers != nil && len(props.DNSConfig.NameServers) > 0 {
+			if len(props.DNSConfig.NameServers) > 0 {
 				var nameServers []string
 				for _, ns := range props.DNSConfig.NameServers {
 					if ns != nil {
@@ -282,7 +282,7 @@ func (cip *containerInstancesProvider) getContainerGroupMetadata(cg *armcontaine
 	}
 
 	// Zones
-	if cg.Zones != nil && len(cg.Zones) > 0 {
+	if len(cg.Zones) > 0 {
 		var zones []string
 		for _, z := range cg.Zones {
 			if z != nil {

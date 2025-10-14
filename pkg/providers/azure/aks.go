@@ -93,23 +93,13 @@ func (ap *aksProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 		}
 
 		// Extract network profile information for potential IPs
-		if cluster.Properties.NetworkProfile != nil {
-			networkProfile := cluster.Properties.NetworkProfile
-
-			// LoadBalancer outbound IPs are in the managed infrastructure
-			// These are not directly exposed in the cluster API response
-			// To get LoadBalancer service IPs, we would need to:
-			// 1. Connect to the Kubernetes API using the cluster credentials
-			// 2. List services with type=LoadBalancer
-			// 3. Extract their external IPs
-			// This is beyond the scope of Azure Resource Manager API
-
-			// However, we can extract service CIDR information for metadata
-			if ap.extendedMetadata && networkProfile.ServiceCidr != nil {
-				// Service CIDR is internal network range, not public IPs
-				// Adding to metadata only
-			}
-		}
+		// Note: LoadBalancer outbound IPs are in the managed infrastructure
+		// These are not directly exposed in the cluster API response
+		// To get LoadBalancer service IPs, we would need to:
+		// 1. Connect to the Kubernetes API using the cluster credentials
+		// 2. List services with type=LoadBalancer
+		// 3. Extract their external IPs
+		// This is beyond the scope of Azure Resource Manager API
 	}
 
 	return list, nil

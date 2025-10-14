@@ -147,7 +147,7 @@ func (fp *functionsProvider) getFunctionAppMetadata(app *armappservice.Site, def
 			metadata["https_only"] = fmt.Sprintf("%v", *props.HTTPSOnly)
 		}
 
-		if props.HostNames != nil && len(props.HostNames) > 0 {
+		if len(props.HostNames) > 0 {
 			var hostnames []string
 			for _, hostname := range props.HostNames {
 				if hostname != nil {

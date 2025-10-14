@@ -166,7 +166,7 @@ func (sp *storageProvider) GetResource(ctx context.Context) (*schema.Resources, 
 		}
 
 		// Check for Private Endpoints to extract private IPs
-		if account.Properties.PrivateEndpointConnections != nil && len(account.Properties.PrivateEndpointConnections) > 0 {
+		if len(account.Properties.PrivateEndpointConnections) > 0 {
 			privateIPs := sp.extractPrivateEndpointIPs(ctx, account)
 			for _, privateIP := range privateIPs {
 				var metadata map[string]string
@@ -381,7 +381,7 @@ func (sp *storageProvider) getStorageMetadata(account *armstorage.Account) map[s
 				metadata["network_acls_bypass"] = bypass
 			}
 
-			if networkRules.IPRules != nil && len(networkRules.IPRules) > 0 {
+			if len(networkRules.IPRules) > 0 {
 				var ipRules []string
 				for _, rule := range networkRules.IPRules {
 					if rule.IPAddressOrRange != nil {
@@ -393,7 +393,7 @@ func (sp *storageProvider) getStorageMetadata(account *armstorage.Account) map[s
 				}
 			}
 
-			if networkRules.VirtualNetworkRules != nil && len(networkRules.VirtualNetworkRules) > 0 {
+			if len(networkRules.VirtualNetworkRules) > 0 {
 				metadata["network_acls_vnet_rules_count"] = fmt.Sprintf("%d", len(networkRules.VirtualNetworkRules))
 			}
 		}
@@ -424,7 +424,7 @@ func (sp *storageProvider) getStorageMetadata(account *armstorage.Account) map[s
 			metadata["creation_time"] = props.CreationTime.Format("2006-01-02T15:04:05Z")
 		}
 
-		if props.PrivateEndpointConnections != nil && len(props.PrivateEndpointConnections) > 0 {
+		if len(props.PrivateEndpointConnections) > 0 {
 			metadata["private_endpoint_connections_count"] = fmt.Sprintf("%d", len(props.PrivateEndpointConnections))
 
 			var peStates []string

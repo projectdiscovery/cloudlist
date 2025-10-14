@@ -280,12 +280,12 @@ func (lbp *loadBalancerProvider) getLoadBalancerMetadata(lb *armnetwork.LoadBala
 		}
 
 		// Inbound NAT rules
-		if props.InboundNatRules != nil && len(props.InboundNatRules) > 0 {
+		if len(props.InboundNatRules) > 0 {
 			metadata["inbound_nat_rules_count"] = fmt.Sprintf("%d", len(props.InboundNatRules))
 		}
 
 		// Outbound rules
-		if props.OutboundRules != nil && len(props.OutboundRules) > 0 {
+		if len(props.OutboundRules) > 0 {
 			metadata["outbound_rules_count"] = fmt.Sprintf("%d", len(props.OutboundRules))
 		}
 	}
@@ -312,7 +312,7 @@ func (lbp *loadBalancerProvider) getLoadBalancerMetadata(lb *armnetwork.LoadBala
 		}
 
 		// Zones
-		if frontendIPConfig.Zones != nil && len(frontendIPConfig.Zones) > 0 {
+		if len(frontendIPConfig.Zones) > 0 {
 			var zones []string
 			for _, z := range frontendIPConfig.Zones {
 				if z != nil {

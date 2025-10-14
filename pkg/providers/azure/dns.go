@@ -218,7 +218,7 @@ func (dp *dnsProvider) getDNSRecordMetadata(zone *armdns.Zone, recordSet *armdns
 		if zone.Properties.MaxNumberOfRecordSets != nil {
 			metadata["zone_max_record_count"] = fmt.Sprintf("%d", *zone.Properties.MaxNumberOfRecordSets)
 		}
-		if zone.Properties.NameServers != nil && len(zone.Properties.NameServers) > 0 {
+		if len(zone.Properties.NameServers) > 0 {
 			var nameServers []string
 			for _, ns := range zone.Properties.NameServers {
 				if ns != nil {

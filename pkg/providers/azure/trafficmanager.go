@@ -148,7 +148,7 @@ func (tmp *trafficManagerProvider) getTrafficManagerMetadata(profile *armtraffic
 				metadata["monitor_tolerated_failures"] = fmt.Sprintf("%d", *props.MonitorConfig.ToleratedNumberOfFailures)
 			}
 
-			if props.MonitorConfig.CustomHeaders != nil && len(props.MonitorConfig.CustomHeaders) > 0 {
+			if len(props.MonitorConfig.CustomHeaders) > 0 {
 				var headers []string
 				for _, header := range props.MonitorConfig.CustomHeaders {
 					if header.Name != nil && header.Value != nil {
@@ -160,7 +160,7 @@ func (tmp *trafficManagerProvider) getTrafficManagerMetadata(profile *armtraffic
 				}
 			}
 
-			if props.MonitorConfig.ExpectedStatusCodeRanges != nil && len(props.MonitorConfig.ExpectedStatusCodeRanges) > 0 {
+			if len(props.MonitorConfig.ExpectedStatusCodeRanges) > 0 {
 				var ranges []string
 				for _, statusRange := range props.MonitorConfig.ExpectedStatusCodeRanges {
 					if statusRange.Min != nil && statusRange.Max != nil {
@@ -173,7 +173,7 @@ func (tmp *trafficManagerProvider) getTrafficManagerMetadata(profile *armtraffic
 			}
 		}
 
-		if props.Endpoints != nil && len(props.Endpoints) > 0 {
+		if len(props.Endpoints) > 0 {
 			metadata["endpoints_count"] = fmt.Sprintf("%d", len(props.Endpoints))
 
 			var endpointTargets []string

@@ -200,7 +200,7 @@ func (cap *containerAppsProvider) getContainerAppMetadata(app *armappcontainers.
 				metadata["ingress_allow_insecure"] = fmt.Sprintf("%v", *ingress.AllowInsecure)
 			}
 
-			if ingress.CustomDomains != nil && len(ingress.CustomDomains) > 0 {
+			if len(ingress.CustomDomains) > 0 {
 				var customDomainNames []string
 				for _, domain := range ingress.CustomDomains {
 					if domain.Name != nil {
@@ -218,7 +218,7 @@ func (cap *containerAppsProvider) getContainerAppMetadata(app *armappcontainers.
 		schema.AddMetadata(metadata, "latest_revision_fqdn", props.LatestRevisionFqdn)
 
 		// Outbound IP addresses
-		if props.OutboundIPAddresses != nil && len(props.OutboundIPAddresses) > 0 {
+		if len(props.OutboundIPAddresses) > 0 {
 			var outboundIPs []string
 			for _, ip := range props.OutboundIPAddresses {
 				if ip != nil {

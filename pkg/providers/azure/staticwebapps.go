@@ -129,7 +129,7 @@ func (swp *staticWebAppsProvider) getStaticSiteMetadata(site *armappservice.Stat
 		schema.AddMetadata(metadata, "default_hostname", props.DefaultHostname)
 
 		// Custom domains
-		if props.CustomDomains != nil && len(props.CustomDomains) > 0 {
+		if len(props.CustomDomains) > 0 {
 			var domains []string
 			for _, domain := range props.CustomDomains {
 				if domain != nil && *domain != "" {
@@ -192,7 +192,7 @@ func (swp *staticWebAppsProvider) getStaticSiteMetadata(site *armappservice.Stat
 		schema.AddMetadata(metadata, "key_vault_reference_identity", props.KeyVaultReferenceIdentity)
 
 		// User provided function apps
-		if props.UserProvidedFunctionApps != nil && len(props.UserProvidedFunctionApps) > 0 {
+		if len(props.UserProvidedFunctionApps) > 0 {
 			var functionApps []string
 			for _, app := range props.UserProvidedFunctionApps {
 				if app.ID != nil {

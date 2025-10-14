@@ -319,7 +319,7 @@ func (d *vmProvider) getVMMetadata(vm *armcompute.VirtualMachine, resourceGroup 
 		}
 	}
 
-	if vm.Zones != nil && len(vm.Zones) > 0 {
+	if len(vm.Zones) > 0 {
 		var zones []string
 		for _, z := range vm.Zones {
 			if z != nil {
