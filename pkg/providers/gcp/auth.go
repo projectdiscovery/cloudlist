@@ -234,7 +234,12 @@ func registerWithOptions(
 			return &googleAuthProvider{tokenSource: finalTokenSource}, nil
 		})
 	if err != nil {
-		return nil, errkit.Wrap(err, "failed to register GKE auth provider plugin")
+		// If the plugin is already registered, it's safe to ignore the error
+		// This happens when multiple GCP providers are configured
+		if !strings.Contains(err.Error(), "was registered twice") {
+			return nil, errkit.Wrap(err, "failed to register GKE auth provider plugin")
+		}
+		gologger.Debug().Msgf("GKE auth provider plugin already registered, reusing existing registration")
 	}
 
 	// Step 4: Return appropriate client option
