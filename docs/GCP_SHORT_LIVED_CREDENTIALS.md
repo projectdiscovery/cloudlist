@@ -4,7 +4,7 @@ This guide explains how to use GCP short-lived credentials with cloudlist for en
 
 ## Overview
 
-Short-lived credentials provide temporary access tokens (1-12 hours) instead of relying on static, long-lived service account keys. This approach:
+Short-lived credentials provide temporary access tokens (up to 1 hour) instead of relying on static, long-lived service account keys. This approach:
 
 - **Reduces security risk**: Tokens automatically expire, minimizing blast radius if compromised
 - **Eliminates credential distribution**: Developers can use `gcloud auth login` instead of sharing key files
@@ -63,7 +63,7 @@ Use a minimal-permission key that can only impersonate, not access resources dir
   use_short_lived_credentials: true
   service_account_email: "powerful-sa@project.iam.gserviceaccount.com"
   source_credentials: "minimal-ci-sa.json"
-  token_lifetime: "7200s"  # 2 hours
+  token_lifetime: "3600s"  # 1 hour (max)
 ```
 
 **Setup:**
@@ -171,7 +171,7 @@ gcloud services enable iamcredentials.googleapis.com
 | `use_short_lived_credentials` | boolean | No | `false` | Enable short-lived token generation |
 | `service_account_email` | string | Yes (if short-lived) | - | Target service account to impersonate |
 | `source_credentials` | string | No | ADC | Path to source credentials file |
-| `token_lifetime` | string | No | `"3600s"` | Token lifetime (1s to 43200s). Formats: "3600s", "1h", "1h30m" |
+| `token_lifetime` | string | No | `"3600s"` | Token lifetime (1s to 3600s). Formats: "3600s", "1h", "30m" |
 | `gcp_service_account_key` | string | No | - | Service account key JSON (works with short-lived mode) |
 
 ## Token Lifetime
@@ -182,13 +182,13 @@ gcloud services enable iamcredentials.googleapis.com
 
 **Limits:**
 - Minimum: `1s`
-- Maximum: `43200s` (12 hours)
+- Maximum: `3600s` (1 hour)
 - Default: `3600s` (1 hour)
 
 **Considerations:**
 - Shorter tokens = more secure but more API calls
 - Longer tokens = fewer API calls but higher risk if leaked
-- Recommended: 1-2 hours for most use cases
+- Recommended: 1 hour for most use cases
 
 ## Troubleshooting
 
@@ -242,20 +242,20 @@ gcloud auth application-default login
 - Provide `source_credentials` parameter with path to service account key
 - Or provide `gcp_service_account_key` in config
 
-### Error: "token lifetime must be between 1 second and 12 hours"
+### Error: "token lifetime must be between 1 second and 1 hour (3600s)"
 
 **Cause:** `token_lifetime` is outside valid range.
 
 **Fix:**
-- Use a value between `"1s"` and `"43200s"`
-- Common values: `"3600s"` (1h), `"7200s"` (2h), `"14400s"` (4h)
+- Use a value between `"1s"` and `"3600s"`
+- Common values: `"3600s"` (1h), `"1800s"` (30m), `"900s"` (15m)
 
 ## Security Best Practices
 
 1. **Use shortest practical token lifetime**
-   - Development: 1 hour
-   - CI/CD: 2-4 hours
-   - Long-running operations: up to 12 hours
+   - Development: 30 minutes to 1 hour
+   - CI/CD: 1 hour (maximum)
+   - Long-running operations: 1 hour (maximum)
 
 2. **Implement least privilege**
    - Source credentials: Only `roles/iam.serviceAccountTokenCreator`
@@ -277,7 +277,7 @@ gcloud auth application-default login
 
 | Aspect | Traditional (Static Keys) | Short-lived Credentials |
 |--------|--------------------------|------------------------|
-| **Security** | Keys never expire | Tokens auto-expire (1-12h) |
+| **Security** | Keys never expire | Tokens auto-expire (up to 1h) |
 | **Distribution** | Must share key files | No key distribution needed |
 | **Rotation** | Manual, error-prone | Automatic per execution |
 | **Blast Radius** | Full SA permissions until rotated | Limited to token lifetime |

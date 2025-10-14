@@ -56,7 +56,7 @@ Google Cloud Platform supports **two discovery approaches** and **two authentica
 - Application Default Credentials (ADC) - often long-lived
 
 **B. Short-lived Credentials (Recommended for Enhanced Security)**
-- Generate temporary access tokens (1-12 hours)
+- Generate temporary access tokens (up to 1 hour)
 - Eliminates reliance on static service account keys
 - Uses Service Account Credentials API for token generation
 - Supports service account impersonation
@@ -151,7 +151,7 @@ Google Cloud Platform supports **two discovery approaches** and **two authentica
 - `use_short_lived_credentials` (bool): Enable short-lived token generation (default: false)
 - `service_account_email` (string, required if short-lived): Target service account to impersonate
 - `source_credentials` (string, optional): Path to source credentials file (uses ADC if not provided)
-- `token_lifetime` (string, optional): Token lifetime in seconds (e.g., "3600s") or Go duration format (e.g., "1h"). Range: 1s to 43200s (12 hours). Default: "3600s"
+- `token_lifetime` (string, optional): Token lifetime in seconds (e.g., "3600s") or Go duration format (e.g., "1h"). Range: 1s to 3600s (1 hour). Default: "3600s"
 
 ---
 
@@ -201,7 +201,7 @@ Google Cloud Platform supports **two discovery approaches** and **two authentica
 **Key Differences:**
 - **Individual APIs**: Fast, project-specific, detailed results
 - **Asset API**: Comprehensive, organization-wide, higher resource count
-- **Short-lived Credentials**: Enhanced security, tokens auto-expire (1-12 hours)
+- **Short-lived Credentials**: Enhanced security, tokens auto-expire (up to 1 hour)
 
 📚 **For detailed setup instructions, see: [docs/GCP_ASSET_API.md](docs/GCP_ASSET_API.md)**
 

@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	googleAuthPlugin = "gcp"
+	googleAuthPlugin = "gcp-cloudlist"
 	scope            = "https://www.googleapis.com/auth/cloud-platform"
 )
 
@@ -62,9 +62,9 @@ func (s *shortLivedTokenSource) Token() (*oauth2.Token, error) {
 		return nil, errkit.Wrap(err, "invalid token lifetime")
 	}
 
-	// Validate lifetime is within GCP limits (1 second to 12 hours)
-	if lifetimeDuration < time.Second || lifetimeDuration > 12*time.Hour {
-		return nil, errkit.New("token lifetime must be between 1 second and 12 hours")
+	// Validate lifetime is within GCP limits (1 second to 1 hour)
+	if lifetimeDuration < time.Second || lifetimeDuration > time.Hour {
+		return nil, errkit.New("token lifetime must be between 1 second and 1 hour (3600s)")
 	}
 
 	// Prepare the request
@@ -156,7 +156,7 @@ func registerWithOptions(
 		if err != nil {
 			return nil, errkit.Wrap(err, "failed to parse source credentials")
 		}
-	} else if serviceAccountKey != nil && len(serviceAccountKey) > 0 {
+	} else if len(serviceAccountKey) > 0 {
 		// Use service account key from config
 		gologger.Debug().Msgf("Using service account key from configuration")
 		sourceCreds, err = google.CredentialsFromJSON(ctx, serviceAccountKey, scope)
@@ -205,10 +205,13 @@ func registerWithOptions(
 	}
 
 	// Step 3: Setup GKE auth using the final token source
-	_ = rest.RegisterAuthProviderPlugin(googleAuthPlugin,
+	err = rest.RegisterAuthProviderPlugin(googleAuthPlugin,
 		func(clusterAddress string, config map[string]string, persister rest.AuthProviderConfigPersister) (rest.AuthProvider, error) {
 			return &googleAuthProvider{tokenSource: finalTokenSource}, nil
 		})
+	if err != nil {
+		return nil, errkit.Wrap(err, "failed to register GKE auth provider plugin")
+	}
 
 	// Step 4: Return appropriate client option
 	if useShortLived {

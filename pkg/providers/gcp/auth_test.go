@@ -39,9 +39,9 @@ func TestParseDuration(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:        "12 hours in seconds",
-			input:       "43200s",
-			expected:    12 * time.Hour,
+			name:        "1 hour in seconds (max)",
+			input:       "3600s",
+			expected:    time.Hour,
 			expectError: false,
 		},
 		{
@@ -90,8 +90,8 @@ func TestShortLivedTokenSource_ValidateLifetime(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:        "valid 12 hours",
-			lifetime:    "43200s",
+			name:        "valid 1 hour (max)",
+			lifetime:    "3600s",
 			expectError: false,
 		},
 		{
@@ -100,16 +100,16 @@ func TestShortLivedTokenSource_ValidateLifetime(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:        "invalid - too long (13 hours)",
-			lifetime:    "46800s",
+			name:        "invalid - too long (2 hours)",
+			lifetime:    "7200s",
 			expectError: true,
-			errorMsg:    "token lifetime must be between 1 second and 12 hours",
+			errorMsg:    "token lifetime must be between 1 second and 1 hour (3600s)",
 		},
 		{
 			name:        "invalid - zero",
 			lifetime:    "0s",
 			expectError: true,
-			errorMsg:    "token lifetime must be between 1 second and 12 hours",
+			errorMsg:    "token lifetime must be between 1 second and 1 hour (3600s)",
 		},
 	}
 
@@ -124,10 +124,10 @@ func TestShortLivedTokenSource_ValidateLifetime(t *testing.T) {
 				assert.NoError(t, err)
 				// Validate it's within GCP limits
 				assert.True(t, duration >= time.Second, "duration should be >= 1 second")
-				assert.True(t, duration <= 12*time.Hour, "duration should be <= 12 hours")
+				assert.True(t, duration <= time.Hour, "duration should be <= 1 hour")
 			} else if duration != 0 {
 				// If we got a duration, validate it's outside acceptable range
-				isValid := duration >= time.Second && duration <= 12*time.Hour
+				isValid := duration >= time.Second && duration <= time.Hour
 				assert.False(t, isValid, "duration should be outside valid range")
 			}
 		})
