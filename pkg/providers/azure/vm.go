@@ -7,22 +7,21 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/profiles/latest/compute/mgmt/compute"
-	"github.com/Azure/azure-sdk-for-go/profiles/latest/network/mgmt/network"
-	"github.com/Azure/azure-sdk-for-go/profiles/latest/resources/mgmt/resources"
-	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/azure"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/alitto/pond/v2"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/projectdiscovery/gologger"
 )
 
-// vmProvider is an instance provider for Azure API
+// vmProvider is an instance provider for Azure API using Track 2 SDK
 type vmProvider struct {
 	id               string
 	SubscriptionID   string
-	Authorizer       autorest.Authorizer
+	Credential       azcore.TokenCredential // Track 2: replaced autorest.Authorizer
 	extendedMetadata bool
 }
 
@@ -35,7 +34,7 @@ func (d *vmProvider) GetResource(ctx context.Context) (*schema.Resources, error)
 	list := schema.NewResources()
 	mu := &sync.Mutex{}
 
-	groups, err := fetchResouceGroups(ctx, d.SubscriptionID, d.Authorizer)
+	groups, err := fetchResourceGroups(ctx, d.SubscriptionID, d.Credential)
 	if err != nil {
 		return nil, err
 	}
@@ -74,49 +73,67 @@ func (d *vmProvider) processResourceGroup(ctx context.Context, group string) ([]
 
 	var resources []*schema.Resource
 	for _, vm := range vmList {
-		nics := *vm.NetworkProfile.NetworkInterfaces
+		if vm.Properties == nil || vm.Properties.NetworkProfile == nil || vm.Properties.NetworkProfile.NetworkInterfaces == nil {
+			continue
+		}
+
+		nics := vm.Properties.NetworkProfile.NetworkInterfaces
 
 		for _, nic := range nics {
-			res, err := azure.ParseResourceID(*nic.ID)
-			if err != nil {
-				gologger.Warning().Msgf("error parsing resource ID: %s", err)
+			if nic.ID == nil {
 				continue
 			}
 
-			ipconfigList, err := fetchIPConfigList(ctx, group, res.ResourceName, d)
+			// Track 2: Parse resource ID manually
+			nicName, nicRG := parseAzureResourceID(*nic.ID)
+			if nicName == "" || nicRG == "" {
+				gologger.Warning().Msgf("error parsing NIC resource ID: %s", *nic.ID)
+				continue
+			}
+
+			ipconfigList, err := fetchIPConfigList(ctx, nicRG, nicName, d)
 			if err != nil {
-				gologger.Warning().Msgf("error fetching IP configs for NIC %s: %s", res.ResourceName, err)
+				gologger.Warning().Msgf("error fetching IP configs for NIC %s: %s", nicName, err)
 				continue
 			}
 
 			for _, ipConfig := range ipconfigList {
-				if ipConfig.PublicIPAddress == nil {
-					gologger.Warning().Msgf("no public IP address found for NIC %s", res.ResourceName)
+				if ipConfig.Properties == nil || ipConfig.Properties.PublicIPAddress == nil || ipConfig.Properties.PublicIPAddress.ID == nil {
 					continue
 				}
 
-				res, err := azure.ParseResourceID(*ipConfig.PublicIPAddress.ID)
+				pipName, pipRG := parseAzureResourceID(*ipConfig.Properties.PublicIPAddress.ID)
+				if pipName == "" || pipRG == "" {
+					gologger.Warning().Msgf("error parsing public IP resource ID: %s", *ipConfig.Properties.PublicIPAddress.ID)
+					continue
+				}
+
+				publicIP, err := fetchPublicIP(ctx, pipRG, pipName, d)
 				if err != nil {
-					gologger.Warning().Msgf("error parsing resource ID: %s", err)
+					gologger.Warning().Msgf("error fetching public IP %s: %s", pipName, err)
 					continue
 				}
 
-				publicIP, err := fetchPublicIP(ctx, res.ResourceGroup, res.ResourceName, d)
-				if err != nil {
-					gologger.Warning().Msgf("error fetching public IP %s: %s", res.ResourceName, err)
-					continue
-				}
-
-				if publicIP.IPAddress == nil {
-					gologger.Warning().Msgf("no public IP address found for NIC %s", res.ResourceName)
+				if publicIP.Properties == nil || publicIP.Properties.IPAddress == nil {
 					continue
 				}
 
 				resource := &schema.Resource{
-					Provider:    providerName,
-					ID:          d.id,
-					PrivateIpv4: *ipConfig.PrivateIPAddress,
-					Service:     d.name(),
+					Provider: providerName,
+					ID:       d.id,
+					Service:  d.name(),
+				}
+
+				// Add private IP if available
+				if ipConfig.Properties.PrivateIPAddress != nil {
+					// Check IP version for private IP similar to public IP
+					privateIPStr := *ipConfig.Properties.PrivateIPAddress
+					if ipConfig.Properties.PrivateIPAddressVersion != nil && *ipConfig.Properties.PrivateIPAddressVersion == armnetwork.IPVersionIPv6 {
+						resource.PrivateIpv6 = privateIPStr
+					} else {
+						// Default to IPv4 if not specified
+						resource.PrivateIpv4 = privateIPStr
+					}
 				}
 
 				var metadata map[string]string
@@ -125,19 +142,24 @@ func (d *vmProvider) processResourceGroup(ctx context.Context, group string) ([]
 				}
 				resource.Metadata = metadata
 
-				if publicIP.PublicIPAddressVersion == network.IPv4 {
-					resource.PublicIPv4 = *publicIP.IPAddress
+				// Track 2: Check IP version
+				if publicIP.Properties.PublicIPAddressVersion != nil && *publicIP.Properties.PublicIPAddressVersion == armnetwork.IPVersionIPv4 {
+					resource.PublicIPv4 = *publicIP.Properties.IPAddress
+				} else if publicIP.Properties.PublicIPAddressVersion != nil {
+					resource.PublicIPv6 = *publicIP.Properties.IPAddress
 				} else {
-					resource.PublicIPv6 = *publicIP.IPAddress
+					// Default to IPv4 if not specified
+					resource.PublicIPv4 = *publicIP.Properties.IPAddress
 				}
 
 				resources = append(resources, resource)
 
-				if publicIP.DNSSettings != nil && publicIP.DNSSettings.Fqdn != nil {
+				// Add DNS resource if available
+				if publicIP.Properties.DNSSettings != nil && publicIP.Properties.DNSSettings.Fqdn != nil {
 					dnsResource := &schema.Resource{
 						Provider: providerName,
 						ID:       d.id,
-						DNSName:  *publicIP.DNSSettings.Fqdn,
+						DNSName:  *publicIP.Properties.DNSSettings.Fqdn,
 						Service:  d.name(),
 					}
 					if metadata != nil {
@@ -154,66 +176,102 @@ func (d *vmProvider) processResourceGroup(ctx context.Context, group string) ([]
 	return resources, nil
 }
 
-func fetchResouceGroups(ctx context.Context, subscriptionID string, authorizer autorest.Authorizer) (resGrpList []string, err error) {
-	grClient := resources.NewGroupsClient(subscriptionID)
-	grClient.Authorizer = authorizer
-
-	for list, err := grClient.ListComplete(ctx, "", nil); list.NotDone(); err = list.Next() {
-
-		if err != nil {
-			return nil, errors.Wrap(err, "error traversing resource group list")
+// parseAzureResourceID parses an Azure resource ID and returns the resource name and resource group
+// Azure resource ID format: /subscriptions/{subId}/resourceGroups/{rgName}/providers/{provider}/{type}/{name}
+func parseAzureResourceID(resourceID string) (resourceName, resourceGroup string) {
+	parts := strings.Split(resourceID, "/")
+	for i, part := range parts {
+		if strings.EqualFold(part, "resourceGroups") && i+1 < len(parts) {
+			resourceGroup = parts[i+1]
 		}
-		resGrp := *list.Value().Name
-		resGrpList = append(resGrpList, resGrp)
 	}
-	return resGrpList, err
+	// The resource name is the last part
+	if len(parts) > 0 {
+		resourceName = parts[len(parts)-1]
+	}
+	return resourceName, resourceGroup
 }
 
-func fetchVMList(ctx context.Context, group string, sess *vmProvider) (VMList []compute.VirtualMachine, err error) {
-	vmClient := compute.NewVirtualMachinesClient(sess.SubscriptionID)
-	vmClient.Authorizer = sess.Authorizer
-
-	for vm, err := vmClient.ListComplete(context.Background(), group, ""); vm.NotDone(); err = vm.Next() {
-		if err != nil {
-			return nil, errors.Wrap(err, "error traverising vm list")
-		}
-		VMList = append(VMList, vm.Value())
+func fetchResourceGroups(ctx context.Context, subscriptionID string, credential azcore.TokenCredential) (resGrpList []string, err error) {
+	// Track 2: Create resource groups client directly
+	grClient, err := armresources.NewResourceGroupsClient(subscriptionID, credential, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create resource groups client")
 	}
-	return VMList, err
+
+	// Track 2: Use pager pattern
+	pager := grClient.NewListPager(nil)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "error listing resource groups")
+		}
+
+		for _, rg := range page.Value {
+			if rg.Name != nil {
+				resGrpList = append(resGrpList, *rg.Name)
+			}
+		}
+	}
+	return resGrpList, nil
 }
 
-func fetchIPConfigList(ctx context.Context, group, nic string, sess *vmProvider) (IPConfigList []network.InterfaceIPConfigurationPropertiesFormat, err error) {
+func fetchVMList(ctx context.Context, group string, sess *vmProvider) (VMList []*armcompute.VirtualMachine, err error) {
+	// Track 2: Create virtual machines client directly
+	vmClient, err := armcompute.NewVirtualMachinesClient(sess.SubscriptionID, sess.Credential, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create virtual machines client")
+	}
 
-	nicClient := network.NewInterfacesClient(sess.SubscriptionID)
-	nicClient.Authorizer = sess.Authorizer
+	// Track 2: Use pager pattern
+	pager := vmClient.NewListPager(group, nil)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "error listing VMs")
+		}
 
-	nicRes, err := nicClient.Get(ctx, group, nic, "")
+		VMList = append(VMList, page.Value...)
+	}
+	return VMList, nil
+}
+
+func fetchIPConfigList(ctx context.Context, group, nic string, sess *vmProvider) (IPConfigList []*armnetwork.InterfaceIPConfiguration, err error) {
+	// Track 2: Create network interfaces client directly
+	nicClient, err := armnetwork.NewInterfacesClient(sess.SubscriptionID, sess.Credential, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create network interfaces client")
+	}
+
+	nicResp, err := nicClient.Get(ctx, group, nic, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	ipconfigs := *nicRes.IPConfigurations
-	for _, v := range ipconfigs {
-		IPConfigList = append(IPConfigList, *v.InterfaceIPConfigurationPropertiesFormat)
+	// Track 2: Response embeds Interface directly, access Properties
+	if nicResp.Properties != nil && nicResp.Properties.IPConfigurations != nil {
+		IPConfigList = nicResp.Properties.IPConfigurations
 	}
 
-	return IPConfigList, err
+	return IPConfigList, nil
 }
 
-func fetchPublicIP(ctx context.Context, group, publicIP string, sess *vmProvider) (IP network.PublicIPAddress, err error) {
-
-	ipClient := network.NewPublicIPAddressesClient(sess.SubscriptionID)
-	ipClient.Authorizer = sess.Authorizer
-
-	IP, err = ipClient.Get(ctx, group, publicIP, "")
+func fetchPublicIP(ctx context.Context, group, publicIP string, sess *vmProvider) (IP armnetwork.PublicIPAddress, err error) {
+	// Track 2: Create public IP addresses client directly
+	ipClient, err := armnetwork.NewPublicIPAddressesClient(sess.SubscriptionID, sess.Credential, nil)
 	if err != nil {
-		return network.PublicIPAddress{}, err
+		return armnetwork.PublicIPAddress{}, errors.Wrap(err, "failed to create public IP client")
 	}
 
-	return IP, err
+	resp, err := ipClient.Get(ctx, group, publicIP, nil)
+	if err != nil {
+		return armnetwork.PublicIPAddress{}, err
+	}
+
+	return resp.PublicIPAddress, nil
 }
 
-func (d *vmProvider) getVMMetadata(vm compute.VirtualMachine, resourceGroup string) map[string]string {
+func (d *vmProvider) getVMMetadata(vm *armcompute.VirtualMachine, resourceGroup string) map[string]string {
 	metadata := make(map[string]string)
 
 	schema.AddMetadata(metadata, "vm_name", vm.Name)
@@ -222,53 +280,63 @@ func (d *vmProvider) getVMMetadata(vm compute.VirtualMachine, resourceGroup stri
 	metadata["subscription_id"] = d.SubscriptionID
 	schema.AddMetadata(metadata, "location", vm.Location)
 
-	if vm.VirtualMachineProperties != nil && vm.HardwareProfile != nil {
-		vmSize := string(vm.HardwareProfile.VMSize)
-		schema.AddMetadata(metadata, "vm_size", &vmSize)
-	}
-
 	metadata["owner_id"] = d.SubscriptionID
 
-	if vm.VirtualMachineProperties != nil {
-		schema.AddMetadata(metadata, "provisioning_state", vm.ProvisioningState)
-		schema.AddMetadata(metadata, "vm_id_internal", vm.VMID)
-		schema.AddMetadata(metadata, "license_type", vm.LicenseType)
-
-		if vm.TimeCreated != nil {
-			metadata["creation_time"] = vm.TimeCreated.Format(time.RFC3339)
+	if vm.Properties != nil {
+		// Hardware profile
+		if vm.Properties.HardwareProfile != nil && vm.Properties.HardwareProfile.VMSize != nil {
+			vmSize := string(*vm.Properties.HardwareProfile.VMSize)
+			schema.AddMetadata(metadata, "vm_size", &vmSize)
 		}
 
-		if vm.OsProfile != nil {
-			schema.AddMetadata(metadata, "computer_name", vm.OsProfile.ComputerName)
-			schema.AddMetadata(metadata, "admin_username", vm.OsProfile.AdminUsername)
+		schema.AddMetadata(metadata, "provisioning_state", vm.Properties.ProvisioningState)
+		schema.AddMetadata(metadata, "vm_id_internal", vm.Properties.VMID)
+		schema.AddMetadata(metadata, "license_type", vm.Properties.LicenseType)
+
+		if vm.Properties.TimeCreated != nil {
+			metadata["creation_time"] = vm.Properties.TimeCreated.Format(time.RFC3339)
 		}
 
-		if vm.StorageProfile != nil {
-			if vm.StorageProfile.OsDisk != nil {
-				osType := string(vm.StorageProfile.OsDisk.OsType)
-				schema.AddMetadata(metadata, "os_type", &osType)
-				schema.AddMetadata(metadata, "os_disk_name", vm.StorageProfile.OsDisk.Name)
+		if vm.Properties.OSProfile != nil {
+			schema.AddMetadata(metadata, "computer_name", vm.Properties.OSProfile.ComputerName)
+			schema.AddMetadata(metadata, "admin_username", vm.Properties.OSProfile.AdminUsername)
+		}
+
+		if vm.Properties.StorageProfile != nil {
+			if vm.Properties.StorageProfile.OSDisk != nil {
+				if vm.Properties.StorageProfile.OSDisk.OSType != nil {
+					osType := string(*vm.Properties.StorageProfile.OSDisk.OSType)
+					schema.AddMetadata(metadata, "os_type", &osType)
+				}
+				schema.AddMetadata(metadata, "os_disk_name", vm.Properties.StorageProfile.OSDisk.Name)
 			}
-			if vm.StorageProfile.ImageReference != nil {
-				schema.AddMetadata(metadata, "image_publisher", vm.StorageProfile.ImageReference.Publisher)
-				schema.AddMetadata(metadata, "image_offer", vm.StorageProfile.ImageReference.Offer)
-				schema.AddMetadata(metadata, "image_sku", vm.StorageProfile.ImageReference.Sku)
-				schema.AddMetadata(metadata, "image_version", vm.StorageProfile.ImageReference.Version)
+			if vm.Properties.StorageProfile.ImageReference != nil {
+				schema.AddMetadata(metadata, "image_publisher", vm.Properties.StorageProfile.ImageReference.Publisher)
+				schema.AddMetadata(metadata, "image_offer", vm.Properties.StorageProfile.ImageReference.Offer)
+				schema.AddMetadata(metadata, "image_sku", vm.Properties.StorageProfile.ImageReference.SKU)
+				schema.AddMetadata(metadata, "image_version", vm.Properties.StorageProfile.ImageReference.Version)
 			}
 		}
 
-		if vm.AvailabilitySet != nil {
-			schema.AddMetadata(metadata, "availability_set_id", vm.AvailabilitySet.ID)
+		if vm.Properties.AvailabilitySet != nil {
+			schema.AddMetadata(metadata, "availability_set_id", vm.Properties.AvailabilitySet.ID)
 		}
 
-		if vm.VirtualMachineScaleSet != nil {
-			schema.AddMetadata(metadata, "vmss_id", vm.VirtualMachineScaleSet.ID)
+		if vm.Properties.VirtualMachineScaleSet != nil {
+			schema.AddMetadata(metadata, "vmss_id", vm.Properties.VirtualMachineScaleSet.ID)
 		}
 	}
 
-	if vm.Zones != nil && len(*vm.Zones) > 0 {
-		zones := strings.Join(*vm.Zones, ",")
-		metadata["availability_zones"] = zones
+	if len(vm.Zones) > 0 {
+		var zones []string
+		for _, z := range vm.Zones {
+			if z != nil {
+				zones = append(zones, *z)
+			}
+		}
+		if len(zones) > 0 {
+			metadata["availability_zones"] = strings.Join(zones, ",")
+		}
 	}
 
 	if len(vm.Tags) > 0 {
@@ -277,8 +345,8 @@ func (d *vmProvider) getVMMetadata(vm compute.VirtualMachine, resourceGroup stri
 		}
 	}
 
-	if vm.Identity != nil {
-		identityType := string(vm.Identity.Type)
+	if vm.Identity != nil && vm.Identity.Type != nil {
+		identityType := string(*vm.Identity.Type)
 		schema.AddMetadata(metadata, "identity_type", &identityType)
 		if vm.Identity.PrincipalID != nil {
 			metadata["identity_principal_id"] = *vm.Identity.PrincipalID

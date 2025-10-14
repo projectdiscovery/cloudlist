@@ -3,4 +3,6 @@ cmd/cloudlist/cloudlist
 dist
 .env
 provider-config.yaml
-cloudlist
+/cloudlist
+/terraform/
+azure-readonly-config.yaml
