@@ -18,6 +18,7 @@ import (
 	container "google.golang.org/api/container/v1beta1"
 	"google.golang.org/api/dns/v1"
 	"google.golang.org/api/iterator"
+	"google.golang.org/api/option"
 	run "google.golang.org/api/run/v1"
 	"google.golang.org/api/storage/v1"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -181,13 +182,14 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 }
 
 func New(options schema.OptionBlock) (schema.Provider, error) {
-	JSONData, ok := options.GetMetadata(serviceAccountJSON)
-	if !ok {
-		return nil, errkit.New("could not get API Key")
-	}
+	JSONData, _ := options.GetMetadata(serviceAccountJSON)
 	id, _ := options.GetMetadata("id")
 
 	gologger.Info().Msgf("Creating GCP provider with id: %s", id)
+
+	// Note: gcp_service_account_key is optional
+	// Authentication will fall back to Application Default Credentials (ADC) if not provided
+	// This works for both traditional and short-lived credential modes
 
 	// Check if organization_id is present for organization-level discovery
 	if orgID, ok := options.GetMetadata("organization_id"); ok {
@@ -226,7 +228,44 @@ func newIndividualProvider(options schema.OptionBlock, id, JSONData string) (*Pr
 	}
 	provider.services = services
 
-	creds, err := register(context.Background(), []byte(JSONData))
+	// Extract short-lived credentials configuration
+	useShortLived := false
+	if val, ok := options.GetMetadata("use_short_lived_credentials"); ok {
+		useShortLived = val == "true"
+	}
+
+	var targetServiceAccount, sourceCredentials, tokenLifetime string
+	if useShortLived {
+		targetServiceAccount, _ = options.GetMetadata("service_account_email")
+		sourceCredentials, _ = options.GetMetadata("source_credentials")
+		tokenLifetime, _ = options.GetMetadata("token_lifetime")
+
+		// Set default token lifetime if not specified
+		if tokenLifetime == "" {
+			tokenLifetime = "3600s" // 1 hour default
+		}
+
+		// Validate required parameters
+		if targetServiceAccount == "" {
+			return nil, errkit.New("service_account_email is required when use_short_lived_credentials is true")
+		}
+	}
+
+	// Register credentials with appropriate method
+	var creds option.ClientOption
+	var err error
+	if useShortLived {
+		creds, err = registerWithOptions(
+			context.Background(),
+			[]byte(JSONData),
+			true,
+			targetServiceAccount,
+			sourceCredentials,
+			tokenLifetime,
+		)
+	} else {
+		creds, err = register(context.Background(), []byte(JSONData))
+	}
 	if err != nil {
 		return nil, errkit.Wrap(err, "could not register gcp service account")
 	}
@@ -490,8 +529,44 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 	}
 	provider.services = services
 
-	// Create Asset API client
-	creds, err := register(context.Background(), []byte(JSONData))
+	// Extract short-lived credentials configuration
+	useShortLived := false
+	if val, ok := options.GetMetadata("use_short_lived_credentials"); ok {
+		useShortLived = val == "true"
+	}
+
+	var targetServiceAccount, sourceCredentials, tokenLifetime string
+	if useShortLived {
+		targetServiceAccount, _ = options.GetMetadata("service_account_email")
+		sourceCredentials, _ = options.GetMetadata("source_credentials")
+		tokenLifetime, _ = options.GetMetadata("token_lifetime")
+
+		// Set default token lifetime if not specified
+		if tokenLifetime == "" {
+			tokenLifetime = "3600s" // 1 hour default
+		}
+
+		// Validate required parameters
+		if targetServiceAccount == "" {
+			return nil, errkit.New("service_account_email is required when use_short_lived_credentials is true")
+		}
+	}
+
+	// Create Asset API client with appropriate authentication
+	var creds option.ClientOption
+	var err error
+	if useShortLived {
+		creds, err = registerWithOptions(
+			context.Background(),
+			[]byte(JSONData),
+			true,
+			targetServiceAccount,
+			sourceCredentials,
+			tokenLifetime,
+		)
+	} else {
+		creds, err = register(context.Background(), []byte(JSONData))
+	}
 	if err != nil {
 		return nil, errkit.Wrap(err, "could not register gcp service account")
 	}
