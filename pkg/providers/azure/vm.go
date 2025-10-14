@@ -248,9 +248,9 @@ func fetchIPConfigList(ctx context.Context, group, nic string, sess *vmProvider)
 		return nil, err
 	}
 
-	// Track 2: Unwrap Interface from response wrapper
-	if nicResp.Interface != nil && nicResp.Interface.Properties != nil && nicResp.Interface.Properties.IPConfigurations != nil {
-		IPConfigList = nicResp.Interface.Properties.IPConfigurations
+	// Track 2: Response embeds Interface directly, access Properties
+	if nicResp.Properties != nil && nicResp.Properties.IPConfigurations != nil {
+		IPConfigList = nicResp.Properties.IPConfigurations
 	}
 
 	return IPConfigList, nil
