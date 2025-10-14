@@ -11,3 +11,6 @@ TEST_RESULTS.md
 test-*.yaml
 *-sa.json
 *.key.json
+/cloudlist
+/terraform/
+azure-readonly-config.yaml
