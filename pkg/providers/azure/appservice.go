@@ -8,6 +8,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/appservice/armappservice"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 )
 
 // appServiceProvider is a provider for Azure App Service / Web Apps
@@ -90,6 +91,11 @@ func (asp *appServiceProvider) GetResource(ctx context.Context) (*schema.Resourc
 		slots, err := asp.fetchDeploymentSlots(ctx, app)
 		if err != nil {
 			// Don't fail the entire operation, just log warning
+			appName := "(unknown)"
+			if app.Name != nil {
+				appName = *app.Name
+			}
+			gologger.Warning().Msgf("error listing deployment slots for app %s: %v", appName, err)
 			continue
 		}
 
@@ -160,8 +166,7 @@ func (asp *appServiceProvider) fetchDeploymentSlots(ctx context.Context, app *ar
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
-			// Don't fail if slots listing fails (might not have slots)
-			return nil, nil
+			return nil, fmt.Errorf("failed to list deployment slots: %w", err)
 		}
 
 		slots = append(slots, page.Value...)
@@ -183,12 +188,9 @@ func (asp *appServiceProvider) getAppServiceMetadata(app *armappservice.Site) ma
 
 	// Parse resource group from ID
 	if app.ID != nil {
-		parts := strings.Split(*app.ID, "/")
-		for i, part := range parts {
-			if strings.EqualFold(part, "resourceGroups") && i+1 < len(parts) {
-				metadata["resource_group"] = parts[i+1]
-				break
-			}
+		_, resourceGroup := parseAzureResourceID(*app.ID)
+		if resourceGroup != "" {
+			metadata["resource_group"] = resourceGroup
 		}
 	}
 
@@ -322,12 +324,9 @@ func (asp *appServiceProvider) getDeploymentSlotMetadata(slot *armappservice.Sit
 
 	// Parse resource group from ID
 	if slot.ID != nil {
-		parts := strings.Split(*slot.ID, "/")
-		for i, part := range parts {
-			if strings.EqualFold(part, "resourceGroups") && i+1 < len(parts) {
-				metadata["resource_group"] = parts[i+1]
-				break
-			}
+		_, resourceGroup := parseAzureResourceID(*slot.ID)
+		if resourceGroup != "" {
+			metadata["resource_group"] = resourceGroup
 		}
 	}
 

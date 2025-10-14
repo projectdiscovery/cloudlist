@@ -44,14 +44,17 @@ func (amp *apiManagementProvider) GetResource(ctx context.Context) (*schema.Reso
 
 		// Extract gateway URL (primary DNS endpoint)
 		if service.Properties.GatewayURL != nil {
-			resource := &schema.Resource{
-				Provider: providerName,
-				ID:       amp.id,
-				DNSName:  extractDNSFromURL(*service.Properties.GatewayURL),
-				Service:  amp.name(),
-				Metadata: metadata,
+			gatewayDNS := extractDNSFromURL(*service.Properties.GatewayURL)
+			if gatewayDNS != "" {
+				resource := &schema.Resource{
+					Provider: providerName,
+					ID:       amp.id,
+					DNSName:  gatewayDNS,
+					Service:  amp.name(),
+					Metadata: metadata,
+				}
+				list.Append(resource)
 			}
-			list.Append(resource)
 		}
 
 		// Extract portal URL

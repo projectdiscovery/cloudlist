@@ -44,17 +44,22 @@ func (cip *containerInstancesProvider) GetResource(ctx context.Context) (*schema
 
 		// Extract public IP and FQDN from IPAddress
 		if cg.Properties.IPAddress != nil {
-			// Public IP resource
+			// Public IP resource - only add if not explicitly marked as private
 			if cg.Properties.IPAddress.IP != nil {
-				resource := &schema.Resource{
-					Provider:   providerName,
-					ID:         cip.id,
-					Public:     true,
-					Service:    cip.name(),
-					PublicIPv4: *cg.Properties.IPAddress.IP,
-					Metadata:   metadata,
+				// Check if this is a private IP to avoid misclassification
+				isPrivate := cg.Properties.IPAddress.Type != nil && *cg.Properties.IPAddress.Type == armcontainerinstance.ContainerGroupIPAddressTypePrivate
+
+				if !isPrivate {
+					resource := &schema.Resource{
+						Provider:   providerName,
+						ID:         cip.id,
+						Public:     true,
+						Service:    cip.name(),
+						PublicIPv4: *cg.Properties.IPAddress.IP,
+						Metadata:   metadata,
+					}
+					list.Append(resource)
 				}
-				list.Append(resource)
 			}
 
 			// FQDN resource
