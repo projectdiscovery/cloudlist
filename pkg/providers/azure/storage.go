@@ -178,11 +178,16 @@ func (sp *storageProvider) GetResource(ctx context.Context) (*schema.Resources, 
 				}
 
 				resource := &schema.Resource{
-					Provider:    providerName,
-					ID:          sp.id,
-					PrivateIpv4: privateIP,
-					Service:     sp.name(),
-					Metadata:    metadata,
+					Provider: providerName,
+					ID:       sp.id,
+					Service:  sp.name(),
+					Metadata: metadata,
+				}
+				// Detect IPv6 vs IPv4
+				if strings.Contains(privateIP, ":") {
+					resource.PrivateIpv6 = privateIP
+				} else {
+					resource.PrivateIpv4 = privateIP
 				}
 				list.Append(resource)
 			}

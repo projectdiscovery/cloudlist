@@ -126,7 +126,14 @@ func (d *vmProvider) processResourceGroup(ctx context.Context, group string) ([]
 
 				// Add private IP if available
 				if ipConfig.Properties.PrivateIPAddress != nil {
-					resource.PrivateIpv4 = *ipConfig.Properties.PrivateIPAddress
+					// Check IP version for private IP similar to public IP
+					privateIPStr := *ipConfig.Properties.PrivateIPAddress
+					if ipConfig.Properties.PrivateIPAddressVersion != nil && *ipConfig.Properties.PrivateIPAddressVersion == armnetwork.IPVersionIPv6 {
+						resource.PrivateIpv6 = privateIPStr
+					} else {
+						// Default to IPv4 if not specified
+						resource.PrivateIpv4 = privateIPStr
+					}
 				}
 
 				var metadata map[string]string
@@ -236,13 +243,14 @@ func fetchIPConfigList(ctx context.Context, group, nic string, sess *vmProvider)
 		return nil, errors.Wrap(err, "failed to create network interfaces client")
 	}
 
-	nicRes, err := nicClient.Get(ctx, group, nic, nil)
+	nicResp, err := nicClient.Get(ctx, group, nic, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	if nicRes.Properties != nil && nicRes.Properties.IPConfigurations != nil {
-		IPConfigList = nicRes.Properties.IPConfigurations
+	// Track 2: Unwrap Interface from response wrapper
+	if nicResp.Interface != nil && nicResp.Interface.Properties != nil && nicResp.Interface.Properties.IPConfigurations != nil {
+		IPConfigList = nicResp.Interface.Properties.IPConfigurations
 	}
 
 	return IPConfigList, nil
