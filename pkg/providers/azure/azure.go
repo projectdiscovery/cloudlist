@@ -22,7 +22,7 @@ const (
 	providerName = "azure"
 )
 
-var Services = []string{"vm", "publicip", "trafficmanager"}
+var Services = []string{"vm", "publicip", "trafficmanager", "cdn", "dns", "loadbalancer", "applicationgateway", "aks", "storage", "containerinstances", "appservice", "functions", "apimanagement", "frontdoor", "containerapps", "staticwebapps"}
 
 // Provider is a data provider for Azure API using Track 2 SDK
 type Provider struct {
@@ -166,6 +166,136 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 				continue
 			}
 			resources.Merge(trafficManager)
+		}
+
+		if p.services.Has("cdn") {
+			cdnp := &cdnProvider{Credential: p.Credential, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
+			cdn, err := cdnp.GetResource(ctx)
+			if err != nil {
+				gologger.Warning().Msgf("Error listing CDN for subscription %s: %s", subscriptionID, err)
+				continue
+			}
+			resources.Merge(cdn)
+		}
+
+		if p.services.Has("dns") {
+			dnsp := &dnsProvider{Credential: p.Credential, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
+			dnsRecords, err := dnsp.GetResource(ctx)
+			if err != nil {
+				gologger.Warning().Msgf("Error listing DNS records for subscription %s: %s", subscriptionID, err)
+				continue
+			}
+			resources.Merge(dnsRecords)
+		}
+
+		if p.services.Has("loadbalancer") {
+			lbp := &loadBalancerProvider{Credential: p.Credential, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
+			loadBalancers, err := lbp.GetResource(ctx)
+			if err != nil {
+				gologger.Warning().Msgf("Error listing load balancers for subscription %s: %s", subscriptionID, err)
+				continue
+			}
+			resources.Merge(loadBalancers)
+		}
+
+		if p.services.Has("applicationgateway") {
+			agp := &applicationGatewayProvider{Credential: p.Credential, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
+			appGateways, err := agp.GetResource(ctx)
+			if err != nil {
+				gologger.Warning().Msgf("Error listing application gateways for subscription %s: %s", subscriptionID, err)
+				continue
+			}
+			resources.Merge(appGateways)
+		}
+
+		if p.services.Has("aks") {
+			aksp := &aksProvider{Credential: p.Credential, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
+			aksClusters, err := aksp.GetResource(ctx)
+			if err != nil {
+				gologger.Warning().Msgf("Error listing AKS clusters for subscription %s: %s", subscriptionID, err)
+				continue
+			}
+			resources.Merge(aksClusters)
+		}
+
+		if p.services.Has("storage") {
+			storagep := &storageProvider{Credential: p.Credential, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
+			storageAccounts, err := storagep.GetResource(ctx)
+			if err != nil {
+				gologger.Warning().Msgf("Error listing storage accounts for subscription %s: %s", subscriptionID, err)
+				continue
+			}
+			resources.Merge(storageAccounts)
+		}
+
+		if p.services.Has("containerinstances") {
+			containerInstancesp := &containerInstancesProvider{Credential: p.Credential, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
+			containerInstances, err := containerInstancesp.GetResource(ctx)
+			if err != nil {
+				gologger.Warning().Msgf("Error listing container instances for subscription %s: %s", subscriptionID, err)
+				continue
+			}
+			resources.Merge(containerInstances)
+		}
+
+		if p.services.Has("appservice") {
+			appServicep := &appServiceProvider{Credential: p.Credential, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
+			appService, err := appServicep.GetResource(ctx)
+			if err != nil {
+				gologger.Warning().Msgf("Error listing App Service for subscription %s: %s", subscriptionID, err)
+				continue
+			}
+			resources.Merge(appService)
+		}
+
+		if p.services.Has("functions") {
+			functionsp := &functionsProvider{Credential: p.Credential, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
+			functions, err := functionsp.GetResource(ctx)
+			if err != nil {
+				gologger.Warning().Msgf("Error listing Functions for subscription %s: %s", subscriptionID, err)
+				continue
+			}
+			resources.Merge(functions)
+		}
+
+		if p.services.Has("apimanagement") {
+			apimgmtp := &apiManagementProvider{Credential: p.Credential, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
+			apiManagement, err := apimgmtp.GetResource(ctx)
+			if err != nil {
+				gologger.Warning().Msgf("Error listing API Management for subscription %s: %s", subscriptionID, err)
+				continue
+			}
+			resources.Merge(apiManagement)
+		}
+
+		if p.services.Has("containerapps") {
+			containerAppsp := &containerAppsProvider{Credential: p.Credential, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
+			containerApps, err := containerAppsp.GetResource(ctx)
+			if err != nil {
+				gologger.Warning().Msgf("Error listing container apps for subscription %s: %s", subscriptionID, err)
+				continue
+			}
+			resources.Merge(containerApps)
+		}
+
+		if p.services.Has("staticwebapps") {
+			staticWebAppsp := &staticWebAppsProvider{Credential: p.Credential, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
+			staticWebApps, err := staticWebAppsp.GetResource(ctx)
+			if err != nil {
+				gologger.Warning().Msgf("Error listing static web apps for subscription %s: %s", subscriptionID, err)
+				continue
+			}
+			resources.Merge(staticWebApps)
+		}
+
+		if p.services.Has("frontdoor") {
+			fdp := &frontDoorProvider{Credential: p.Credential, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
+			frontDoors, err := fdp.GetResource(ctx)
+			if err != nil {
+				gologger.Warning().Msgf("Error listing Front Door for subscription %s: %s", subscriptionID, err)
+				continue
+			}
+			resources.Merge(frontDoors)
 		}
 	}
 	return resources, nil
