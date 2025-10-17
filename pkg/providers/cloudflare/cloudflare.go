@@ -13,7 +13,7 @@ var Services = []string{"dns"}
 // Provider is a data provider for cloudflare API
 type Provider struct {
 	id               string
-	client           *cloudflare.API
+	client           apiClient
 	services         schema.ServiceMap
 	extendedMetadata bool
 }
@@ -103,9 +103,11 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 
 	if p.services.Has("dns") {
 		dnsProvider := &dnsProvider{id: p.id, client: p.client, extendedMetadata: p.extendedMetadata}
-		if resources, err := dnsProvider.GetResource(ctx); err == nil {
-			finalResources.Merge(resources)
+		resources, err := dnsProvider.GetResource(ctx)
+		if err != nil {
+			return nil, err
 		}
+		finalResources.Merge(resources)
 	}
 	return finalResources, nil
 }

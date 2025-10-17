@@ -87,6 +87,7 @@ func (p *Provider) Services() []string {
 // Resources returns the provider for an resource deployment source using individual services
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalResources := schema.NewResources()
+	var errs []error
 
 	if p.services.Has("dns") {
 		dnsProvider := &cloudDNSProvider{
@@ -98,6 +99,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		dnsResources, err := dnsProvider.GetResource(ctx)
 		if err != nil {
 			gologger.Warning().Msgf("Could not get DNS resources: %s\n", err)
+			errs = append(errs, fmt.Errorf("dns: %w", err))
 		} else {
 			finalResources.Merge(dnsResources)
 		}
@@ -113,6 +115,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		computeResources, err := computeProvider.GetResource(ctx)
 		if err != nil {
 			gologger.Warning().Msgf("Could not get compute resources: %s\n", err)
+			errs = append(errs, fmt.Errorf("compute: %w", err))
 		} else {
 			finalResources.Merge(computeResources)
 		}
@@ -128,6 +131,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		gkeResources, err := gkeProvider.GetResource(ctx)
 		if err != nil {
 			gologger.Warning().Msgf("Could not get gke resources: %s\n", err)
+			errs = append(errs, fmt.Errorf("gke: %w", err))
 		} else {
 			finalResources.Merge(gkeResources)
 		}
@@ -143,6 +147,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		storageResources, err := storageProvider.GetResource(ctx)
 		if err != nil {
 			gologger.Warning().Msgf("Could not get storage resources: %s\n", err)
+			errs = append(errs, fmt.Errorf("storage: %w", err))
 		} else {
 			finalResources.Merge(storageResources)
 		}
@@ -158,6 +163,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		functionResources, err := functionProvider.GetResource(ctx)
 		if err != nil {
 			gologger.Warning().Msgf("Could not get function resources: %s\n", err)
+			errs = append(errs, fmt.Errorf("cloud-function: %w", err))
 		} else {
 			finalResources.Merge(functionResources)
 		}
@@ -173,9 +179,14 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		runResources, err := runProvider.GetResource(ctx)
 		if err != nil {
 			gologger.Warning().Msgf("Could not get run resources: %s\n", err)
+			errs = append(errs, fmt.Errorf("cloud-run: %w", err))
 		} else {
 			finalResources.Merge(runResources)
 		}
+	}
+
+	if len(finalResources.Items) == 0 && len(errs) > 0 {
+		return nil, errs[0]
 	}
 
 	return finalResources, nil
