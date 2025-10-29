@@ -92,6 +92,41 @@ func (r *Resources) appendResourceWithTypeAndMeta(resourceType validate.Resource
 
 // appendResource appends a resource to the resources list
 func (r *Resources) appendResource(resource *Resource) {
+	// Special handling for DNS providers: if resource has BOTH DNS name and IP, keep them together
+	hasDNS := resource.DNSName != ""
+	hasIP := resource.PublicIPv4 != "" || resource.PublicIPv6 != "" || resource.PrivateIpv4 != "" || resource.PrivateIpv6 != ""
+
+	if hasDNS && hasIP && resource.Service == "dns" {
+		// For DNS service records with both DNS and IP, append as-is without splitting
+		// Check if any value is new
+		anyNew := false
+		if hasDNS && !r.deduplicator.Contains(resource.DNSName) {
+			r.deduplicator.Add(resource.DNSName)
+			anyNew = true
+		}
+		if resource.PublicIPv4 != "" && !r.deduplicator.Contains(resource.PublicIPv4) {
+			r.deduplicator.Add(resource.PublicIPv4)
+			anyNew = true
+		}
+		if resource.PublicIPv6 != "" && !r.deduplicator.Contains(resource.PublicIPv6) {
+			r.deduplicator.Add(resource.PublicIPv6)
+			anyNew = true
+		}
+		if resource.PrivateIpv4 != "" && !r.deduplicator.Contains(resource.PrivateIpv4) {
+			r.deduplicator.Add(resource.PrivateIpv4)
+			anyNew = true
+		}
+		if resource.PrivateIpv6 != "" && !r.deduplicator.Contains(resource.PrivateIpv6) {
+			r.deduplicator.Add(resource.PrivateIpv6)
+			anyNew = true
+		}
+		if anyNew {
+			r.Items = append(r.Items, resource)
+		}
+		return
+	}
+
+	// Original behavior for all other cases: split into separate records
 	if resource.DNSName != "" && !r.deduplicator.Contains(resource.DNSName) {
 		resourceType := validator.Identify(resource.DNSName)
 		r.appendResourceWithTypeAndMeta(resourceType, resource.DNSName, resource.ID, resource.Provider, resource.Service, resource.Metadata)

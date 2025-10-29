@@ -47,33 +47,27 @@ func (d *dnsProvider) GetResource(ctx context.Context) (*schema.Resources, error
 				metadata = d.getDNSRecordMetadata(&record, &zone)
 			}
 
-			list.Append(&schema.Resource{
+			// Create a single resource with both DNS name and IP
+			// The schema layer will handle keeping them together for DNS service
+			resource := &schema.Resource{
 				Public:   true,
 				Provider: providerName,
 				DNSName:  record.Name,
 				ID:       d.id,
 				Service:  d.name(),
 				Metadata: metadata,
-			})
-			// Skip CNAME records values to discard duplidate data
-			if record.Type == "CNAME" {
-				continue
 			}
 
-			resource := &schema.Resource{
-				Public:   true,
-				Provider: providerName,
-				ID:       d.id,
-				Service:  d.name(),
-				Metadata: metadata,
-			}
-
-			if record.Type == "A" {
+			// Add IP information based on record type
+			// For A and AAAA records, include the IP in the same resource
+			if record.Type == "A" && record.Content != "" {
 				resource.PublicIPv4 = record.Content
-			} else {
+			} else if record.Type == "AAAA" && record.Content != "" {
 				resource.PublicIPv6 = record.Content
 			}
+			// For CNAME records, only DNS name is included
 
+			// Use the standard Append method which now has special handling for DNS service
 			list.Append(resource)
 		}
 	}
