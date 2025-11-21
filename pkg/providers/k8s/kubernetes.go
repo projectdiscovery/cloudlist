@@ -38,8 +38,8 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	configEncoded, strOk := options.GetMetadata(encodedKubeConfig)
 	_, inclusterModeOk := options.GetMetadata(inclusterMode)
 
-	if !ok && !strOk {
-		return nil, errkit.New("no kubeconfig_file or kubeconfig_encoded  provided")
+	if !ok && !strOk && !inclusterModeOk {
+		return nil, errkit.New("no kubeconfig_file or kubeconfig_encoded or incluster_mode provided")
 	}
 	context, _ := options.GetMetadata("context")
 
