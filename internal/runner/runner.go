@@ -104,9 +104,24 @@ func (r *Runner) Enumerate() {
 		}
 	}
 
-	inventory, err := inventory.New(finalConfig)
-	if err != nil {
-		gologger.Fatal().Msgf("Could not create inventory: %s\n", err)
+	// In auto-discovery mode, use graceful failure to skip providers with errors
+	var inv *inventory.Inventory
+	var err error
+	if r.options.AutoDiscovery {
+		inv, err = inventory.NewWithOptions(finalConfig, true, r.options.Verbose)
+		if err != nil {
+			gologger.Fatal().Msgf("Could not create inventory: %s\n", err)
+		}
+		// Check if we have any providers after graceful failure
+		if len(inv.Providers) == 0 {
+			gologger.Warning().Msgf("No providers could be initialized successfully\n")
+			return
+		}
+	} else {
+		inv, err = inventory.New(finalConfig)
+		if err != nil {
+			gologger.Fatal().Msgf("Could not create inventory: %s\n", err)
+		}
 	}
 
 	var output *os.File
@@ -120,7 +135,7 @@ func (r *Runner) Enumerate() {
 
 	builder := &bytes.Buffer{}
 	deduplicator := schema.NewResourceDeduplicator()
-	for _, provider := range inventory.Providers {
+	for _, provider := range inv.Providers {
 		gologger.Info().Msgf("Listing assets from provider: %s services: %s id: %s", provider.Name(), strings.Join(provider.Services(), ","), provider.ID())
 
 		instances, err := provider.Resources(context.Background())

@@ -25,6 +25,7 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/providers/terraform"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/vercel"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 	mapsutil "github.com/projectdiscovery/utils/maps"
 )
 
@@ -35,7 +36,15 @@ type Inventory struct {
 
 // New creates a new inventory of providers
 func New(optionBlocks schema.Options) (*Inventory, error) {
+	return NewWithOptions(optionBlocks, false, false)
+}
+
+// NewWithOptions creates a new inventory of providers with options
+// gracefulFailure: if true, skip providers that fail to initialize instead of returning error
+// verbose: if true, show errors for failed providers (only used when gracefulFailure is true)
+func NewWithOptions(optionBlocks schema.Options, gracefulFailure bool, verbose bool) (*Inventory, error) {
 	inventory := &Inventory{}
+	var failedProviders []string
 
 	for _, block := range optionBlocks {
 		value, ok := block.GetMetadata("provider")
@@ -44,10 +53,28 @@ func New(optionBlocks schema.Options) (*Inventory, error) {
 		}
 		provider, err := nameToProvider(value, block)
 		if err != nil {
+			if gracefulFailure {
+				// In graceful failure mode, skip this provider and continue
+				failedProviders = append(failedProviders, value)
+				if verbose {
+					gologger.Verbose().Msgf("Skipping provider %s: %s\n", value, err)
+				} else {
+					gologger.Debug().Msgf("Skipping provider %s: %s\n", value, err)
+				}
+				continue
+			}
 			return nil, fmt.Errorf("could not create provider %s: %s", value, err)
 		}
 		inventory.Providers = append(inventory.Providers, provider)
 	}
+
+	// If graceful failure is enabled and we have some successful providers, log summary
+	if gracefulFailure && len(failedProviders) > 0 {
+		if verbose {
+			gologger.Warning().Msgf("Failed to initialize %d provider(s): %v\n", len(failedProviders), failedProviders)
+		}
+	}
+
 	return inventory, nil
 }
 
