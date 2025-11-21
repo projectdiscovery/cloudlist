@@ -21,15 +21,35 @@ type Runner struct {
 
 // New creates a new runner instance based on configuration options
 func New(options *Options) (*Runner, error) {
+	var config schema.Options
 
-	if options.ProviderConfig == "" {
-		options.ProviderConfig = defaultProviderConfigLocation
-		gologger.Print().Msgf("Using default provider config: %s\n", options.ProviderConfig)
-	}
+	// If self-discovery mode is enabled, skip provider config file
+	if options.SelfDiscovery {
+		gologger.Info().Msgf("Self-discovery mode enabled, ignoring provider config file\n")
 
-	config, err := readProviderConfig(options.ProviderConfig)
-	if err != nil {
-		return nil, err
+		sd := NewSelfDiscovery(options)
+		config = sd.DiscoverProviders()
+
+		if len(config) == 0 {
+			gologger.Warning().Msgf("No providers discovered in self-discovery mode\n")
+			gologger.Info().Msgf("Hint: Make sure you have KUBECONFIG set or ~/.kube/config exists for Kubernetes\n")
+			gologger.Info().Msgf("Hint: Set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY for AWS\n")
+			gologger.Info().Msgf("Hint: Set GOOGLE_APPLICATION_CREDENTIALS for GCP\n")
+			gologger.Info().Msgf("Hint: Set AZURE_CLIENT_ID/AZURE_CLIENT_SECRET/AZURE_TENANT_ID/AZURE_SUBSCRIPTION_ID for Azure\n")
+			return nil, nil
+		}
+	} else {
+		// Normal mode: read from provider config file
+		if options.ProviderConfig == "" {
+			options.ProviderConfig = defaultProviderConfigLocation
+			gologger.Print().Msgf("Using default provider config: %s\n", options.ProviderConfig)
+		}
+
+		var err error
+		config, err = readProviderConfig(options.ProviderConfig)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// CLI overrides config
@@ -41,7 +61,7 @@ func New(options *Options) (*Runner, error) {
 	if len(options.Services) == 0 {
 		options.Services = append(options.Services, defaultServies...)
 	}
-	if len(options.Providers) == 0 {
+	if len(options.Providers) == 0 && !options.SelfDiscovery {
 		options.Providers = append(options.Providers, defaultProviders...)
 	}
 

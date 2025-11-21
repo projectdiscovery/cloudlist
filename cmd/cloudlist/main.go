@@ -11,5 +11,8 @@ func main() {
 	if err != nil {
 		gologger.Fatal().Msgf("Could not create runner: %s\n", err)
 	}
+	if runner == nil {
+		return
+	}
 	runner.Enumerate()
 }

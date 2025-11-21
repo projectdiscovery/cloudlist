@@ -28,6 +28,7 @@ const (
 	kubeconfig_file   = "kubeconfig_file"
 	encodedKubeConfig = "kubeconfig_encoded"
 	providerName      = "kubernetes"
+	inclusterMode     = "incluster_mode"
 )
 
 func New(options schema.OptionBlock) (*Provider, error) {
@@ -35,6 +36,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 
 	configFile, ok := options.GetMetadata(kubeconfig_file)
 	configEncoded, strOk := options.GetMetadata(encodedKubeConfig)
+	_, inclusterModeOk := options.GetMetadata(inclusterMode)
 
 	if !ok && !strOk {
 		return nil, errkit.New("no kubeconfig_file or kubeconfig_encoded  provided")
@@ -51,6 +53,11 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		kubeConfig, err = buildConfigFromStr(context, decodedConfig)
 		if err != nil {
 			return nil, errkit.Wrap(err, "could not build kubeconfig")
+		}
+	} else if inclusterModeOk {
+		kubeConfig, err = rest.InClusterConfig()
+		if err != nil {
+			return nil, errkit.Wrap(err, "could not get in-cluster config")
 		}
 	} else {
 		kubeConfig, err = buildConfigWithContext(context, configFile)
