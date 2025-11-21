@@ -15,39 +15,39 @@ import (
 	fileutil "github.com/projectdiscovery/utils/file"
 )
 
-// SelfDiscovery handles auto-discovery of cloud providers from environment variables
-type SelfDiscovery struct {
+// AutoDiscovery handles auto-discovery of cloud providers from environment variables
+type AutoDiscovery struct {
 	options *Options
 }
 
-// NewSelfDiscovery creates a new self-discovery instance
-func NewSelfDiscovery(options *Options) *SelfDiscovery {
-	return &SelfDiscovery{options: options}
+// NewAutoDiscovery creates a new auto-discovery instance
+func NewAutoDiscovery(options *Options) *AutoDiscovery {
+	return &AutoDiscovery{options: options}
 }
 
 // DiscoverProviders attempts to auto-discover available providers from environment
-func (sd *SelfDiscovery) DiscoverProviders() schema.Options {
+func (ad *AutoDiscovery) DiscoverProviders() schema.Options {
 	discoveredConfig := schema.Options{}
 
 	// Check which providers to discover
-	providersToCheck := sd.getProvidersToCheck()
+	providersToCheck := ad.getProvidersToCheck()
 
 	for _, provider := range providersToCheck {
 		switch provider {
 		case "kubernetes":
-			if config := sd.discoverKubernetes(); config != nil {
+			if config := ad.discoverKubernetes(); config != nil {
 				discoveredConfig = append(discoveredConfig, config)
 			}
 		case "aws":
-			if config := sd.discoverAWS(); config != nil {
+			if config := ad.discoverAWS(); config != nil {
 				discoveredConfig = append(discoveredConfig, config)
 			}
 		case "gcp":
-			if config := sd.discoverGCP(); config != nil {
+			if config := ad.discoverGCP(); config != nil {
 				discoveredConfig = append(discoveredConfig, config)
 			}
 		case "azure":
-			if config := sd.discoverAzure(); config != nil {
+			if config := ad.discoverAzure(); config != nil {
 				discoveredConfig = append(discoveredConfig, config)
 			}
 		}
@@ -57,10 +57,10 @@ func (sd *SelfDiscovery) DiscoverProviders() schema.Options {
 }
 
 // getProvidersToCheck returns the list of providers to check
-func (sd *SelfDiscovery) getProvidersToCheck() []string {
+func (ad *AutoDiscovery) getProvidersToCheck() []string {
 	// If specific providers are requested, use those
-	if len(sd.options.Providers) > 0 {
-		return sd.options.Providers
+	if len(ad.options.Providers) > 0 {
+		return ad.options.Providers
 	}
 
 	// Otherwise, check all supported providers
@@ -68,7 +68,7 @@ func (sd *SelfDiscovery) getProvidersToCheck() []string {
 }
 
 // discoverKubernetes attempts to discover Kubernetes configuration
-func (sd *SelfDiscovery) discoverKubernetes() schema.OptionBlock {
+func (ad *AutoDiscovery) discoverKubernetes() schema.OptionBlock {
 	var kubeconfigPath string
 
 	// Check KUBECONFIG environment variable first
@@ -83,7 +83,7 @@ func (sd *SelfDiscovery) discoverKubernetes() schema.OptionBlock {
 		// Fallback to default kubeconfig location
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
-			if sd.options.Verbose {
+			if ad.options.Verbose {
 				gologger.Verbose().Msgf("Could not get user home directory: %s\n", err)
 			}
 			return nil
@@ -96,14 +96,14 @@ func (sd *SelfDiscovery) discoverKubernetes() schema.OptionBlock {
 		gologger.Info().Msgf("Discovered Kubernetes provider (in-cluster mode)\n")
 		return schema.OptionBlock{
 			"provider":       "kubernetes",
-			"id":             "self-discovery",
+			"id":             "auto-discovery",
 			"incluster_mode": "true",
 		}
 	}
 
 	// Check if kubeconfig file exists
 	if !fileutil.FileExists(kubeconfigPath) {
-		if sd.options.Verbose {
+		if ad.options.Verbose {
 			gologger.Verbose().Msgf("Kubeconfig file not found at: %s\n", kubeconfigPath)
 		}
 		return nil
@@ -113,20 +113,20 @@ func (sd *SelfDiscovery) discoverKubernetes() schema.OptionBlock {
 
 	return schema.OptionBlock{
 		"provider":        "kubernetes",
-		"id":              "self-discovery",
+		"id":              "auto-discovery",
 		"kubeconfig_file": kubeconfigPath,
 	}
 }
 
 // discoverAWS attempts to discover AWS credentials
-func (sd *SelfDiscovery) discoverAWS() schema.OptionBlock {
+func (ad *AutoDiscovery) discoverAWS() schema.OptionBlock {
 	// Priority 1: Check AWS IMDS (EC2/ECS instance metadata)
-	if config := sd.tryAWSIMDS(); config != nil {
+	if config := ad.tryAWSIMDS(); config != nil {
 		return config
 	}
 
 	// Priority 2: Check ECS container credentials
-	if config := sd.tryAWSECSCredentials(); config != nil {
+	if config := ad.tryAWSECSCredentials(); config != nil {
 		return config
 	}
 
@@ -141,7 +141,7 @@ func (sd *SelfDiscovery) discoverAWS() schema.OptionBlock {
 
 		config := schema.OptionBlock{
 			"provider":       "aws",
-			"id":             "self-discovery",
+			"id":             "auto-discovery",
 			"aws_access_key": accessKey,
 			"aws_secret_key": secretKey,
 		}
@@ -163,12 +163,12 @@ func (sd *SelfDiscovery) discoverAWS() schema.OptionBlock {
 	awsConfigPath := filepath.Join(homeDir, ".aws", "config")
 
 	if fileutil.FileExists(awsCredsPath) || fileutil.FileExists(awsConfigPath) {
-		if sd.options.Verbose {
+		if ad.options.Verbose {
 			gologger.Verbose().Msgf("AWS credentials file found, but direct env variables not set\n")
 			gologger.Verbose().Msgf("Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY or use provider config\n")
 			profile := os.Getenv("AWS_PROFILE")
 			if profile != "" {
-				gologger.Verbose().Msgf("AWS_PROFILE detected: %s (not yet supported in self-discovery)\n", profile)
+				gologger.Verbose().Msgf("AWS_PROFILE detected: %s (not yet supported in auto-discovery)\n", profile)
 			}
 		}
 	}
@@ -177,7 +177,7 @@ func (sd *SelfDiscovery) discoverAWS() schema.OptionBlock {
 }
 
 // tryAWSIMDS attempts to get credentials from AWS EC2 Instance Metadata Service
-func (sd *SelfDiscovery) tryAWSIMDS() schema.OptionBlock {
+func (ad *AutoDiscovery) tryAWSIMDS() schema.OptionBlock {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -196,12 +196,12 @@ func (sd *SelfDiscovery) tryAWSIMDS() schema.OptionBlock {
 		token, err := io.ReadAll(tokenResp.Body)
 		if err == nil && len(token) > 0 {
 			// We have IMDSv2 available
-			if sd.hasValidIMDSRole(client, string(token)) {
+			if ad.hasValidIMDSRole(client, string(token)) {
 				gologger.Info().Msgf("Discovered AWS provider (EC2 instance with IAM role - IMDSv2)\n")
 				// AWS SDK will automatically use IMDS when no credentials are provided
 				return schema.OptionBlock{
 					"provider": "aws",
-					"id":       "self-discovery",
+					"id":       "auto-discovery",
 					"use_imds": "true",
 				}
 			}
@@ -225,7 +225,7 @@ func (sd *SelfDiscovery) tryAWSIMDS() schema.OptionBlock {
 		// AWS SDK will automatically use IMDS when no credentials are provided
 		return schema.OptionBlock{
 			"provider": "aws",
-			"id":       "self-discovery",
+			"id":       "auto-discovery",
 			"use_imds": "true",
 		}
 	}
@@ -234,7 +234,7 @@ func (sd *SelfDiscovery) tryAWSIMDS() schema.OptionBlock {
 }
 
 // hasValidIMDSRole checks if there's a valid IAM role attached
-func (sd *SelfDiscovery) hasValidIMDSRole(client *http.Client, token string) bool {
+func (ad *AutoDiscovery) hasValidIMDSRole(client *http.Client, token string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -259,7 +259,7 @@ func (sd *SelfDiscovery) hasValidIMDSRole(client *http.Client, token string) boo
 }
 
 // tryAWSECSCredentials attempts to get credentials from ECS task role
-func (sd *SelfDiscovery) tryAWSECSCredentials() schema.OptionBlock {
+func (ad *AutoDiscovery) tryAWSECSCredentials() schema.OptionBlock {
 	// Check if running in ECS
 	credentialsURI := os.Getenv("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI")
 	if credentialsURI == "" {
@@ -273,15 +273,15 @@ func (sd *SelfDiscovery) tryAWSECSCredentials() schema.OptionBlock {
 	gologger.Info().Msgf("Discovered AWS provider (ECS task with IAM role)\n")
 	return schema.OptionBlock{
 		"provider":          "aws",
-		"id":                "self-discovery",
+		"id":                "auto-discovery",
 		"use_ecs_task_role": "true",
 	}
 }
 
 // discoverGCP attempts to discover GCP credentials
-func (sd *SelfDiscovery) discoverGCP() schema.OptionBlock {
+func (ad *AutoDiscovery) discoverGCP() schema.OptionBlock {
 	// Priority 1: Check GCP Metadata Service (GCE/GKE instance)
-	if config := sd.tryGCPMetadataService(); config != nil {
+	if config := ad.tryGCPMetadataService(); config != nil {
 		return config
 	}
 
@@ -298,7 +298,7 @@ func (sd *SelfDiscovery) discoverGCP() schema.OptionBlock {
 	}
 
 	if !fileutil.FileExists(credsPath) {
-		if sd.options.Verbose {
+		if ad.options.Verbose {
 			gologger.Verbose().Msgf("GCP credentials not found at: %s\n", credsPath)
 		}
 		return nil
@@ -307,7 +307,7 @@ func (sd *SelfDiscovery) discoverGCP() schema.OptionBlock {
 	// Read the service account key file
 	keyData, err := os.ReadFile(credsPath)
 	if err != nil {
-		if sd.options.Verbose {
+		if ad.options.Verbose {
 			gologger.Verbose().Msgf("Could not read GCP credentials file: %s\n", err)
 		}
 		return nil
@@ -317,13 +317,13 @@ func (sd *SelfDiscovery) discoverGCP() schema.OptionBlock {
 
 	return schema.OptionBlock{
 		"provider":                "gcp",
-		"id":                      "self-discovery",
+		"id":                      "auto-discovery",
 		"gcp_service_account_key": string(keyData),
 	}
 }
 
 // tryGCPMetadataService attempts to get credentials from GCP Metadata Service
-func (sd *SelfDiscovery) tryGCPMetadataService() schema.OptionBlock {
+func (ad *AutoDiscovery) tryGCPMetadataService() schema.OptionBlock {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -355,7 +355,7 @@ func (sd *SelfDiscovery) tryGCPMetadataService() schema.OptionBlock {
 					// which automatically uses metadata service
 					return schema.OptionBlock{
 						"provider":                "gcp",
-						"id":                      "self-discovery",
+						"id":                      "auto-discovery",
 						"gcp_service_account_key": "",
 					}
 				}
@@ -367,9 +367,9 @@ func (sd *SelfDiscovery) tryGCPMetadataService() schema.OptionBlock {
 }
 
 // discoverAzure attempts to discover Azure credentials
-func (sd *SelfDiscovery) discoverAzure() schema.OptionBlock {
+func (ad *AutoDiscovery) discoverAzure() schema.OptionBlock {
 	// Priority 1: Check Azure Managed Identity (MSI)
-	if config := sd.tryAzureManagedIdentity(); config != nil {
+	if config := ad.tryAzureManagedIdentity(); config != nil {
 		return config
 	}
 
@@ -384,7 +384,7 @@ func (sd *SelfDiscovery) discoverAzure() schema.OptionBlock {
 
 		return schema.OptionBlock{
 			"provider":        "azure",
-			"id":              "self-discovery",
+			"id":              "auto-discovery",
 			"client_id":       clientID,
 			"client_secret":   clientSecret,
 			"tenant_id":       tenantID,
@@ -406,13 +406,13 @@ func (sd *SelfDiscovery) discoverAzure() schema.OptionBlock {
 
 			return schema.OptionBlock{
 				"provider":        "azure",
-				"id":              "self-discovery",
+				"id":              "auto-discovery",
 				"subscription_id": subscriptionID,
 				"use_cli_auth":    "true",
 			}
 		}
 
-		if sd.options.Verbose {
+		if ad.options.Verbose {
 			gologger.Verbose().Msgf("Azure CLI configuration found, but AZURE_SUBSCRIPTION_ID not set\n")
 		}
 	}
@@ -421,7 +421,7 @@ func (sd *SelfDiscovery) discoverAzure() schema.OptionBlock {
 }
 
 // tryAzureManagedIdentity attempts to get credentials from Azure Managed Identity
-func (sd *SelfDiscovery) tryAzureManagedIdentity() schema.OptionBlock {
+func (ad *AutoDiscovery) tryAzureManagedIdentity() schema.OptionBlock {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -445,7 +445,7 @@ func (sd *SelfDiscovery) tryAzureManagedIdentity() schema.OptionBlock {
 					subscriptionID := os.Getenv("AZURE_SUBSCRIPTION_ID")
 					config := schema.OptionBlock{
 						"provider": "azure",
-						"id":       "self-discovery",
+						"id":       "auto-discovery",
 					}
 					if subscriptionID != "" {
 						config["subscription_id"] = subscriptionID
@@ -473,7 +473,7 @@ func (sd *SelfDiscovery) tryAzureManagedIdentity() schema.OptionBlock {
 					subscriptionID := os.Getenv("AZURE_SUBSCRIPTION_ID")
 					config := schema.OptionBlock{
 						"provider": "azure",
-						"id":       "self-discovery",
+						"id":       "auto-discovery",
 					}
 					if subscriptionID != "" {
 						config["subscription_id"] = subscriptionID
@@ -508,7 +508,7 @@ func (sd *SelfDiscovery) tryAzureManagedIdentity() schema.OptionBlock {
 					subscriptionID := os.Getenv("AZURE_SUBSCRIPTION_ID")
 					config := schema.OptionBlock{
 						"provider": "azure",
-						"id":       "self-discovery",
+						"id":       "auto-discovery",
 					}
 					if subscriptionID != "" {
 						config["subscription_id"] = subscriptionID

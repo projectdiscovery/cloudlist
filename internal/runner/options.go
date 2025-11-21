@@ -35,7 +35,7 @@ type Options struct {
 	ExtendedMetadata   bool                // ExtendedMetadata enables extended metadata for providers.
 	ProviderConfig     string              // ProviderConfig is the location of the provider config file.
 	DisableUpdateCheck bool                // DisableUpdateCheck disable automatic update check
-	SelfDiscovery      bool                // SelfDiscovery enables auto-discovery of providers from environment variables
+	AutoDiscovery      bool                // AutoDiscovery enables auto-discovery of providers from environment variables
 }
 
 var (
@@ -78,7 +78,7 @@ func ParseOptions() *Options {
 	flagSet.CreateGroup("config", "Configuration",
 		flagSet.StringVar(&options.Config, "config", defaultConfigLocation, "cloudlist flag config file"),
 		flagSet.StringVarP(&options.ProviderConfig, "provider-config", "pc", defaultProviderConfigLocation, "provider config file"),
-		flagSet.BoolVarP(&options.SelfDiscovery, "self-discovery", "sd", false, "enable self-discovery mode to auto-detect providers from environment"),
+		flagSet.BoolVarP(&options.AutoDiscovery, "auto-discovery", "ad", false, "enable auto-discovery mode to auto-detect providers from environment"),
 	)
 	flagSet.CreateGroup("filter", "Filters",
 		flagSet.StringSliceVarP(&options.Providers, "provider", "p", nil, "display results for given providers (comma-separated) (default "+strings.Join(defaultProviders, ",")+")", goflags.CommaSeparatedStringSliceOptions),

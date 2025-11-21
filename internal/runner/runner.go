@@ -23,15 +23,15 @@ type Runner struct {
 func New(options *Options) (*Runner, error) {
 	var config schema.Options
 
-	// If self-discovery mode is enabled, skip provider config file
-	if options.SelfDiscovery {
-		gologger.Info().Msgf("Self-discovery mode enabled, ignoring provider config file\n")
+	// If auto-discovery mode is enabled, skip provider config file
+	if options.AutoDiscovery {
+		gologger.Info().Msgf("Auto-discovery mode enabled, ignoring provider config file\n")
 
-		sd := NewSelfDiscovery(options)
-		config = sd.DiscoverProviders()
+		ad := NewAutoDiscovery(options)
+		config = ad.DiscoverProviders()
 
 		if len(config) == 0 {
-			gologger.Warning().Msgf("No providers discovered in self-discovery mode\n")
+			gologger.Warning().Msgf("No providers discovered in auto-discovery mode\n")
 			gologger.Info().Msgf("Hint: Make sure you have KUBECONFIG set or ~/.kube/config exists for Kubernetes\n")
 			gologger.Info().Msgf("Hint: Set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY for AWS\n")
 			gologger.Info().Msgf("Hint: Set GOOGLE_APPLICATION_CREDENTIALS for GCP\n")
@@ -61,7 +61,7 @@ func New(options *Options) (*Runner, error) {
 	if len(options.Services) == 0 {
 		options.Services = append(options.Services, defaultServies...)
 	}
-	if len(options.Providers) == 0 && !options.SelfDiscovery {
+	if len(options.Providers) == 0 && !options.AutoDiscovery {
 		options.Providers = append(options.Providers, defaultProviders...)
 	}
 

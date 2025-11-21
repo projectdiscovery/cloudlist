@@ -46,7 +46,7 @@ type ProviderOptions struct {
 func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
 	p.Id, _ = block.GetMetadata("id")
 
-	// Check if using IMDS or ECS task role (for self-discovery mode)
+	// Check if using IMDS or ECS task role (for auto-discovery mode)
 	useIMDS, _ := block.GetMetadata("use_imds")
 	useECSTaskRole, _ := block.GetMetadata("use_ecs_task_role")
 
