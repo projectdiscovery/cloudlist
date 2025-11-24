@@ -11,10 +11,14 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
-// dnsProvider is a provider for cloudflare dns resources
+type apiClient interface {
+	ListZones(ctx context.Context, opts ...string) ([]cloudflare.Zone, error)
+	ListDNSRecords(ctx context.Context, zoneID *cloudflare.ResourceContainer, params cloudflare.ListDNSRecordsParams) ([]cloudflare.DNSRecord, *cloudflare.ResultInfo, error)
+}
+
 type dnsProvider struct {
 	id               string
-	client           *cloudflare.API
+	client           apiClient
 	extendedMetadata bool
 }
 

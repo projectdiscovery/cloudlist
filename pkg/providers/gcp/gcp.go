@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	asset "cloud.google.com/go/asset/apiv1"
 	assetpb "cloud.google.com/go/asset/apiv1/assetpb"
@@ -22,6 +24,7 @@ import (
 	run "google.golang.org/api/run/v1"
 	"google.golang.org/api/storage/v1"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Provider is a data provider for gcp API
@@ -41,19 +44,20 @@ type Provider struct {
 
 // OrganizationProvider is a provider for organization-level GCP Asset API
 type OrganizationProvider struct {
-	id               string
-	organizationID   string
-	assetClient      *asset.Client
-	services         schema.ServiceMap
-	projects         []string
-	extendedMetadata bool
-	compute          *compute.Service // For extended metadata
-	functionsV1      *cloudfunctionsv1.Service
-	functionsV2      *cloudfunctions.Service
-	run              *run.APIService
-	dns              *dns.Service
-	storage          *storage.Service
-	gke              *container.Service
+	id                    string
+	organizationID        string
+	assetClient           *asset.Client
+	services              schema.ServiceMap
+	projects              []string
+	extendedMetadata      bool
+	readTimeOffsetSeconds int
+	compute               *compute.Service // For extended metadata
+	functionsV1           *cloudfunctionsv1.Service
+	functionsV2           *cloudfunctions.Service
+	run                   *run.APIService
+	dns                   *dns.Service
+	storage               *storage.Service
+	gke                   *container.Service
 }
 
 // Services that provide IP addresses or DNS names only
@@ -87,6 +91,7 @@ func (p *Provider) Services() []string {
 // Resources returns the provider for an resource deployment source using individual services
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalResources := schema.NewResources()
+	var errs []error
 
 	if p.services.Has("dns") {
 		dnsProvider := &cloudDNSProvider{
@@ -98,6 +103,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		dnsResources, err := dnsProvider.GetResource(ctx)
 		if err != nil {
 			gologger.Warning().Msgf("Could not get DNS resources: %s\n", err)
+			errs = append(errs, fmt.Errorf("dns: %w", err))
 		} else {
 			finalResources.Merge(dnsResources)
 		}
@@ -113,6 +119,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		computeResources, err := computeProvider.GetResource(ctx)
 		if err != nil {
 			gologger.Warning().Msgf("Could not get compute resources: %s\n", err)
+			errs = append(errs, fmt.Errorf("compute: %w", err))
 		} else {
 			finalResources.Merge(computeResources)
 		}
@@ -128,6 +135,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		gkeResources, err := gkeProvider.GetResource(ctx)
 		if err != nil {
 			gologger.Warning().Msgf("Could not get gke resources: %s\n", err)
+			errs = append(errs, fmt.Errorf("gke: %w", err))
 		} else {
 			finalResources.Merge(gkeResources)
 		}
@@ -143,6 +151,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		storageResources, err := storageProvider.GetResource(ctx)
 		if err != nil {
 			gologger.Warning().Msgf("Could not get storage resources: %s\n", err)
+			errs = append(errs, fmt.Errorf("storage: %w", err))
 		} else {
 			finalResources.Merge(storageResources)
 		}
@@ -158,6 +167,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		functionResources, err := functionProvider.GetResource(ctx)
 		if err != nil {
 			gologger.Warning().Msgf("Could not get function resources: %s\n", err)
+			errs = append(errs, fmt.Errorf("cloud-function: %w", err))
 		} else {
 			finalResources.Merge(functionResources)
 		}
@@ -173,9 +183,14 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		runResources, err := runProvider.GetResource(ctx)
 		if err != nil {
 			gologger.Warning().Msgf("Could not get run resources: %s\n", err)
+			errs = append(errs, fmt.Errorf("cloud-run: %w", err))
 		} else {
 			finalResources.Merge(runResources)
 		}
+	}
+
+	if len(finalResources.Items) == 0 && len(errs) > 0 {
+		return nil, errs[0]
 	}
 
 	return finalResources, nil
@@ -390,6 +405,10 @@ func (p *OrganizationProvider) Resources(ctx context.Context) (*schema.Resources
 // getAllAssets gets all assets using the Cloud Asset Inventory API
 func (p *OrganizationProvider) getAllAssets(ctx context.Context, parent string) (*schema.Resources, error) {
 	gologger.Info().Msgf("Starting Asset API discovery for parent: %s", parent)
+	if p.readTimeOffsetSeconds > 0 {
+		readTime := time.Now().Add(-time.Duration(p.readTimeOffsetSeconds) * time.Second).UTC().Format(time.RFC3339)
+		gologger.Info().Msgf("Using read time offset of %d seconds (read_time=%s)", p.readTimeOffsetSeconds, readTime)
+	}
 
 	var assetTypesGcpListAPI = []string{
 		"compute.googleapis.com/Instance",
@@ -423,6 +442,15 @@ func (p *OrganizationProvider) getAssetsForTypes(ctx context.Context, parent str
 		AssetTypes:  assetTypes,
 		ContentType: assetpb.ContentType_RESOURCE,
 		PageSize:    1000,
+	}
+
+	if p.readTimeOffsetSeconds > 0 {
+		now := time.Now()
+		readTime := now.Add(-time.Duration(p.readTimeOffsetSeconds) * time.Second)
+		if readTime.After(now) {
+			readTime = now
+		}
+		req.ReadTime = timestamppb.New(readTime)
 	}
 
 	resources := schema.NewResources()
@@ -503,6 +531,11 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 	// Check for extended metadata flag
 	if extendedMetadata, ok := options.GetMetadata("extended_metadata"); ok {
 		provider.extendedMetadata = extendedMetadata == "true"
+	}
+	if offsetStr, ok := options.GetMetadata("read_time_offset_seconds"); ok {
+		if offset, err := strconv.Atoi(offsetStr); err == nil && offset > 0 {
+			provider.readTimeOffsetSeconds = offset
+		}
 	}
 
 	// Get all available services for organization-level discovery
