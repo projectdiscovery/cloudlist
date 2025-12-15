@@ -152,6 +152,7 @@ Google Cloud Platform supports **two discovery approaches** and **two authentica
 - `service_account_email` (string, required if short-lived): Target service account to impersonate
 - `source_credentials` (string, optional): Path to source credentials file (uses ADC if not provided)
 - `token_lifetime` (string, optional): Token lifetime in seconds (e.g., "3600s") or Go duration format (e.g., "1h"). Range: 1s to 3600s (1 hour). Default: "3600s"
+- `project_ids` (list, optional): Comma-separated/list of project IDs to enumerate. When provided, Cloudlist skips discovery in every other accessible project, both for individual APIs and the organization-level Asset API.
 
 ---
 
@@ -191,7 +192,12 @@ Google Cloud Platform supports **two discovery approaches** and **two authentica
   use_short_lived_credentials: true
   service_account_email: "asset-viewer-sa@project.iam.gserviceaccount.com"
   token_lifetime: "7200s"  # 2 hours
+  project_ids:
+    - security-core
+    - shared-infra
 ```
+
+Add `project_ids` to either configuration style to limit enumeration strictly to the listed projects (Cloud Asset API requests are filtered too), which is helpful for large organizations or delegated-access service accounts.
 
 **Required Organization-Level Roles:**
 1. `roles/cloudasset.viewer` - Core Asset API access
