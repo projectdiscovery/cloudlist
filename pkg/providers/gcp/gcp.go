@@ -383,32 +383,65 @@ func (p *OrganizationProvider) Services() []string {
 	return p.services.Keys()
 }
 
-// Resources returns the provider resources using organization-level Cloud Asset Inventory API
+// Resources returns the provider resources using project-scoped / organization-level Cloud Asset Inventory API
 func (p *OrganizationProvider) Resources(ctx context.Context) (*schema.Resources, error) {
 	gologger.Info().Msgf("OrgProvider.Resources called with organization_id: '%s', projects: %v, services: %v", p.organizationID, p.projects, p.services.Keys())
 
-	parent := "organizations/" + p.organizationID
-	gologger.Info().Msgf("Using organization-level discovery with parent: %s", parent)
-
 	finalResources := schema.NewResources()
 
-	// Use Cloud Asset Inventory API to get assets
-	if p.services.Has("all") {
-		gologger.Info().Msgf("Found 'all' service, starting comprehensive asset discovery")
-		allAssets, err := p.getAllAssets(ctx, parent)
-		if err != nil {
-			gologger.Warning().Msgf("Could not get all assets: %s", err)
-		} else {
-			finalResources.Merge(allAssets)
+	// Use per-project API calls when specific projects are configured
+	if p.projectScope != nil && len(p.projectScope.listIDs()) > 0 {
+		gologger.Info().Msgf("Using project-scoped discovery for %d configured projects", len(p.projectScope.listIDs()))
+
+		for _, projectID := range p.projectScope.listIDs() {
+			parent := "projects/" + projectID
+			gologger.Info().Msgf("Fetching assets for project: %s", projectID)
+
+			var projectResources *schema.Resources
+			var err error
+           // if projects has all, thne get all assets
+			if p.services.Has("all") {
+				projectResources, err = p.getAllAssets(ctx, parent)
+				if err != nil {
+					gologger.Warning().Msgf("Could not get all assets for project %s: %s", projectID, err)
+					continue
+				}
+			} else {
+				projectResources = schema.NewResources()
+				for _, service := range p.services.Keys() {
+					assets, err := p.getAssetsForService(ctx, parent, service)
+					if err != nil {
+						gologger.Warning().Msgf("Could not get assets for service %s in project %s: %s", service, projectID, err)
+					} else {
+						projectResources.Merge(assets)
+					}
+				}
+			}
+
+			finalResources.Merge(projectResources)
 		}
 	} else {
-		// Get assets for specific services
-		for _, service := range p.services.Keys() {
-			assets, err := p.getAssetsForService(ctx, parent, service)
+		// Fallback to organization-level discovery when no specific projects configured
+		parent := "organizations/" + p.organizationID
+		gologger.Info().Msgf("Using organization-level discovery with parent: %s", parent)
+		// Note: When using organization-level discovery, all assets are wanted maybe?
+		if p.services.Has("all") {
+			gologger.Info().Msgf("Found 'all' service, starting comprehensive asset discovery")
+			allAssets, err := p.getAllAssets(ctx, parent)
 			if err != nil {
-				gologger.Warning().Msgf("Could not get assets for service %s: %s", service, err)
+				gologger.Warning().Msgf("Could not get all assets: %s", err)
 			} else {
-				finalResources.Merge(assets)
+				finalResources.Merge(allAssets)
+			}
+		} else {
+			// Get assets for specific services
+			for _, service := range p.services.Keys() {
+				assets, err := p.getAssetsForService(ctx, parent, service)
+				if err != nil {
+					gologger.Warning().Msgf("Could not get assets for service %s: %s", service, err)
+				} else {
+					finalResources.Merge(assets)
+				}
 			}
 		}
 	}
@@ -482,7 +515,11 @@ func (p *OrganizationProvider) getAssetsForTypes(ctx context.Context, parent str
 			return nil, err
 		}
 
-		if p.projectScope != nil && !p.projectScope.allowsAsset(asset) {
+		// Note: When using project-scoped API calls, client-side filtering is unnecessary
+		// as the API only returns assets from the specified scope (project or organization)
+		// For organization-level calls without project_ids config, all assets are wanted anyway
+		needsFiltering := strings.HasPrefix(parent, "organizations/") && p.projectScope != nil
+		if needsFiltering && !p.projectScope.allowsAsset(asset) {
 			continue
 		}
 
