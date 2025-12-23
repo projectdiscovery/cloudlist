@@ -399,7 +399,7 @@ func (p *OrganizationProvider) Resources(ctx context.Context) (*schema.Resources
 
 			var projectResources *schema.Resources
 			var err error
-           // if projects has all, thne get all assets
+           // if projects has all, then get all assets
 			if p.services.Has("all") {
 				projectResources, err = p.getAllAssets(ctx, parent)
 				if err != nil {
