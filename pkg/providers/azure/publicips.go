@@ -2,17 +2,19 @@ package azure
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/profiles/latest/network/mgmt/network"
-	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
-// publicIPProvider is a public ip provider for Azure API
 type publicIPProvider struct {
-	id             string
-	SubscriptionID string
-	Authorizer     autorest.Authorizer
+	id               string
+	SubscriptionID   string
+	Credential       azcore.TokenCredential // Track 2: replaced autorest.Authorizer
+	extendedMetadata bool
 }
 
 func (pip *publicIPProvider) name() string {
@@ -30,10 +32,13 @@ func (pip *publicIPProvider) GetResource(ctx context.Context) (*schema.Resources
 	}
 
 	for _, ip := range ips {
-		// The IPAddress field can be nil and so we want to prevent from dereferencing
-		// a nil field in the struct
-		if ip.IPAddress == nil {
+		if ip.Properties == nil || ip.Properties.IPAddress == nil {
 			continue
+		}
+
+		var metadata map[string]string
+		if pip.extendedMetadata {
+			metadata = pip.getPublicIPMetadata(ip)
 		}
 
 		resource := &schema.Resource{
@@ -41,38 +46,197 @@ func (pip *publicIPProvider) GetResource(ctx context.Context) (*schema.Resources
 			ID:       pip.id,
 			Public:   true,
 			Service:  pip.name(),
+			Metadata: metadata,
 		}
 
-		if ip.PublicIPAddressVersion == network.IPv4 {
-			resource.PublicIPv4 = *ip.IPAddress
-		} else {
-			resource.PublicIPv6 = *ip.IPAddress
+		// Determine IP version; fall back to parsing the address when version is nil
+		ipStr := *ip.Properties.IPAddress
+		switch {
+		case ip.Properties.PublicIPAddressVersion != nil && *ip.Properties.PublicIPAddressVersion == armnetwork.IPVersionIPv4:
+			resource.PublicIPv4 = ipStr
+		case ip.Properties.PublicIPAddressVersion != nil && *ip.Properties.PublicIPAddressVersion == armnetwork.IPVersionIPv6:
+			resource.PublicIPv6 = ipStr
+		default:
+			// When version is nil, infer from address format
+			if strings.Contains(ipStr, ":") {
+				resource.PublicIPv6 = ipStr
+			} else {
+				resource.PublicIPv4 = ipStr
+			}
 		}
 
 		list.Append(resource)
+
+		if pip.extendedMetadata && ip.Properties.DNSSettings != nil && ip.Properties.DNSSettings.Fqdn != nil {
+			dnsResource := &schema.Resource{
+				Provider: providerName,
+				ID:       pip.id,
+				DNSName:  *ip.Properties.DNSSettings.Fqdn,
+				Service:  pip.name(),
+			}
+			if metadata != nil {
+				dnsResource.Metadata = make(map[string]string)
+				for k, v := range metadata {
+					dnsResource.Metadata[k] = v
+				}
+			}
+			list.Append(dnsResource)
+		}
 	}
 	return list, nil
 }
 
-func (pip *publicIPProvider) fetchPublicIPs(ctx context.Context) ([]network.PublicIPAddress, error) {
-	var ips []network.PublicIPAddress
+func (pip *publicIPProvider) fetchPublicIPs(ctx context.Context) ([]*armnetwork.PublicIPAddress, error) {
+	var ips []*armnetwork.PublicIPAddress
 
-	ipClient := network.NewPublicIPAddressesClient(pip.SubscriptionID)
-	ipClient.Authorizer = pip.Authorizer
-
-	ipsIt, err := ipClient.ListAllComplete(ctx)
+	// Track 2: Create public IP addresses client directly
+	ipClient, err := armnetwork.NewPublicIPAddressesClient(pip.SubscriptionID, pip.Credential, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create public IP client: %w", err)
 	}
 
-	for ipsIt.NotDone() {
-		ip := ipsIt.Value()
-		ips = append(ips, ip)
+	// Track 2: Use pager pattern instead of iterator
+	pager := ipClient.NewListAllPager(nil)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list public IPs: %w", err)
+		}
 
-		if err = ipsIt.NextWithContext(ctx); err != nil {
-			return ips, err
+		ips = append(ips, page.Value...)
+	}
+
+	return ips, nil
+}
+
+func (pip *publicIPProvider) getPublicIPMetadata(ip *armnetwork.PublicIPAddress) map[string]string {
+	metadata := make(map[string]string)
+
+	schema.AddMetadata(metadata, "public_ip_name", ip.Name)
+	schema.AddMetadata(metadata, "public_ip_id", ip.ID)
+	metadata["subscription_id"] = pip.SubscriptionID
+	metadata["owner_id"] = pip.SubscriptionID
+	schema.AddMetadata(metadata, "location", ip.Location)
+
+	// Track 2: Parse resource group from ID manually (no ParseResourceID in Track 2)
+	if ip.ID != nil {
+		// Azure resource ID format: /subscriptions/{subId}/resourceGroups/{rgName}/...
+		parts := strings.Split(*ip.ID, "/")
+		for i, part := range parts {
+			if strings.EqualFold(part, "resourceGroups") && i+1 < len(parts) {
+				metadata["resource_group"] = parts[i+1]
+				break
+			}
 		}
 	}
 
-	return ips, err
+	if ip.Properties != nil {
+		props := ip.Properties
+
+		if props.ProvisioningState != nil {
+			provisioningState := string(*props.ProvisioningState)
+			schema.AddMetadata(metadata, "provisioning_state", &provisioningState)
+		}
+
+		if props.PublicIPAllocationMethod != nil {
+			allocationMethod := string(*props.PublicIPAllocationMethod)
+			metadata["allocation_method"] = allocationMethod
+		}
+
+		if props.PublicIPAddressVersion != nil {
+			ipVersion := string(*props.PublicIPAddressVersion)
+			metadata["ip_version"] = ipVersion
+		}
+
+		if props.IdleTimeoutInMinutes != nil {
+			metadata["idle_timeout_in_minutes"] = fmt.Sprintf("%d", *props.IdleTimeoutInMinutes)
+		}
+
+		if props.DNSSettings != nil {
+			schema.AddMetadata(metadata, "dns_domain_name_label", props.DNSSettings.DomainNameLabel)
+			schema.AddMetadata(metadata, "dns_fqdn", props.DNSSettings.Fqdn)
+			schema.AddMetadata(metadata, "dns_reverse_fqdn", props.DNSSettings.ReverseFqdn)
+		}
+
+		if props.IPConfiguration != nil {
+			schema.AddMetadata(metadata, "associated_ip_config_id", props.IPConfiguration.ID)
+		}
+
+		if props.PublicIPPrefix != nil {
+			schema.AddMetadata(metadata, "public_ip_prefix_id", props.PublicIPPrefix.ID)
+		}
+
+		// DDoS settings fields vary by SDK version and are not included in current build
+		if len(props.IPTags) > 0 {
+			var ipTagStrings []string
+			for _, ipTag := range props.IPTags {
+				if ipTag.IPTagType != nil && ipTag.Tag != nil {
+					ipTagStrings = append(ipTagStrings, fmt.Sprintf("%s:%s", *ipTag.IPTagType, *ipTag.Tag))
+				}
+			}
+			if len(ipTagStrings) > 0 {
+				metadata["ip_tags"] = strings.Join(ipTagStrings, ",")
+			}
+		}
+
+		if props.LinkedPublicIPAddress != nil {
+			schema.AddMetadata(metadata, "linked_public_ip_id", props.LinkedPublicIPAddress.ID)
+		}
+
+		if props.MigrationPhase != nil {
+			phase := string(*props.MigrationPhase)
+			metadata["migration_phase"] = phase
+		}
+
+		if props.NatGateway != nil {
+			schema.AddMetadata(metadata, "nat_gateway_id", props.NatGateway.ID)
+		}
+
+		if props.ServicePublicIPAddress != nil {
+			schema.AddMetadata(metadata, "service_public_ip_id", props.ServicePublicIPAddress.ID)
+		}
+
+		if props.DeleteOption != nil {
+			deleteOption := string(*props.DeleteOption)
+			metadata["delete_option"] = deleteOption
+		}
+	}
+
+	if ip.SKU != nil && ip.SKU.Name != nil {
+		skuName := string(*ip.SKU.Name)
+		schema.AddMetadata(metadata, "sku_name", &skuName)
+
+		if ip.SKU.Tier != nil {
+			tier := string(*ip.SKU.Tier)
+			metadata["sku_tier"] = tier
+		}
+	}
+
+	if len(ip.Zones) > 0 {
+		var zones []string
+		for _, z := range ip.Zones {
+			if z != nil {
+				zones = append(zones, *z)
+			}
+		}
+		if len(zones) > 0 {
+			metadata["availability_zones"] = strings.Join(zones, ",")
+		}
+	}
+
+	if len(ip.Tags) > 0 {
+		if tagString := buildAzureTagString(ip.Tags); tagString != "" {
+			metadata["tags"] = tagString
+		}
+	}
+
+	if ip.ExtendedLocation != nil {
+		schema.AddMetadata(metadata, "extended_location_name", ip.ExtendedLocation.Name)
+		if ip.ExtendedLocation.Type != nil {
+			extType := string(*ip.ExtendedLocation.Type)
+			schema.AddMetadata(metadata, "extended_location_type", &extType)
+		}
+	}
+
+	return metadata
 }

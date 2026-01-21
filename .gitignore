@@ -4,3 +4,13 @@ dist
 .env
 provider-config.yaml
 cloudlist
+.claude/settings.local.json
+
+# Test files and credentials
+TEST_RESULTS.md
+test-*.yaml
+*-sa.json
+*.key.json
+/cloudlist
+/terraform/
+azure-readonly-config.yaml

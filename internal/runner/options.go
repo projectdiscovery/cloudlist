@@ -32,6 +32,7 @@ type Options struct {
 	Providers          goflags.StringSlice // Providers specifies what providers to fetch assets for.
 	Id                 goflags.StringSlice // Id specifies what id's to fetch assets for.
 	Services           goflags.StringSlice // Services specifies what services to fetch assets for a provider.
+	ExtendedMetadata   bool                // ExtendedMetadata enables extended metadata for providers.
 	ProviderConfig     string              // ProviderConfig is the location of the provider config file.
 	DisableUpdateCheck bool                // DisableUpdateCheck disable automatic update check
 }
@@ -82,6 +83,7 @@ func ParseOptions() *Options {
 		flagSet.StringSliceVar(&options.Id, "id", nil, "display results for given ids (comma-separated)", goflags.NormalizedStringSliceOptions),
 		flagSet.BoolVar(&options.Hosts, "host", false, "display only hostnames in results"),
 		flagSet.BoolVar(&options.IPAddress, "ip", false, "display only ips in results"),
+		flagSet.BoolVar(&options.ExtendedMetadata, "extended-metadata", false, "enable extended metadata for providers"),
 		flagSet.StringSliceVarP(&options.Services, "service", "s", nil, "query and display results from given service (comma-separated)) (default "+strings.Join(defaultServies, ",")+")", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.BoolVarP(&options.ExcludePrivate, "exclude-private", "ep", false, "exclude private ips in cli output"),
 	)

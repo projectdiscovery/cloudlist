@@ -7,7 +7,7 @@ import (
 
 	"github.com/dnsimple/dnsimple-go/dnsimple"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 )
 
 // Provider constants
@@ -80,11 +80,11 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	// Get and store account ID
 	whoamiResponse, err := client.Identity.Whoami(context.Background())
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("failed to authenticate with DNSSimple")
+		return nil, errkit.Wrap(err, "failed to authenticate with DNSSimple")
 	}
 
 	if whoamiResponse.Data.Account == nil {
-		return nil, errorutil.New("no account information found in DNSSimple response")
+		return nil, errkit.New("no account information found in DNSSimple response")
 
 	}
 
