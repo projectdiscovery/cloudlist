@@ -94,6 +94,7 @@ func (d *dnsProvider) getDNSRecordMetadata(record *cloudflare.DNSRecord, zone *c
 	metadata["record_id"] = record.ID
 	metadata["record_type"] = record.Type
 	metadata["record_name"] = record.Name
+	metadata["record_content"] = record.Content
 
 	if record.TTL > 0 {
 		metadata["ttl"] = fmt.Sprintf("%d", record.TTL)
