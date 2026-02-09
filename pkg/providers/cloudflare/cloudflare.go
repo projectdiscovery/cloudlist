@@ -42,6 +42,12 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		}
 	}
 
+	// Parse extended metadata option
+	extendedMetadata := false
+	if extMetadata, ok := options.GetMetadata("extended_metadata"); ok {
+		extendedMetadata = extMetadata == "true"
+	}
+
 	apiToken, ok := options.GetMetadata(apiToken)
 	if ok {
 		// Construct a new API object with scoped api token
@@ -49,7 +55,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &Provider{id: id, client: api, services: services}, nil
+		return &Provider{id: id, client: api, services: services, extendedMetadata: extendedMetadata}, nil
 	}
 
 	accessKey, ok := options.GetMetadata(apiAccessKey)
@@ -65,12 +71,6 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	api, err := cloudflare.New(accessKey, apiEmail)
 	if err != nil {
 		return nil, err
-	}
-
-	// Parse extended metadata option
-	extendedMetadata := false
-	if extMetadata, ok := options.GetMetadata("extended_metadata"); ok {
-		extendedMetadata = extMetadata == "true"
 	}
 
 	return &Provider{id: id, client: api, services: services, extendedMetadata: extendedMetadata}, nil
