@@ -399,7 +399,7 @@ func (p *OrganizationProvider) Resources(ctx context.Context) (*schema.Resources
 
 			var projectResources *schema.Resources
 			var err error
-           // if projects has all, then get all assets
+			// if projects has all, then get all assets
 			if p.services.Has("all") {
 				projectResources, err = p.getAllAssets(ctx, parent)
 				if err != nil {
@@ -513,14 +513,6 @@ func (p *OrganizationProvider) getAssetsForTypes(ctx context.Context, parent str
 				break
 			}
 			return nil, err
-		}
-
-		// Note: When using project-scoped API calls, client-side filtering is unnecessary
-		// as the API only returns assets from the specified scope (project or organization)
-		// For organization-level calls without project_ids config, all assets are wanted anyway
-		needsFiltering := strings.HasPrefix(parent, "organizations/") && p.projectScope != nil
-		if needsFiltering && !p.projectScope.allowsAsset(asset) {
-			continue
 		}
 
 		resource := p.parseAssetToResource(asset)
@@ -725,7 +717,7 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 		if scope == nil {
 			return nil, errkit.New("no valid project ids provided in configuration")
 		}
-		if err := scope.enrichWithProjectNumbers(context.Background(), manager); err != nil {
+		if err := scope.validateProjects(context.Background(), manager); err != nil {
 			gologger.Warning().Msgf("Could not resolve configured project ids: %s", err)
 		}
 		projects = scope.listIDs()
@@ -975,11 +967,9 @@ func getProjectIDsFromOptions(options schema.OptionBlock) []string {
 }
 
 func splitAndCleanProjectList(raw string) []string {
-	replacer := strings.NewReplacer("\n", ",", "\r", ",", ";", ",")
-	normalized := replacer.Replace(raw)
-	parts := strings.Split(normalized, ",")
-	result := make([]string, 0, len(parts))
+	parts := strings.Split(raw, ",")
 	seen := make(map[string]struct{}, len(parts))
+	result := make([]string, 0, len(parts))
 	for _, part := range parts {
 		trimmed := strings.TrimSpace(part)
 		if trimmed == "" {
@@ -998,9 +988,7 @@ func splitAndCleanProjectList(raw string) []string {
 }
 
 type projectScope struct {
-	allowedIDs     map[string]struct{}
-	allowedNumbers map[string]struct{}
-	orderedIDs     []string
+	orderedIDs []string
 }
 
 func newProjectScope(projectIDs []string) *projectScope {
@@ -1020,18 +1008,9 @@ func newProjectScope(projectIDs []string) *projectScope {
 	if len(sanitized) == 0 {
 		return nil
 	}
-	scope := &projectScope{
-		allowedIDs:     make(map[string]struct{}, len(sanitized)),
-		allowedNumbers: make(map[string]struct{}),
-		orderedIDs:     append([]string{}, sanitized...),
+	return &projectScope{
+		orderedIDs: sanitized,
 	}
-	for _, id := range sanitized {
-		scope.allowedIDs[id] = struct{}{}
-		if isNumeric(id) {
-			scope.allowedNumbers[id] = struct{}{}
-		}
-	}
-	return scope
 }
 
 func (ps *projectScope) listIDs() []string {
@@ -1041,7 +1020,7 @@ func (ps *projectScope) listIDs() []string {
 	return append([]string{}, ps.orderedIDs...)
 }
 
-func (ps *projectScope) enrichWithProjectNumbers(ctx context.Context, manager *cloudresourcemanager.Service) error {
+func (ps *projectScope) validateProjects(ctx context.Context, manager *cloudresourcemanager.Service) error {
 	if ps == nil || manager == nil {
 		return nil
 	}
@@ -1054,130 +1033,10 @@ func (ps *projectScope) enrichWithProjectNumbers(ctx context.Context, manager *c
 			}
 			continue
 		}
+		// Update with canonical project ID from API
 		if project.ProjectId != "" {
-			ps.allowedIDs[project.ProjectId] = struct{}{}
 			ps.orderedIDs[idx] = project.ProjectId
-		}
-		if project.ProjectNumber != 0 {
-			number := strconv.FormatInt(project.ProjectNumber, 10)
-			ps.allowedNumbers[number] = struct{}{}
 		}
 	}
 	return firstErr
-}
-
-func (ps *projectScope) allowsAsset(asset *assetpb.Asset) bool {
-	if ps == nil {
-		return true
-	}
-	if ps.containsID(extractProjectIDFromAsset(asset)) {
-		return true
-	}
-	if ps.containsNumber(extractProjectNumberFromAsset(asset)) {
-		return true
-	}
-	return false
-}
-
-func (ps *projectScope) containsID(id string) bool {
-	if id == "" {
-		return false
-	}
-	_, ok := ps.allowedIDs[id]
-	return ok
-}
-
-func (ps *projectScope) containsNumber(number string) bool {
-	if number == "" {
-		return false
-	}
-	_, ok := ps.allowedNumbers[number]
-	return ok
-}
-
-func extractProjectIDFromAsset(asset *assetpb.Asset) string {
-	if asset == nil {
-		return ""
-	}
-	if id := extractProjectToken(asset.GetName()); id != "" && id != "_" {
-		return id
-	}
-	if resource := asset.GetResource(); resource != nil {
-		if id := extractProjectToken(resource.Parent); id != "" && id != "_" {
-			return id
-		}
-		if data := resource.Data; data != nil {
-			for _, key := range []string{"projectId", "project", "project_id"} {
-				if field, ok := data.Fields[key]; ok {
-					if value := strings.TrimSpace(field.GetStringValue()); value != "" && value != "_" {
-						return value
-					}
-				}
-			}
-		}
-	}
-	return ""
-}
-
-func extractProjectNumberFromAsset(asset *assetpb.Asset) string {
-	if asset == nil {
-		return ""
-	}
-	if resource := asset.GetResource(); resource != nil {
-		if number := extractNumericProjectToken(resource.Parent); number != "" {
-			return number
-		}
-		if data := resource.Data; data != nil {
-			if field, ok := data.Fields["projectNumber"]; ok {
-				if value := strings.TrimSpace(field.GetStringValue()); value != "" {
-					return value
-				}
-			}
-		}
-	}
-	for _, ancestor := range asset.Ancestors {
-		if number := extractNumericProjectToken(ancestor); number != "" {
-			return number
-		}
-	}
-	return ""
-}
-
-func extractNumericProjectToken(value string) string {
-	token := extractProjectToken(value)
-	if token == "" {
-		return ""
-	}
-	if !isNumeric(token) {
-		return ""
-	}
-	return token
-}
-
-func extractProjectToken(value string) string {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return ""
-	}
-	trimmed = strings.TrimPrefix(trimmed, "//")
-	index := strings.Index(trimmed, "projects/")
-	if index == -1 {
-		return ""
-	}
-	trimmed = trimmed[index+len("projects/"):]
-	parts := strings.Split(trimmed, "/")
-	if len(parts) == 0 {
-		return ""
-	}
-	return strings.TrimSpace(parts[0])
-}
-
-func isNumeric(value string) bool {
-	if value == "" {
-		return false
-	}
-	if _, err := strconv.ParseInt(value, 10, 64); err != nil {
-		return false
-	}
-	return true
 }
