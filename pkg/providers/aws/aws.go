@@ -19,6 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/lambda"
 	"github.com/aws/aws-sdk-go/service/lightsail"
+	"github.com/aws/aws-sdk-go/service/organizations"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/sts"
@@ -38,7 +39,9 @@ type ProviderOptions struct {
 	AssumeRoleSessionName string
 	ExternalId            string
 	AssumeRoleName        string
+	OrgDiscoveryRoleArn   string
 	AccountIds            []string
+	ExcludeAccountIds     []string
 	Services              schema.ServiceMap
 	ExtendedMetadata      bool
 }
@@ -72,6 +75,10 @@ func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
 		p.AssumeRoleName = assumeRoleName
 	}
 
+	if orgRoleArn, ok := block.GetMetadata(orgDiscoveryRoleArn); ok {
+		p.OrgDiscoveryRoleArn = orgRoleArn
+	}
+
 	supportedServicesMap := make(map[string]struct{})
 	for _, s := range Services {
 		supportedServicesMap[s] = struct{}{}
@@ -97,7 +104,10 @@ func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
 	}
 
 	if accountIds, ok := block.GetMetadata(accountIds); ok {
-		p.AccountIds = sliceutil.Dedupe(strings.Split(accountIds, ","))
+		p.AccountIds = sliceutil.Dedupe(strings.Split(strings.ReplaceAll(accountIds, " ", ""), ","))
+	}
+	if eids, ok := block.GetMetadata(excludeAccountIds); ok {
+		p.ExcludeAccountIds = strings.Split(strings.ReplaceAll(eids, " ", ""), ",")
 	}
 	return nil
 }
@@ -126,6 +136,20 @@ func New(block schema.OptionBlock) (*Provider, error) {
 	options := &ProviderOptions{}
 	if err := options.ParseOptionBlock(block); err != nil {
 		return nil, err
+	}
+
+	// assume_role_arn replaces the session entirely, so it cannot be combined
+	// with multi-account fields that require the raw credentials session
+	if options.AssumeRoleArn != "" {
+		if options.AssumeRoleName != "" {
+			return nil, errors.New("assume_role_arn and assume_role_name cannot be used together")
+		}
+		if options.OrgDiscoveryRoleArn != "" {
+			return nil, errors.New("assume_role_arn and org_discovery_role_arn cannot be used together")
+		}
+		if len(options.AccountIds) > 0 {
+			return nil, errors.New("assume_role_arn and account_ids cannot be used together")
+		}
 	}
 
 	provider := &Provider{options: options}
@@ -184,6 +208,33 @@ func New(block schema.OptionBlock) (*Provider, error) {
 	}
 
 	provider.session = sess
+
+	// Discover accounts from AWS Organizations if configured
+	if options.OrgDiscoveryRoleArn != "" {
+		if options.AssumeRoleName == "" {
+			return nil, errors.New("assume_role_name is required when using org_discovery_role_arn")
+		}
+		discovered, err := provider.discoverOrgAccounts(sess, config)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to discover org accounts")
+		}
+		options.AccountIds = sliceutil.Dedupe(append(options.AccountIds, discovered...))
+	}
+
+	// Apply exclude filter to account_ids (works with both manual and discovered accounts)
+	if len(options.ExcludeAccountIds) > 0 && len(options.AccountIds) > 0 {
+		excludeSet := make(map[string]struct{})
+		for _, id := range options.ExcludeAccountIds {
+			excludeSet[id] = struct{}{}
+		}
+		filtered := make([]string, 0, len(options.AccountIds))
+		for _, id := range options.AccountIds {
+			if _, excluded := excludeSet[id]; !excluded {
+				filtered = append(filtered, id)
+			}
+		}
+		options.AccountIds = filtered
+	}
 
 	// Handle DescribeRegions call with fallback for assume_role_name case
 	var regions *ec2.DescribeRegionsOutput
@@ -254,6 +305,54 @@ func createAssumedRoleSession(options *ProviderOptions, sess *session.Session, c
 	return tempSession, nil
 }
 
+// discoverOrgAccounts assumes the org discovery role and lists all active
+// accounts in the AWS Organization via organizations:ListAccounts.
+func (p *Provider) discoverOrgAccounts(sess *session.Session, config *aws.Config) ([]string, error) {
+	stsClient := sts.New(sess)
+
+	roleInput := &sts.AssumeRoleInput{
+		RoleArn:        aws.String(p.options.OrgDiscoveryRoleArn),
+		RoleSessionName: aws.String("cloudlist-org-discovery"),
+	}
+	if p.options.ExternalId != "" {
+		roleInput.ExternalId = aws.String(p.options.ExternalId)
+	}
+
+	assumeOut, err := stsClient.AssumeRole(roleInput)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not assume org discovery role")
+	}
+
+	orgSess, err := session.NewSession(&aws.Config{
+		Region: config.Region,
+		Credentials: credentials.NewStaticCredentials(
+			*assumeOut.Credentials.AccessKeyId,
+			*assumeOut.Credentials.SecretAccessKey,
+			*assumeOut.Credentials.SessionToken,
+		),
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create org discovery session")
+	}
+
+	orgClient := organizations.New(orgSess)
+	var accountIDs []string
+
+	err = orgClient.ListAccountsPages(&organizations.ListAccountsInput{}, func(page *organizations.ListAccountsOutput, lastPage bool) bool {
+		for _, acct := range page.Accounts {
+			if acct.Status != nil && *acct.Status == "ACTIVE" && acct.Id != nil {
+				accountIDs = append(accountIDs, *acct.Id)
+			}
+		}
+		return true
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "could not list org accounts")
+	}
+
+	return accountIDs, nil
+}
+
 func (p *Provider) initServices(sess *session.Session) {
 	services := p.options.Services
 
@@ -302,6 +401,8 @@ const assumeRoleArn = "assume_role_arn"
 const externalId = "external_id"
 const assumeRoleSessionName = "assume_role_session_name"
 const accountIds = "account_ids"
+const excludeAccountIds = "exclude_account_ids"
+const orgDiscoveryRoleArn = "org_discovery_role_arn"
 
 // Name returns the name of the provider
 func (p *Provider) Name() string {
