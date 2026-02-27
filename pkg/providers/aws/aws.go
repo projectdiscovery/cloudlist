@@ -25,6 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 	sliceutil "github.com/projectdiscovery/utils/slice"
 )
 
@@ -218,6 +219,7 @@ func New(block schema.OptionBlock) (*Provider, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to discover org accounts")
 		}
+		gologger.Info().Msgf("Discovered %d accounts from AWS Organizations", len(discovered))
 		options.AccountIds = sliceutil.Dedupe(append(options.AccountIds, discovered...))
 	}
 
@@ -234,6 +236,10 @@ func New(block schema.OptionBlock) (*Provider, error) {
 			}
 		}
 		options.AccountIds = filtered
+	}
+
+	if len(options.AccountIds) > 0 && options.AssumeRoleName != "" {
+		gologger.Info().Msgf("Will assume role %s in %d accounts: %s", options.AssumeRoleName, len(options.AccountIds), strings.Join(options.AccountIds, ", "))
 	}
 
 	// Handle DescribeRegions call with fallback for assume_role_name case
