@@ -104,10 +104,10 @@ func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
 	}
 
 	if accountIds, ok := block.GetMetadata(accountIds); ok {
-		p.AccountIds = sliceutil.Dedupe(strings.Split(strings.ReplaceAll(accountIds, " ", ""), ","))
+		p.AccountIds = sliceutil.Dedupe(strings.Split(accountIds, ","))
 	}
 	if eids, ok := block.GetMetadata(excludeAccountIds); ok {
-		p.ExcludeAccountIds = strings.Split(strings.ReplaceAll(eids, " ", ""), ",")
+		p.ExcludeAccountIds = sliceutil.Dedupe(strings.Split(eids, ","))
 	}
 	return nil
 }
