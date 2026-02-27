@@ -217,9 +217,10 @@ func New(block schema.OptionBlock) (*Provider, error) {
 		}
 		discovered, err := provider.discoverOrgAccounts(sess, config)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to discover org accounts")
+			gologger.Warning().Msgf("Failed to discover org accounts: %s", err)
+		} else {
+			gologger.Info().Msgf("Discovered %d accounts from AWS Organizations", len(discovered))
 		}
-		gologger.Info().Msgf("Discovered %d accounts from AWS Organizations", len(discovered))
 		options.AccountIds = sliceutil.Dedupe(append(options.AccountIds, discovered...))
 	}
 
@@ -317,7 +318,7 @@ func (p *Provider) discoverOrgAccounts(sess *session.Session, config *aws.Config
 	stsClient := sts.New(sess)
 
 	roleInput := &sts.AssumeRoleInput{
-		RoleArn:        aws.String(p.options.OrgDiscoveryRoleArn),
+		RoleArn:         aws.String(p.options.OrgDiscoveryRoleArn),
 		RoleSessionName: aws.String("cloudlist-org-discovery"),
 	}
 	if p.options.ExternalId != "" {
@@ -511,6 +512,13 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 
 // Verify checks if the provider is valid using simple API calls
 func (p *Provider) Verify(ctx context.Context) error {
+	// Verify org discovery role can assume and list accounts
+	if p.options.OrgDiscoveryRoleArn != "" {
+		if _, err := p.discoverOrgAccounts(p.session, p.session.Config); err != nil {
+			return errors.Wrap(err, "org discovery verification failed")
+		}
+	}
+
 	err := p.verify()
 	if err == nil {
 		return nil
@@ -521,13 +529,8 @@ func (p *Provider) Verify(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-
 		p.initServices(tempSession)
-		err = p.verify()
-		if err != nil {
-			return err
-		}
-		return nil
+		return p.verify()
 	}
 	return err
 }
