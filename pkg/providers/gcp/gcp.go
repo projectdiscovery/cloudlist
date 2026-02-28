@@ -462,6 +462,7 @@ func (p *OrganizationProvider) getAssetsForTypes(ctx context.Context, parent str
 	const maxRateLimitRetries = 10
 	const rateLimitWait = 90 * time.Second
 	var assetInfos []assetInfo
+	var lastErr error
 	rateLimitRetries := 0
 
 pagination:
@@ -473,16 +474,12 @@ pagination:
 			}
 
 			// On rate limit, wait and resume from where we left off
-			if rateLimitInfo(err) && rateLimitRetries < maxRateLimitRetries {
+			if isRateLimitError(err) && rateLimitRetries < maxRateLimitRetries {
 				rateLimitRetries++
 				pageToken := it.PageInfo().Token
 
 				gologger.Debug().Msgf("Rate limit hit after %d assets, waiting %s before retry (%d/%d)",
 					len(assetInfos), rateLimitWait, rateLimitRetries, maxRateLimitRetries)
-
-				if pageToken == "" {
-					break
-				}
 
 				select {
 				case <-time.After(rateLimitWait):
@@ -496,7 +493,8 @@ pagination:
 				continue
 			}
 
-			// Non-rate-limit error or max retries exceeded: return partial results
+			// Non-rate-limit error or max retries exceeded: save error and return partial results
+			lastErr = err
 			gologger.Debug().Msgf("ListAssets pagination stopped after %d assets: %s", len(assetInfos), err)
 			break
 		}
@@ -511,6 +509,11 @@ pagination:
 				gologger.Debug().Msgf("Progress: %d assets fetched so far", len(assetInfos))
 			}
 		}
+	}
+
+	// If we got 0 assets and had an error, return the error
+	if lastErr != nil && len(assetInfos) == 0 {
+		return nil, lastErr
 	}
 
 	// Bulk fetch extended metadata for all collected assets (if requested)
@@ -714,8 +717,8 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 	return provider, nil
 }
 
-// rateLimitInfo returns whether the error is a rate limit error and the suggested retry delay
-func rateLimitInfo(err error) bool {
+// isRateLimitError returns whether the error is a rate limit error
+func isRateLimitError(err error) bool {
 	s, ok := status.FromError(err)
 	if !ok || s.Code() != codes.ResourceExhausted {
 		return false
