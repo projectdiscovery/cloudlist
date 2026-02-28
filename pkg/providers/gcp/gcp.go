@@ -383,10 +383,10 @@ func (p *OrganizationProvider) Resources(ctx context.Context) (*schema.Resources
 
 	// Use Cloud Asset Inventory API to get assets
 	if p.services.Has("all") {
-		gologger.Info().Msgf("Found 'all' service, starting comprehensive asset discovery")
+		gologger.Debug().Msgf("Found 'all' service, starting comprehensive asset discovery")
 		allAssets, err := p.getAllAssets(ctx, parent)
 		if err != nil {
-			gologger.Info().Msgf("Could not get all assets: %s", err)
+			gologger.Warning().Msgf("Could not get all assets: %s", err)
 		} else {
 			finalResources.Merge(allAssets)
 		}
@@ -395,7 +395,7 @@ func (p *OrganizationProvider) Resources(ctx context.Context) (*schema.Resources
 		for _, service := range p.services.Keys() {
 			assets, err := p.getAssetsForService(ctx, parent, service)
 			if err != nil {
-				gologger.Info().Msgf("Could not get assets for service %s: %s", service, err)
+				gologger.Warning().Msgf("Could not get assets for service %s: %s", service, err)
 			} else {
 				finalResources.Merge(assets)
 			}
