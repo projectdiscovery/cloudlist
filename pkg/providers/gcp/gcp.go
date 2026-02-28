@@ -23,6 +23,9 @@ import (
 	"google.golang.org/api/option"
 	run "google.golang.org/api/run/v1"
 	"google.golang.org/api/storage/v1"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -383,7 +386,7 @@ func (p *OrganizationProvider) Resources(ctx context.Context) (*schema.Resources
 		gologger.Info().Msgf("Found 'all' service, starting comprehensive asset discovery")
 		allAssets, err := p.getAllAssets(ctx, parent)
 		if err != nil {
-			gologger.Warning().Msgf("Could not get all assets: %s", err)
+			gologger.Info().Msgf("Could not get all assets: %s", err)
 		} else {
 			finalResources.Merge(allAssets)
 		}
@@ -392,7 +395,7 @@ func (p *OrganizationProvider) Resources(ctx context.Context) (*schema.Resources
 		for _, service := range p.services.Keys() {
 			assets, err := p.getAssetsForService(ctx, parent, service)
 			if err != nil {
-				gologger.Warning().Msgf("Could not get assets for service %s: %s", service, err)
+				gologger.Info().Msgf("Could not get assets for service %s: %s", service, err)
 			} else {
 				finalResources.Merge(assets)
 			}
@@ -456,16 +459,51 @@ func (p *OrganizationProvider) getAssetsForTypes(ctx context.Context, parent str
 	resources := schema.NewResources()
 	it := p.assetClient.ListAssets(ctx, req)
 
-	// Collect all assets first
+	// Collect all assets, with retry on rate limit errors and partial result preservation
+	const maxRateLimitRetries = 10
+	const rateLimitWait = 90 * time.Second
 	var assetInfos []assetInfo
+	rateLimitRetries := 0
 
+pagination:
 	for {
 		asset, err := it.Next()
 		if err != nil {
 			if errors.Is(err, iterator.Done) {
 				break
 			}
-			return nil, err
+
+			// On rate limit, wait and resume from where we left off
+			if isRateLimit, retryDelay := rateLimitInfo(err); isRateLimit && rateLimitRetries < maxRateLimitRetries {
+				rateLimitRetries++
+				pageToken := it.PageInfo().Token
+
+				wait := rateLimitWait
+				if retryDelay > 0 {
+					wait = retryDelay
+				}
+				gologger.Info().Msgf("Rate limit hit after %d assets, waiting %s before retry (%d/%d)",
+					len(assetInfos), wait, rateLimitRetries, maxRateLimitRetries)
+
+				if pageToken == "" {
+					break
+				}
+
+				select {
+				case <-time.After(wait):
+				case <-ctx.Done():
+					break pagination
+				}
+
+				// Resume with a new iterator using the page token
+				req.PageToken = pageToken
+				it = p.assetClient.ListAssets(ctx, req)
+				continue
+			}
+
+			// Non-rate-limit error or max retries exceeded: return partial results
+			gologger.Info().Msgf("ListAssets pagination stopped after %d assets: %s", len(assetInfos), err)
+			break
 		}
 
 		resource := p.parseAssetToResource(asset)
@@ -676,6 +714,22 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 	provider.projects = projects
 
 	return provider, nil
+}
+
+// rateLimitInfo returns whether the error is a rate limit error and the suggested retry delay
+func rateLimitInfo(err error) (bool, time.Duration) {
+	s, ok := status.FromError(err)
+	if !ok || s.Code() != codes.ResourceExhausted {
+		return false, 0
+	}
+	for _, detail := range s.Details() {
+		if retryInfo, ok := detail.(*errdetails.RetryInfo); ok {
+			if d := retryInfo.GetRetryDelay(); d != nil {
+				return true, d.AsDuration()
+			}
+		}
+	}
+	return true, 0
 }
 
 // Helper functions to reduce nesting and improve readability
