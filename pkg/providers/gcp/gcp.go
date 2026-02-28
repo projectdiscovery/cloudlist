@@ -482,7 +482,7 @@ pagination:
 				if retryDelay > 0 {
 					wait = retryDelay
 				}
-				gologger.Info().Msgf("Rate limit hit after %d assets, waiting %s before retry (%d/%d)",
+				gologger.Debug().Msgf("Rate limit hit after %d assets, waiting %s before retry (%d/%d)",
 					len(assetInfos), wait, rateLimitRetries, maxRateLimitRetries)
 
 				if pageToken == "" {
@@ -502,7 +502,7 @@ pagination:
 			}
 
 			// Non-rate-limit error or max retries exceeded: return partial results
-			gologger.Info().Msgf("ListAssets pagination stopped after %d assets: %s", len(assetInfos), err)
+			gologger.Debug().Msgf("ListAssets pagination stopped after %d assets: %s", len(assetInfos), err)
 			break
 		}
 
@@ -513,7 +513,7 @@ pagination:
 				resource: resource,
 			})
 			if len(assetInfos)%25000 == 0 {
-				gologger.Info().Msgf("Progress: %d assets fetched so far", len(assetInfos))
+				gologger.Debug().Msgf("Progress: %d assets fetched so far", len(assetInfos))
 			}
 		}
 	}
