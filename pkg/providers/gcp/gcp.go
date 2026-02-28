@@ -512,7 +512,7 @@ pagination:
 				asset:    asset,
 				resource: resource,
 			})
-			if len(assetInfos)%5000 == 0 {
+			if len(assetInfos)%25000 == 0 {
 				gologger.Info().Msgf("Progress: %d assets fetched so far", len(assetInfos))
 			}
 		}
