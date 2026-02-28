@@ -23,7 +23,6 @@ import (
 	"google.golang.org/api/option"
 	run "google.golang.org/api/run/v1"
 	"google.golang.org/api/storage/v1"
-	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -383,7 +382,7 @@ func (p *OrganizationProvider) Resources(ctx context.Context) (*schema.Resources
 
 	// Use Cloud Asset Inventory API to get assets
 	if p.services.Has("all") {
-		gologger.Debug().Msgf("Found 'all' service, starting comprehensive asset discovery")
+		gologger.Info().Msgf("Found 'all' service, starting comprehensive asset discovery")
 		allAssets, err := p.getAllAssets(ctx, parent)
 		if err != nil {
 			gologger.Warning().Msgf("Could not get all assets: %s", err)
@@ -474,23 +473,19 @@ pagination:
 			}
 
 			// On rate limit, wait and resume from where we left off
-			if isRateLimit, retryDelay := rateLimitInfo(err); isRateLimit && rateLimitRetries < maxRateLimitRetries {
+			if rateLimitInfo(err) && rateLimitRetries < maxRateLimitRetries {
 				rateLimitRetries++
 				pageToken := it.PageInfo().Token
 
-				wait := rateLimitWait
-				if retryDelay > 0 {
-					wait = retryDelay
-				}
 				gologger.Debug().Msgf("Rate limit hit after %d assets, waiting %s before retry (%d/%d)",
-					len(assetInfos), wait, rateLimitRetries, maxRateLimitRetries)
+					len(assetInfos), rateLimitWait, rateLimitRetries, maxRateLimitRetries)
 
 				if pageToken == "" {
 					break
 				}
 
 				select {
-				case <-time.After(wait):
+				case <-time.After(rateLimitWait):
 				case <-ctx.Done():
 					break pagination
 				}
@@ -720,19 +715,12 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 }
 
 // rateLimitInfo returns whether the error is a rate limit error and the suggested retry delay
-func rateLimitInfo(err error) (bool, time.Duration) {
+func rateLimitInfo(err error) bool {
 	s, ok := status.FromError(err)
 	if !ok || s.Code() != codes.ResourceExhausted {
-		return false, 0
+		return false
 	}
-	for _, detail := range s.Details() {
-		if retryInfo, ok := detail.(*errdetails.RetryInfo); ok {
-			if d := retryInfo.GetRetryDelay(); d != nil {
-				return true, d.AsDuration()
-			}
-		}
-	}
-	return true, 0
+	return true
 }
 
 // Helper functions to reduce nesting and improve readability
