@@ -23,6 +23,8 @@ import (
 	"google.golang.org/api/option"
 	run "google.golang.org/api/run/v1"
 	"google.golang.org/api/storage/v1"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -503,16 +505,46 @@ func (p *OrganizationProvider) getAssetsForTypes(ctx context.Context, parent str
 	resources := schema.NewResources()
 	it := p.assetClient.ListAssets(ctx, req)
 
-	// Collect all assets first
+	// Collect all assets, with retry on rate limit errors and partial result preservation
+	const maxRateLimitRetries = 10
+	const rateLimitWait = 90 * time.Second
 	var assetInfos []assetInfo
+	var lastErr error
+	rateLimitRetries := 0
 
+pagination:
 	for {
 		asset, err := it.Next()
 		if err != nil {
 			if errors.Is(err, iterator.Done) {
 				break
 			}
-			return nil, err
+
+			// On rate limit, wait and resume from where we left off
+			if isRateLimitError(err) && rateLimitRetries < maxRateLimitRetries {
+				rateLimitRetries++
+				pageToken := it.PageInfo().Token
+
+				gologger.Debug().Msgf("Rate limit hit after %d assets, waiting %s before retry (%d/%d)",
+					len(assetInfos), rateLimitWait, rateLimitRetries, maxRateLimitRetries)
+
+				select {
+				case <-time.After(rateLimitWait):
+				case <-ctx.Done():
+					lastErr = ctx.Err()
+					break pagination
+				}
+
+				// Resume with a new iterator using the page token
+				req.PageToken = pageToken
+				it = p.assetClient.ListAssets(ctx, req)
+				continue
+			}
+
+			// Non-rate-limit error or max retries exceeded: save error and return partial results
+			lastErr = err
+			gologger.Debug().Msgf("ListAssets pagination stopped after %d assets: %s", len(assetInfos), err)
+			break
 		}
 
 		// Note: When using project-scoped API calls, client-side filtering is unnecessary
@@ -529,6 +561,19 @@ func (p *OrganizationProvider) getAssetsForTypes(ctx context.Context, parent str
 				asset:    asset,
 				resource: resource,
 			})
+			if len(assetInfos)%25000 == 0 {
+				gologger.Debug().Msgf("Progress: %d assets fetched so far", len(assetInfos))
+			}
+		}
+	}
+
+	// If we had an error, propagate cancellations immediately, otherwise return error only if empty.
+	if lastErr != nil {
+		if errors.Is(lastErr, context.Canceled) || errors.Is(lastErr, context.DeadlineExceeded) {
+			return nil, lastErr
+		}
+		if len(assetInfos) == 0 {
+			return nil, lastErr
 		}
 	}
 
@@ -751,6 +796,15 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 	provider.projects = projects
 
 	return provider, nil
+}
+
+// isRateLimitError returns whether the error is a rate limit error
+func isRateLimitError(err error) bool {
+	s, ok := status.FromError(err)
+	if !ok || s.Code() != codes.ResourceExhausted {
+		return false
+	}
+	return true
 }
 
 // Helper functions to reduce nesting and improve readability
