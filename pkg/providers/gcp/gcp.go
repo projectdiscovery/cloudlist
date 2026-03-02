@@ -567,9 +567,14 @@ pagination:
 		}
 	}
 
-	// If we got 0 assets and had an error, return the error
-	if lastErr != nil && len(assetInfos) == 0 {
-		return nil, lastErr
+	// If we had an error, propagate cancellations immediately, otherwise return error only if empty.
+	if lastErr != nil {
+		if errors.Is(lastErr, context.Canceled) || errors.Is(lastErr, context.DeadlineExceeded) {
+			return nil, lastErr
+		}
+		if len(assetInfos) == 0 {
+			return nil, lastErr
+		}
 	}
 
 	// Bulk fetch extended metadata for all collected assets (if requested)
