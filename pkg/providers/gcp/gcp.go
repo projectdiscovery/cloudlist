@@ -531,6 +531,7 @@ pagination:
 				select {
 				case <-time.After(rateLimitWait):
 				case <-ctx.Done():
+					lastErr = ctx.Err()
 					break pagination
 				}
 
