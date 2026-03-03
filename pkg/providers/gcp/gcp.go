@@ -3,13 +3,16 @@ package gcp
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strconv"
 	"strings"
+	"time"
 
 	asset "cloud.google.com/go/asset/apiv1"
 	assetpb "cloud.google.com/go/asset/apiv1/assetpb"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/projectdiscovery/gologger"
-	errorutil "github.com/projectdiscovery/utils/errors"
+	"github.com/projectdiscovery/utils/errkit"
 	cloudfunctionsv1 "google.golang.org/api/cloudfunctions/v1"
 	"google.golang.org/api/cloudfunctions/v2"
 	"google.golang.org/api/cloudresourcemanager/v1"
@@ -17,9 +20,13 @@ import (
 	container "google.golang.org/api/container/v1beta1"
 	"google.golang.org/api/dns/v1"
 	"google.golang.org/api/iterator"
+	"google.golang.org/api/option"
 	run "google.golang.org/api/run/v1"
 	"google.golang.org/api/storage/v1"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Provider is a data provider for gcp API
@@ -39,19 +46,21 @@ type Provider struct {
 
 // OrganizationProvider is a provider for organization-level GCP Asset API
 type OrganizationProvider struct {
-	id               string
-	organizationID   string
-	assetClient      *asset.Client
-	services         schema.ServiceMap
-	projects         []string
-	extendedMetadata bool
-	compute          *compute.Service // For extended metadata
-	functionsV1      *cloudfunctionsv1.Service
-	functionsV2      *cloudfunctions.Service
-	run              *run.APIService
-	dns              *dns.Service
-	storage          *storage.Service
-	gke              *container.Service
+	id                    string
+	organizationID        string
+	assetClient           *asset.Client
+	services              schema.ServiceMap
+	projects              []string
+	projectScope          *projectScope
+	extendedMetadata      bool
+	readTimeOffsetSeconds int
+	compute               *compute.Service // For extended metadata
+	functionsV1           *cloudfunctionsv1.Service
+	functionsV2           *cloudfunctions.Service
+	run                   *run.APIService
+	dns                   *dns.Service
+	storage               *storage.Service
+	gke                   *container.Service
 }
 
 // Services that provide IP addresses or DNS names only
@@ -85,6 +94,7 @@ func (p *Provider) Services() []string {
 // Resources returns the provider for an resource deployment source using individual services
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalResources := schema.NewResources()
+	var errs []error
 
 	if p.services.Has("dns") {
 		dnsProvider := &cloudDNSProvider{
@@ -96,6 +106,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		dnsResources, err := dnsProvider.GetResource(ctx)
 		if err != nil {
 			gologger.Warning().Msgf("Could not get DNS resources: %s\n", err)
+			errs = append(errs, fmt.Errorf("dns: %w", err))
 		} else {
 			finalResources.Merge(dnsResources)
 		}
@@ -111,6 +122,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		computeResources, err := computeProvider.GetResource(ctx)
 		if err != nil {
 			gologger.Warning().Msgf("Could not get compute resources: %s\n", err)
+			errs = append(errs, fmt.Errorf("compute: %w", err))
 		} else {
 			finalResources.Merge(computeResources)
 		}
@@ -126,6 +138,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		gkeResources, err := gkeProvider.GetResource(ctx)
 		if err != nil {
 			gologger.Warning().Msgf("Could not get gke resources: %s\n", err)
+			errs = append(errs, fmt.Errorf("gke: %w", err))
 		} else {
 			finalResources.Merge(gkeResources)
 		}
@@ -141,6 +154,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		storageResources, err := storageProvider.GetResource(ctx)
 		if err != nil {
 			gologger.Warning().Msgf("Could not get storage resources: %s\n", err)
+			errs = append(errs, fmt.Errorf("storage: %w", err))
 		} else {
 			finalResources.Merge(storageResources)
 		}
@@ -156,6 +170,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		functionResources, err := functionProvider.GetResource(ctx)
 		if err != nil {
 			gologger.Warning().Msgf("Could not get function resources: %s\n", err)
+			errs = append(errs, fmt.Errorf("cloud-function: %w", err))
 		} else {
 			finalResources.Merge(functionResources)
 		}
@@ -171,22 +186,28 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		runResources, err := runProvider.GetResource(ctx)
 		if err != nil {
 			gologger.Warning().Msgf("Could not get run resources: %s\n", err)
+			errs = append(errs, fmt.Errorf("cloud-run: %w", err))
 		} else {
 			finalResources.Merge(runResources)
 		}
+	}
+
+	if len(finalResources.Items) == 0 && len(errs) > 0 {
+		return nil, errs[0]
 	}
 
 	return finalResources, nil
 }
 
 func New(options schema.OptionBlock) (schema.Provider, error) {
-	JSONData, ok := options.GetMetadata(serviceAccountJSON)
-	if !ok {
-		return nil, errorutil.New("could not get API Key")
-	}
+	JSONData, _ := options.GetMetadata(serviceAccountJSON)
 	id, _ := options.GetMetadata("id")
 
 	gologger.Info().Msgf("Creating GCP provider with id: %s", id)
+
+	// Note: gcp_service_account_key is optional
+	// Authentication will fall back to Application Default Credentials (ADC) if not provided
+	// This works for both traditional and short-lived credential modes
 
 	// Check if organization_id is present for organization-level discovery
 	if orgID, ok := options.GetMetadata("organization_id"); ok {
@@ -225,21 +246,60 @@ func newIndividualProvider(options schema.OptionBlock, id, JSONData string) (*Pr
 	}
 	provider.services = services
 
-	creds, err := register(context.Background(), []byte(JSONData))
+	configuredProjects := getProjectIDsFromOptions(options)
+
+	// Extract short-lived credentials configuration
+	useShortLived := false
+	if val, ok := options.GetMetadata("use_short_lived_credentials"); ok {
+		useShortLived = val == "true"
+	}
+
+	var targetServiceAccount, sourceCredentials, tokenLifetime string
+	if useShortLived {
+		targetServiceAccount, _ = options.GetMetadata("service_account_email")
+		sourceCredentials, _ = options.GetMetadata("source_credentials")
+		tokenLifetime, _ = options.GetMetadata("token_lifetime")
+
+		// Set default token lifetime if not specified
+		if tokenLifetime == "" {
+			tokenLifetime = "3600s" // 1 hour default
+		}
+
+		// Validate required parameters
+		if targetServiceAccount == "" {
+			return nil, errkit.New("service_account_email is required when use_short_lived_credentials is true")
+		}
+	}
+
+	// Register credentials with appropriate method
+	var creds option.ClientOption
+	var err error
+	if useShortLived {
+		creds, err = registerWithOptions(
+			context.Background(),
+			[]byte(JSONData),
+			true,
+			targetServiceAccount,
+			sourceCredentials,
+			tokenLifetime,
+		)
+	} else {
+		creds, err = register(context.Background(), []byte(JSONData))
+	}
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not register gcp service account")
+		return nil, errkit.Wrap(err, "could not register gcp service account")
 	}
 	if services.Has("dns") {
 		dnsService, err := dns.NewService(context.Background(), creds)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not create dns service with api key")
+			return nil, errkit.Wrap(err, "could not create dns service with api key")
 		}
 		provider.dns = dnsService
 	}
 	if services.Has("compute") {
 		computeService, err := compute.NewService(context.Background(), creds)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not create compute service with api key")
+			return nil, errkit.Wrap(err, "could not create compute service with api key")
 		}
 		provider.compute = computeService
 	}
@@ -247,7 +307,7 @@ func newIndividualProvider(options schema.OptionBlock, id, JSONData string) (*Pr
 	if services.Has("gke") {
 		containerService, err := container.NewService(context.Background(), creds)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not create container service with api key")
+			return nil, errkit.Wrap(err, "could not create container service with api key")
 		}
 		provider.gke = containerService
 	}
@@ -255,7 +315,7 @@ func newIndividualProvider(options schema.OptionBlock, id, JSONData string) (*Pr
 	if services.Has("s3") {
 		storageService, err := storage.NewService(context.Background(), creds)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not create storage service with api key")
+			return nil, errkit.Wrap(err, "could not create storage service with api key")
 		}
 		provider.storage = storageService
 	}
@@ -263,14 +323,14 @@ func newIndividualProvider(options schema.OptionBlock, id, JSONData string) (*Pr
 		// Initialize v2 service
 		functionsService, err := cloudfunctions.NewService(context.Background(), creds)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not create functions v2 service with api key")
+			return nil, errkit.Wrap(err, "could not create functions v2 service with api key")
 		}
 		provider.functions = functionsService
 
 		// Initialize v1 service
 		functionsV1Service, err := cloudfunctionsv1.NewService(context.Background(), creds)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not create functions v1 service with api key")
+			return nil, errkit.Wrap(err, "could not create functions v1 service with api key")
 		}
 		provider.functionsV1 = functionsV1Service
 	}
@@ -278,25 +338,36 @@ func newIndividualProvider(options schema.OptionBlock, id, JSONData string) (*Pr
 	if services.Has("cloud-run") {
 		cloudRunService, err := run.NewService(context.Background(), creds)
 		if err != nil {
-			return nil, errorutil.NewWithErr(err).Msgf("could not create cloud run service with api key")
+			return nil, errkit.Wrap(err, "could not create cloud run service with api key")
 		}
 		provider.run = cloudRunService
 	}
 
-	projects := []string{}
-	manager, err := cloudresourcemanager.NewService(context.Background(), creds)
-	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not list projects")
-	}
-	list := manager.Projects.List()
-	err = list.Pages(context.Background(), func(resp *cloudresourcemanager.ListProjectsResponse) error {
-		for _, project := range resp.Projects {
-			projects = append(projects, project.ProjectId)
+	projects := append([]string{}, configuredProjects...)
+	if len(projects) == 0 {
+		manager, err := cloudresourcemanager.NewService(context.Background(), creds)
+		if err != nil {
+			return nil, errkit.Wrap(err, "could not list projects")
 		}
-		return nil
-	})
+		list := manager.Projects.List()
+		err = list.Pages(context.Background(), func(resp *cloudresourcemanager.ListProjectsResponse) error {
+			for _, project := range resp.Projects {
+				projects = append(projects, project.ProjectId)
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, errkit.Wrap(err, "could not iterate projects")
+		}
+	}
+	if len(projects) == 0 {
+		return nil, errkit.New("no projects available for discovery")
+	}
+	if len(configuredProjects) > 0 {
+		gologger.Info().Msgf("Using %d configured GCP project(s) for provider %s", len(projects), id)
+	}
 	provider.projects = projects
-	return provider, err
+	return provider, nil
 }
 
 // Name returns the name of the provider
@@ -314,32 +385,65 @@ func (p *OrganizationProvider) Services() []string {
 	return p.services.Keys()
 }
 
-// Resources returns the provider resources using organization-level Cloud Asset Inventory API
+// Resources returns the provider resources using project-scoped / organization-level Cloud Asset Inventory API
 func (p *OrganizationProvider) Resources(ctx context.Context) (*schema.Resources, error) {
 	gologger.Info().Msgf("OrgProvider.Resources called with organization_id: '%s', projects: %v, services: %v", p.organizationID, p.projects, p.services.Keys())
 
-	parent := "organizations/" + p.organizationID
-	gologger.Info().Msgf("Using organization-level discovery with parent: %s", parent)
-
 	finalResources := schema.NewResources()
 
-	// Use Cloud Asset Inventory API to get assets
-	if p.services.Has("all") {
-		gologger.Info().Msgf("Found 'all' service, starting comprehensive asset discovery")
-		allAssets, err := p.getAllAssets(ctx, parent)
-		if err != nil {
-			gologger.Warning().Msgf("Could not get all assets: %s", err)
-		} else {
-			finalResources.Merge(allAssets)
+	// Use per-project API calls when specific projects are configured
+	if p.projectScope != nil && len(p.projectScope.listIDs()) > 0 {
+		gologger.Info().Msgf("Using project-scoped discovery for %d configured projects", len(p.projectScope.listIDs()))
+
+		for _, projectID := range p.projectScope.listIDs() {
+			parent := "projects/" + projectID
+			gologger.Info().Msgf("Fetching assets for project: %s", projectID)
+
+			var projectResources *schema.Resources
+			var err error
+           // if projects has all, then get all assets
+			if p.services.Has("all") {
+				projectResources, err = p.getAllAssets(ctx, parent)
+				if err != nil {
+					gologger.Warning().Msgf("Could not get all assets for project %s: %s", projectID, err)
+					continue
+				}
+			} else {
+				projectResources = schema.NewResources()
+				for _, service := range p.services.Keys() {
+					assets, err := p.getAssetsForService(ctx, parent, service)
+					if err != nil {
+						gologger.Warning().Msgf("Could not get assets for service %s in project %s: %s", service, projectID, err)
+					} else {
+						projectResources.Merge(assets)
+					}
+				}
+			}
+
+			finalResources.Merge(projectResources)
 		}
 	} else {
-		// Get assets for specific services
-		for _, service := range p.services.Keys() {
-			assets, err := p.getAssetsForService(ctx, parent, service)
+		// Fallback to organization-level discovery when no specific projects configured
+		parent := "organizations/" + p.organizationID
+		gologger.Info().Msgf("Using organization-level discovery with parent: %s", parent)
+		// Note: When using organization-level discovery, all assets are wanted maybe?
+		if p.services.Has("all") {
+			gologger.Info().Msgf("Found 'all' service, starting comprehensive asset discovery")
+			allAssets, err := p.getAllAssets(ctx, parent)
 			if err != nil {
-				gologger.Warning().Msgf("Could not get assets for service %s: %s", service, err)
+				gologger.Warning().Msgf("Could not get all assets: %s", err)
 			} else {
-				finalResources.Merge(assets)
+				finalResources.Merge(allAssets)
+			}
+		} else {
+			// Get assets for specific services
+			for _, service := range p.services.Keys() {
+				assets, err := p.getAssetsForService(ctx, parent, service)
+				if err != nil {
+					gologger.Warning().Msgf("Could not get assets for service %s: %s", service, err)
+				} else {
+					finalResources.Merge(assets)
+				}
 			}
 		}
 	}
@@ -350,6 +454,10 @@ func (p *OrganizationProvider) Resources(ctx context.Context) (*schema.Resources
 // getAllAssets gets all assets using the Cloud Asset Inventory API
 func (p *OrganizationProvider) getAllAssets(ctx context.Context, parent string) (*schema.Resources, error) {
 	gologger.Info().Msgf("Starting Asset API discovery for parent: %s", parent)
+	if p.readTimeOffsetSeconds > 0 {
+		readTime := time.Now().Add(-time.Duration(p.readTimeOffsetSeconds) * time.Second).UTC().Format(time.RFC3339)
+		gologger.Info().Msgf("Using read time offset of %d seconds (read_time=%s)", p.readTimeOffsetSeconds, readTime)
+	}
 
 	var assetTypesGcpListAPI = []string{
 		"compute.googleapis.com/Instance",
@@ -385,19 +493,66 @@ func (p *OrganizationProvider) getAssetsForTypes(ctx context.Context, parent str
 		PageSize:    1000,
 	}
 
+	if p.readTimeOffsetSeconds > 0 {
+		now := time.Now()
+		readTime := now.Add(-time.Duration(p.readTimeOffsetSeconds) * time.Second)
+		if readTime.After(now) {
+			readTime = now
+		}
+		req.ReadTime = timestamppb.New(readTime)
+	}
+
 	resources := schema.NewResources()
 	it := p.assetClient.ListAssets(ctx, req)
 
-	// Collect all assets first
+	// Collect all assets, with retry on rate limit errors and partial result preservation
+	const maxRateLimitRetries = 10
+	const rateLimitWait = 90 * time.Second
 	var assetInfos []assetInfo
+	var lastErr error
+	rateLimitRetries := 0
 
+pagination:
 	for {
 		asset, err := it.Next()
 		if err != nil {
 			if errors.Is(err, iterator.Done) {
 				break
 			}
-			return nil, err
+
+			// On rate limit, wait and resume from where we left off
+			if isRateLimitError(err) && rateLimitRetries < maxRateLimitRetries {
+				rateLimitRetries++
+				pageToken := it.PageInfo().Token
+
+				gologger.Debug().Msgf("Rate limit hit after %d assets, waiting %s before retry (%d/%d)",
+					len(assetInfos), rateLimitWait, rateLimitRetries, maxRateLimitRetries)
+
+				select {
+				case <-time.After(rateLimitWait):
+				case <-ctx.Done():
+					lastErr = ctx.Err()
+					break pagination
+				}
+
+				// Resume with a new iterator using the page token
+				req.PageToken = pageToken
+				it = p.assetClient.ListAssets(ctx, req)
+				continue
+			}
+
+			// Non-rate-limit error or max retries exceeded: save error and return partial results
+			lastErr = err
+			gologger.Debug().Msgf("ListAssets pagination stopped after %d assets: %s", len(assetInfos), err)
+			break
+		}
+
+		// Note: When using project-scoped API calls, client-side filtering is unnecessary
+		// as the API only returns assets from the specified scope (project or organization)
+		// For organization-level calls without project_ids config, all assets are wanted anyway
+		needsFiltering := strings.HasPrefix(parent, "organizations/") && p.projectScope != nil
+		if needsFiltering && !p.projectScope.allowsAsset(asset) {
+			continue
 		}
 
 		resource := p.parseAssetToResource(asset)
@@ -406,6 +561,19 @@ func (p *OrganizationProvider) getAssetsForTypes(ctx context.Context, parent str
 				asset:    asset,
 				resource: resource,
 			})
+			if len(assetInfos)%25000 == 0 {
+				gologger.Debug().Msgf("Progress: %d assets fetched so far", len(assetInfos))
+			}
+		}
+	}
+
+	// If we had an error, propagate cancellations immediately, otherwise return error only if empty.
+	if lastErr != nil {
+		if errors.Is(lastErr, context.Canceled) || errors.Is(lastErr, context.DeadlineExceeded) {
+			return nil, lastErr
+		}
+		if len(assetInfos) == 0 {
+			return nil, lastErr
 		}
 	}
 
@@ -460,9 +628,16 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 		organizationID: organizationID,
 	}
 
+	configuredProjects := getProjectIDsFromOptions(options)
+
 	// Check for extended metadata flag
 	if extendedMetadata, ok := options.GetMetadata("extended_metadata"); ok {
 		provider.extendedMetadata = extendedMetadata == "true"
+	}
+	if offsetStr, ok := options.GetMetadata("read_time_offset_seconds"); ok {
+		if offset, err := strconv.Atoi(offsetStr); err == nil && offset > 0 {
+			provider.readTimeOffsetSeconds = offset
+		}
 	}
 
 	// Get all available services for organization-level discovery
@@ -489,15 +664,51 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 	}
 	provider.services = services
 
-	// Create Asset API client
-	creds, err := register(context.Background(), []byte(JSONData))
+	// Extract short-lived credentials configuration
+	useShortLived := false
+	if val, ok := options.GetMetadata("use_short_lived_credentials"); ok {
+		useShortLived = val == "true"
+	}
+
+	var targetServiceAccount, sourceCredentials, tokenLifetime string
+	if useShortLived {
+		targetServiceAccount, _ = options.GetMetadata("service_account_email")
+		sourceCredentials, _ = options.GetMetadata("source_credentials")
+		tokenLifetime, _ = options.GetMetadata("token_lifetime")
+
+		// Set default token lifetime if not specified
+		if tokenLifetime == "" {
+			tokenLifetime = "3600s" // 1 hour default
+		}
+
+		// Validate required parameters
+		if targetServiceAccount == "" {
+			return nil, errkit.New("service_account_email is required when use_short_lived_credentials is true")
+		}
+	}
+
+	// Create Asset API client with appropriate authentication
+	var creds option.ClientOption
+	var err error
+	if useShortLived {
+		creds, err = registerWithOptions(
+			context.Background(),
+			[]byte(JSONData),
+			true,
+			targetServiceAccount,
+			sourceCredentials,
+			tokenLifetime,
+		)
+	} else {
+		creds, err = register(context.Background(), []byte(JSONData))
+	}
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not register gcp service account")
+		return nil, errkit.Wrap(err, "could not register gcp service account")
 	}
 
 	assetClient, err := asset.NewClient(context.Background(), creds)
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not create asset client")
+		return nil, errkit.Wrap(err, "could not create asset client")
 	}
 	provider.assetClient = assetClient
 
@@ -552,21 +763,48 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 	projects := []string{}
 	manager, err := cloudresourcemanager.NewService(context.Background(), creds)
 	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not create resource manager")
+		return nil, errkit.Wrap(err, "could not create resource manager")
 	}
-	list := manager.Projects.List()
-	err = list.Pages(context.Background(), func(resp *cloudresourcemanager.ListProjectsResponse) error {
-		for _, project := range resp.Projects {
-			projects = append(projects, project.ProjectId)
+	if len(configuredProjects) > 0 {
+		scope := newProjectScope(configuredProjects)
+		if scope == nil {
+			return nil, errkit.New("no valid project ids provided in configuration")
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, errorutil.NewWithErr(err).Msgf("could not list projects")
+		if err := scope.enrichWithProjectNumbers(context.Background(), manager); err != nil {
+			gologger.Warning().Msgf("Could not resolve configured project ids: %s", err)
+		}
+		projects = scope.listIDs()
+		provider.projectScope = scope
+	} else {
+		list := manager.Projects.List()
+		err = list.Pages(context.Background(), func(resp *cloudresourcemanager.ListProjectsResponse) error {
+			for _, project := range resp.Projects {
+				projects = append(projects, project.ProjectId)
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, errkit.Wrap(err, "could not list projects")
+		}
+	}
+	if len(projects) == 0 {
+		return nil, errkit.New("no projects available for organization discovery")
+	}
+	if len(configuredProjects) > 0 {
+		gologger.Info().Msgf("Restricting organization discovery to %d configured project(s)", len(projects))
 	}
 	provider.projects = projects
 
 	return provider, nil
+}
+
+// isRateLimitError returns whether the error is a rate limit error
+func isRateLimitError(err error) bool {
+	s, ok := status.FromError(err)
+	if !ok || s.Code() != codes.ResourceExhausted {
+		return false
+	}
+	return true
 }
 
 // Helper functions to reduce nesting and improve readability
@@ -706,7 +944,7 @@ func (p *OrganizationProvider) extractFilestoreIP(data *structpb.Struct, resourc
 // Verify checks if the GCP provider credentials are valid
 func (p *Provider) Verify(ctx context.Context) error {
 	if len(p.projects) == 0 {
-		return errorutil.New("no accessible GCP projects found with provided credentials")
+		return errkit.New("no accessible GCP projects found with provided credentials")
 	}
 
 	// For extra verification, try a minimal API call on one service
@@ -748,9 +986,9 @@ func (p *Provider) Verify(ctx context.Context) error {
 		}
 	}
 	if err != nil {
-		return errorutil.NewWithErr(err).Msgf("failed to verify GCP services")
+		return errkit.Wrap(err, "failed to verify GCP services")
 	}
-	return errorutil.New("no accessible GCP services found with provided credentials")
+	return errkit.New("no accessible GCP services found with provided credentials")
 }
 
 func (p *OrganizationProvider) Verify(ctx context.Context) error {
@@ -777,7 +1015,223 @@ func (p *OrganizationProvider) Verify(ctx context.Context) error {
 
 	_, err := iter.Next()
 	if err != nil && !errors.Is(err, iterator.Done) {
-		return errorutil.NewWithErr(err).Msgf("failed to verify GCP Asset API access for organization %s", p.organizationID)
+		return errkit.Wrap(err, fmt.Sprintf("failed to verify GCP Asset API access for organization %s", p.organizationID))
 	}
 	return nil
+}
+
+func getProjectIDsFromOptions(options schema.OptionBlock) []string {
+	raw, ok := options.GetMetadata("project_ids")
+	if !ok || strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	return splitAndCleanProjectList(raw)
+}
+
+func splitAndCleanProjectList(raw string) []string {
+	replacer := strings.NewReplacer("\n", ",", "\r", ",", ";", ",")
+	normalized := replacer.Replace(raw)
+	parts := strings.Split(normalized, ",")
+	result := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		result = append(result, trimmed)
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+type projectScope struct {
+	allowedIDs     map[string]struct{}
+	allowedNumbers map[string]struct{}
+	orderedIDs     []string
+}
+
+func newProjectScope(projectIDs []string) *projectScope {
+	seen := make(map[string]struct{}, len(projectIDs))
+	sanitized := make([]string, 0, len(projectIDs))
+	for _, id := range projectIDs {
+		trimmed := strings.TrimSpace(id)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		sanitized = append(sanitized, trimmed)
+	}
+	if len(sanitized) == 0 {
+		return nil
+	}
+	scope := &projectScope{
+		allowedIDs:     make(map[string]struct{}, len(sanitized)),
+		allowedNumbers: make(map[string]struct{}),
+		orderedIDs:     append([]string{}, sanitized...),
+	}
+	for _, id := range sanitized {
+		scope.allowedIDs[id] = struct{}{}
+		if isNumeric(id) {
+			scope.allowedNumbers[id] = struct{}{}
+		}
+	}
+	return scope
+}
+
+func (ps *projectScope) listIDs() []string {
+	if ps == nil {
+		return nil
+	}
+	return append([]string{}, ps.orderedIDs...)
+}
+
+func (ps *projectScope) enrichWithProjectNumbers(ctx context.Context, manager *cloudresourcemanager.Service) error {
+	if ps == nil || manager == nil {
+		return nil
+	}
+	var firstErr error
+	for idx, id := range ps.orderedIDs {
+		project, err := manager.Projects.Get(id).Context(ctx).Do()
+		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		if project.ProjectId != "" {
+			ps.allowedIDs[project.ProjectId] = struct{}{}
+			ps.orderedIDs[idx] = project.ProjectId
+		}
+		if project.ProjectNumber != 0 {
+			number := strconv.FormatInt(project.ProjectNumber, 10)
+			ps.allowedNumbers[number] = struct{}{}
+		}
+	}
+	return firstErr
+}
+
+func (ps *projectScope) allowsAsset(asset *assetpb.Asset) bool {
+	if ps == nil {
+		return true
+	}
+	if ps.containsID(extractProjectIDFromAsset(asset)) {
+		return true
+	}
+	if ps.containsNumber(extractProjectNumberFromAsset(asset)) {
+		return true
+	}
+	return false
+}
+
+func (ps *projectScope) containsID(id string) bool {
+	if id == "" {
+		return false
+	}
+	_, ok := ps.allowedIDs[id]
+	return ok
+}
+
+func (ps *projectScope) containsNumber(number string) bool {
+	if number == "" {
+		return false
+	}
+	_, ok := ps.allowedNumbers[number]
+	return ok
+}
+
+func extractProjectIDFromAsset(asset *assetpb.Asset) string {
+	if asset == nil {
+		return ""
+	}
+	if id := extractProjectToken(asset.GetName()); id != "" && id != "_" {
+		return id
+	}
+	if resource := asset.GetResource(); resource != nil {
+		if id := extractProjectToken(resource.Parent); id != "" && id != "_" {
+			return id
+		}
+		if data := resource.Data; data != nil {
+			for _, key := range []string{"projectId", "project", "project_id"} {
+				if field, ok := data.Fields[key]; ok {
+					if value := strings.TrimSpace(field.GetStringValue()); value != "" && value != "_" {
+						return value
+					}
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func extractProjectNumberFromAsset(asset *assetpb.Asset) string {
+	if asset == nil {
+		return ""
+	}
+	if resource := asset.GetResource(); resource != nil {
+		if number := extractNumericProjectToken(resource.Parent); number != "" {
+			return number
+		}
+		if data := resource.Data; data != nil {
+			if field, ok := data.Fields["projectNumber"]; ok {
+				if value := strings.TrimSpace(field.GetStringValue()); value != "" {
+					return value
+				}
+			}
+		}
+	}
+	for _, ancestor := range asset.Ancestors {
+		if number := extractNumericProjectToken(ancestor); number != "" {
+			return number
+		}
+	}
+	return ""
+}
+
+func extractNumericProjectToken(value string) string {
+	token := extractProjectToken(value)
+	if token == "" {
+		return ""
+	}
+	if !isNumeric(token) {
+		return ""
+	}
+	return token
+}
+
+func extractProjectToken(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	trimmed = strings.TrimPrefix(trimmed, "//")
+	index := strings.Index(trimmed, "projects/")
+	if index == -1 {
+		return ""
+	}
+	trimmed = trimmed[index+len("projects/"):]
+	parts := strings.Split(trimmed, "/")
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(parts[0])
+}
+
+func isNumeric(value string) bool {
+	if value == "" {
+		return false
+	}
+	if _, err := strconv.ParseInt(value, 10, 64); err != nil {
+		return false
+	}
+	return true
 }

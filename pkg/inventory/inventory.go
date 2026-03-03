@@ -24,6 +24,7 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/providers/ovh"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/scaleway"
 	"github.com/projectdiscovery/cloudlist/pkg/providers/terraform"
+	"github.com/projectdiscovery/cloudlist/pkg/providers/vercel"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	mapsutil "github.com/projectdiscovery/utils/maps"
 )
@@ -73,6 +74,7 @@ var Providers = map[string][]string{
 	"openstack":    openstack.Services,
 	"ovh":          ovh.Services,
 	"kubernetes":   k8s.Services,
+	"vercel":       vercel.Services,
 	"custom":       custom.Services,
 }
 
@@ -131,6 +133,8 @@ func nameToProvider(value string, block schema.OptionBlock) (schema.Provider, er
 		return ovh.New(block)
 	case "kubernetes":
 		return k8s.New(block)
+	case "vercel":
+		return vercel.New(block)
 	case "custom":
 		return custom.New(block)
 	case "dnssimple":
