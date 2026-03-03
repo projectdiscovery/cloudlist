@@ -3,6 +3,8 @@ package ovh
 import (
 	"context"
 	"fmt"
+	"log"
+	"net/url"
 	"strings"
 
 	"github.com/ovh/go-ovh/ovh"
@@ -37,17 +39,19 @@ func (d *dnsProvider) GetResource(ctx context.Context) (*schema.Resources, error
 	for _, zone := range zones {
 		for _, rt := range recordTypes {
 			var ids []int64
-			path := fmt.Sprintf("/domain/zone/%s/record?fieldType=%s", zone, rt)
+			path := fmt.Sprintf("/domain/zone/%s/record?fieldType=%s", url.PathEscape(zone), rt)
 			if err := d.client.GetWithContext(ctx, path, &ids); err != nil {
+				log.Printf("Could not get %s records for zone %s: %s\n", rt, zone, err)
 				continue
 			}
 			for _, id := range ids {
 				var rec ovhRecord
-				if err := d.client.GetWithContext(ctx, fmt.Sprintf("/domain/zone/%s/record/%d", zone, id), &rec); err != nil {
+				if err := d.client.GetWithContext(ctx, fmt.Sprintf("/domain/zone/%s/record/%d", url.PathEscape(zone), id), &rec); err != nil {
+					log.Printf("Could not get record %d in zone %s: %s\n", id, zone, err)
 					continue
 				}
 
-				name := strings.TrimSpace(rec.SubDomain)
+				name := rec.SubDomain
 				var fqdn string
 				if name == "" || name == "@" {
 					fqdn = zone
@@ -55,7 +59,6 @@ func (d *dnsProvider) GetResource(ctx context.Context) (*schema.Resources, error
 					fqdn = name + "." + zone
 				}
 
-				// Append DNS name (public)
 				list.Append(&schema.Resource{
 					Public:   true,
 					Provider: providerName,
@@ -64,7 +67,11 @@ func (d *dnsProvider) GetResource(ctx context.Context) (*schema.Resources, error
 					Service:  d.name(),
 				})
 
-				// For A/AAAA also append IP resource; skip CNAME target to avoid duplicates
+				// Skip CNAME targets to avoid duplicates (matches cloudflare pattern)
+				if strings.EqualFold(rec.FieldType, "CNAME") {
+					continue
+				}
+
 				res := &schema.Resource{
 					Public:   true,
 					Provider: providerName,
@@ -72,9 +79,9 @@ func (d *dnsProvider) GetResource(ctx context.Context) (*schema.Resources, error
 					Service:  d.name(),
 				}
 
-				if strings.ToUpper(rec.FieldType) == "A" {
+				if strings.EqualFold(rec.FieldType, "A") {
 					res.PublicIPv4 = rec.Target
-				} else if strings.ToUpper(rec.FieldType) == "AAAA" {
+				} else if strings.EqualFold(rec.FieldType, "AAAA") {
 					res.PublicIPv6 = rec.Target
 				}
 
