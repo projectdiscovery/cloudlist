@@ -15,10 +15,9 @@ const providerName = "ovh"
 var Services = []string{"dns"}
 
 type Provider struct {
-	id         string
-	client     *ovh.Client
-	httpClient *http.Client
-	services   schema.ServiceMap
+	id       string
+	client   *ovh.Client
+	services schema.ServiceMap
 }
 
 func New(options schema.OptionBlock) (*Provider, error) {
@@ -70,10 +69,9 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	cli.Client = httpClient
 
 	return &Provider{
-		id:         id,
-		client:     cli,
-		httpClient: httpClient,
-		services:   services,
+		id:       id,
+		client:   cli,
+		services: services,
 	}, nil
 }
 

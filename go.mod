@@ -180,6 +180,7 @@ require (
 	cloud.google.com/go/asset v1.21.1
 	github.com/alitto/pond/v2 v2.3.2
 	github.com/dnsimple/dnsimple-go v1.7.0
+	github.com/ovh/go-ovh v1.9.0
 	github.com/projectdiscovery/networkpolicy v0.1.18
 	github.com/projectdiscovery/retryablehttp-go v1.0.119
 )
@@ -214,7 +215,6 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/mholt/archives v0.1.0 // indirect
 	github.com/nwaples/rardecode/v2 v2.0.0-beta.4.0.20241112120701-034e449c6e78 // indirect
-	github.com/ovh/go-ovh v1.9.0 // indirect
 	github.com/projectdiscovery/fastdialer v0.4.3 // indirect
 	github.com/projectdiscovery/hmap v0.0.92 // indirect
 	github.com/projectdiscovery/retryabledns v1.0.104 // indirect
