@@ -761,11 +761,11 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 
 	// Get projects under the organization
 	projects := []string{}
-	manager, err := cloudresourcemanager.NewService(context.Background(), creds)
-	if err != nil {
-		return nil, errkit.Wrap(err, "could not create resource manager")
-	}
 	if len(configuredProjects) > 0 {
+		manager, err := cloudresourcemanager.NewService(context.Background(), creds)
+		if err != nil {
+			return nil, errkit.Wrap(err, "could not create resource manager")
+		}
 		scope := newProjectScope(configuredProjects)
 		if scope == nil {
 			return nil, errkit.New("no valid project ids provided in configuration")
@@ -775,23 +775,29 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 		}
 		projects = scope.listIDs()
 		provider.projectScope = scope
-	} else {
-		list := manager.Projects.List()
-		err = list.Pages(context.Background(), func(resp *cloudresourcemanager.ListProjectsResponse) error {
-			for _, project := range resp.Projects {
-				projects = append(projects, project.ProjectId)
-			}
-			return nil
-		})
-		if err != nil {
-			return nil, errkit.Wrap(err, "could not list projects")
+		if len(projects) == 0 {
+			return nil, errkit.New("no valid project ids available after resolution")
 		}
-	}
-	if len(projects) == 0 {
-		return nil, errkit.New("no projects available for organization discovery")
-	}
-	if len(configuredProjects) > 0 {
 		gologger.Info().Msgf("Restricting organization discovery to %d configured project(s)", len(projects))
+	} else {
+		manager, err := cloudresourcemanager.NewService(context.Background(), creds)
+		if err != nil {
+			gologger.Warning().Msgf("Could not create resource manager to list projects: %s", err)
+		} else {
+			list := manager.Projects.List()
+			err = list.Pages(context.Background(), func(resp *cloudresourcemanager.ListProjectsResponse) error {
+				for _, project := range resp.Projects {
+					projects = append(projects, project.ProjectId)
+				}
+				return nil
+			})
+			if err != nil {
+				gologger.Warning().Msgf("Could not list projects under organization: %s", err)
+			}
+		}
+		if len(projects) == 0 {
+			gologger.Info().Msgf("No projects listed, will use organization-level Asset API discovery for org %s", organizationID)
+		}
 	}
 	provider.projects = projects
 
