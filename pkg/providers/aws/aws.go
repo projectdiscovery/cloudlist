@@ -240,7 +240,7 @@ func New(block schema.OptionBlock) (*Provider, error) {
 	}
 
 	if len(options.AccountIds) > 0 && options.AssumeRoleName != "" {
-		gologger.Info().Msgf("Will assume role %s in %d accounts: %s", options.AssumeRoleName, len(options.AccountIds), strings.Join(options.AccountIds, ", "))
+		gologger.Info().Msgf("Will assume role %s in %d accounts", options.AssumeRoleName, len(options.AccountIds))
 	}
 
 	// Handle DescribeRegions call with fallback for assume_role_name case
