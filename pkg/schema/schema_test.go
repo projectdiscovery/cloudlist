@@ -24,3 +24,68 @@ func TestOptionBlockParsesProjectIDs(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "alpha,beta,alpha", value)
 }
+
+func TestOptionBlockParsesAccountIDs(t *testing.T) {
+	data := `
+- provider: aws
+  account_ids:
+    - "123456789012"
+    - "234567890123"
+`
+	var options Options
+	err := yaml.Unmarshal([]byte(data), &options)
+	require.NoError(t, err)
+	require.Len(t, options, 1)
+
+	value, ok := options[0].GetMetadata("account_ids")
+	require.True(t, ok)
+	require.Equal(t, "123456789012,234567890123", value)
+}
+
+func TestOptionBlockZeroPadsUnquotedAccountIDs(t *testing.T) {
+	data := `
+- provider: aws
+  account_ids:
+    - 012345678901
+    - 123456789012
+`
+	var options Options
+	err := yaml.Unmarshal([]byte(data), &options)
+	require.NoError(t, err)
+	require.Len(t, options, 1)
+
+	value, ok := options[0].GetMetadata("account_ids")
+	require.True(t, ok)
+	require.Equal(t, "012345678901,123456789012", value)
+}
+
+func TestOptionBlockZeroPadsExcludeAccountIDs(t *testing.T) {
+	data := `
+- provider: aws
+  exclude_account_ids:
+    - 012345678901
+`
+	var options Options
+	err := yaml.Unmarshal([]byte(data), &options)
+	require.NoError(t, err)
+	require.Len(t, options, 1)
+
+	value, ok := options[0].GetMetadata("exclude_account_ids")
+	require.True(t, ok)
+	require.Equal(t, "012345678901", value)
+}
+
+func TestOptionBlockScalarFallback(t *testing.T) {
+	data := `
+- provider: aws
+  assume_role_name: PDScannerRole
+`
+	var options Options
+	err := yaml.Unmarshal([]byte(data), &options)
+	require.NoError(t, err)
+	require.Len(t, options, 1)
+
+	value, ok := options[0].GetMetadata("assume_role_name")
+	require.True(t, ok)
+	require.Equal(t, "PDScannerRole", value)
+}
