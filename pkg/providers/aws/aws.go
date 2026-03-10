@@ -217,10 +217,9 @@ func New(block schema.OptionBlock) (*Provider, error) {
 		}
 		discovered, err := provider.discoverOrgAccounts(context.Background(), sess, config)
 		if err != nil {
-			gologger.Warning().Msgf("Failed to discover org accounts: %s", err)
-		} else {
-			gologger.Info().Msgf("Discovered %d accounts from AWS Organizations", len(discovered))
+			return nil, errors.Wrap(err, "failed to discover org accounts")
 		}
+		gologger.Info().Msgf("Discovered %d accounts from AWS Organizations", len(discovered))
 		options.AccountIds = sliceutil.Dedupe(append(options.AccountIds, discovered...))
 	}
 
