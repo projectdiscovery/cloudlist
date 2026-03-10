@@ -529,7 +529,11 @@ func (p *Provider) Verify(ctx context.Context) error {
 			return err
 		}
 		p.initServices(tempSession)
-		return p.verify()
+		err = p.verify()
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 	return err
 }
