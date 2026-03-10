@@ -248,7 +248,11 @@ func (ob *OptionBlock) UnmarshalYAML(unmarshal func(interface{}) error) error {
 					case string:
 						strArr = append(strArr, v)
 					case int:
-						strArr = append(strArr, fmt.Sprint(v))
+						if key == "account_ids" || key == "exclude_account_ids" {
+							strArr = append(strArr, fmt.Sprintf("%012d", v))
+						} else {
+							strArr = append(strArr, fmt.Sprint(v))
+						}
 					default:
 						return fmt.Errorf("unsupported type %T in %s", v, key)
 					}
