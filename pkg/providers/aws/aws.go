@@ -249,7 +249,7 @@ func New(block schema.OptionBlock) (*Provider, error) {
 
 	if err != nil && options.AssumeRoleName != "" && len(options.AccountIds) > 0 {
 		// Base user doesn't have DescribeRegions permission, try with assumed role
-		tempSession, err := createAssumedRoleSession(options, sess, config)
+		tempSession, err := createAssumedRoleSession(options, sess, config, options.AccountIds[0])
 		if err != nil {
 			return nil, errors.Wrap(err, "could not create assumed role session")
 		}
@@ -270,12 +270,9 @@ func New(block schema.OptionBlock) (*Provider, error) {
 	return provider, nil
 }
 
-func createAssumedRoleSession(options *ProviderOptions, sess *session.Session, config *aws.Config) (*session.Session, error) {
-	if len(options.AccountIds) == 0 {
-		return nil, errors.New("no account IDs provided for assume role")
-	}
+func createAssumedRoleSession(options *ProviderOptions, sess *session.Session, config *aws.Config, accountId string) (*session.Session, error) {
 	stsClient := sts.New(sess)
-	roleArn := fmt.Sprintf("arn:aws:iam::%s:role/%s", options.AccountIds[0], options.AssumeRoleName)
+	roleArn := fmt.Sprintf("arn:aws:iam::%s:role/%s", accountId, options.AssumeRoleName)
 
 	roleInput := &sts.AssumeRoleInput{
 		RoleArn: aws.String(roleArn),
@@ -524,16 +521,21 @@ func (p *Provider) Verify(ctx context.Context) error {
 	}
 
 	if p.options.AssumeRoleName != "" && len(p.options.AccountIds) > 0 {
-		tempSession, err := createAssumedRoleSession(p.options, p.session, p.session.Config)
-		if err != nil {
-			return err
+		var lastErr error
+		for _, accountId := range p.options.AccountIds {
+			tempSession, err := createAssumedRoleSession(p.options, p.session, p.session.Config, accountId)
+			if err != nil {
+				lastErr = err
+				continue
+			}
+			p.initServices(tempSession)
+			if err := p.verify(); err != nil {
+				lastErr = err
+				continue
+			}
+			return nil
 		}
-		p.initServices(tempSession)
-		err = p.verify()
-		if err != nil {
-			return err
-		}
-		return nil
+		return errors.Wrap(lastErr, "failed to verify credentials across all accounts")
 	}
 	return err
 }
