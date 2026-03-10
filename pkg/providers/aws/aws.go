@@ -215,7 +215,7 @@ func New(block schema.OptionBlock) (*Provider, error) {
 		if options.AssumeRoleName == "" {
 			return nil, errors.New("assume_role_name is required when using org_discovery_role_arn")
 		}
-		discovered, err := provider.discoverOrgAccounts(sess, config)
+		discovered, err := provider.discoverOrgAccounts(context.Background(), sess, config)
 		if err != nil {
 			gologger.Warning().Msgf("Failed to discover org accounts: %s", err)
 		} else {
@@ -314,7 +314,7 @@ func createAssumedRoleSession(options *ProviderOptions, sess *session.Session, c
 
 // discoverOrgAccounts assumes the org discovery role and lists all active
 // accounts in the AWS Organization via organizations:ListAccounts.
-func (p *Provider) discoverOrgAccounts(sess *session.Session, config *aws.Config) ([]string, error) {
+func (p *Provider) discoverOrgAccounts(ctx context.Context, sess *session.Session, config *aws.Config) ([]string, error) {
 	stsClient := sts.New(sess)
 
 	roleInput := &sts.AssumeRoleInput{
@@ -325,7 +325,7 @@ func (p *Provider) discoverOrgAccounts(sess *session.Session, config *aws.Config
 		roleInput.ExternalId = aws.String(p.options.ExternalId)
 	}
 
-	assumeOut, err := stsClient.AssumeRole(roleInput)
+	assumeOut, err := stsClient.AssumeRoleWithContext(ctx, roleInput)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not assume org discovery role")
 	}
@@ -345,7 +345,7 @@ func (p *Provider) discoverOrgAccounts(sess *session.Session, config *aws.Config
 	orgClient := organizations.New(orgSess)
 	var accountIDs []string
 
-	err = orgClient.ListAccountsPages(&organizations.ListAccountsInput{}, func(page *organizations.ListAccountsOutput, lastPage bool) bool {
+	err = orgClient.ListAccountsPagesWithContext(ctx, &organizations.ListAccountsInput{}, func(page *organizations.ListAccountsOutput, lastPage bool) bool {
 		for _, acct := range page.Accounts {
 			if acct.Status != nil && *acct.Status == "ACTIVE" && acct.Id != nil {
 				accountIDs = append(accountIDs, *acct.Id)
@@ -514,7 +514,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 func (p *Provider) Verify(ctx context.Context) error {
 	// Verify org discovery role can assume and list accounts
 	if p.options.OrgDiscoveryRoleArn != "" {
-		if _, err := p.discoverOrgAccounts(p.session, p.session.Config); err != nil {
+		if _, err := p.discoverOrgAccounts(ctx, p.session, p.session.Config); err != nil {
 			return errors.Wrap(err, "org discovery verification failed")
 		}
 	}
