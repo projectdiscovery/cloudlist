@@ -240,7 +240,7 @@ func (ob *OptionBlock) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	// Convert raw map to OptionBlock and handle special cases
 	for key, value := range rawMap {
 		switch key {
-		case "account_ids", "exclude_account_ids", "urls", "services":
+		case "account_ids", "exclude_account_ids", "urls", "services", "project_ids":
 			if valueArr, ok := value.([]interface{}); ok {
 				var strArr []string
 				for _, v := range valueArr {

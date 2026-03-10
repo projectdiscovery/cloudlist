@@ -152,6 +152,7 @@ Google Cloud Platform supports **two discovery approaches** and **two authentica
 - `service_account_email` (string, required if short-lived): Target service account to impersonate
 - `source_credentials` (string, optional): Path to source credentials file (uses ADC if not provided)
 - `token_lifetime` (string, optional): Token lifetime in seconds (e.g., "3600s") or Go duration format (e.g., "1h"). Range: 1s to 3600s (1 hour). Default: "3600s"
+- `project_ids` (list, optional): Comma-separated/list of project IDs to enumerate. When provided, Cloudlist skips discovery in every other accessible project, both for individual APIs and the organization-level Asset API.
 
 ---
 
@@ -191,7 +192,12 @@ Google Cloud Platform supports **two discovery approaches** and **two authentica
   use_short_lived_credentials: true
   service_account_email: "asset-viewer-sa@project.iam.gserviceaccount.com"
   token_lifetime: "7200s"  # 2 hours
+  project_ids:
+    - security-core
+    - shared-infra
 ```
+
+Add `project_ids` to either configuration style to limit enumeration strictly to the listed projects (Cloud Asset API requests are filtered too), which is helpful for large organizations or delegated-access service accounts.
 
 **Required Organization-Level Roles:**
 1. `roles/cloudasset.viewer` - Core Asset API access
@@ -570,3 +576,32 @@ The `dnssimple_api_token` can be generated from the DNSSimple account settings u
 References - 
 1. https://developer.dnsimple.com/v2/
 2. https://support.dnsimple.com/articles/api-access-token/
+
+### OVH
+
+Cloudlist supports fetching DNS records from OVH.
+
+- **Provider key**: `ovh`
+- **Services**: `dns`
+- **id**: An arbitrary label you choose to tag resources. It helps distinguish multiple OVH accounts/configs.
+- **Required auth**:
+  - `application_key`
+  - `application_secret`
+  - `consumer_key`
+- **Endpoint**: OVH API endpoint. Defaults to `ovh-eu` if omitted. Common values: `ovh-eu`, `ovh-ca`, `ovh-us`.
+
+Configuration example (from `ovh.yaml`):
+
+```yaml
+- provider: ovh
+  id: ovh-prod
+  endpoint: ovh-ca
+  application_key: $OVH_APP_KEY
+  application_secret: $OVH_APP_SECRET
+  consumer_key: $OVH_CONSUMER_KEY
+```
+
+References - 
+1. https://eu.api.ovh.com/console/?section=%2Fdomain&branch=v1
+2. https://api.ovh.com/createToken/
+3. https://help.ovhcloud.com/csm/en-gb-api-getting-started-ovhcloud-api

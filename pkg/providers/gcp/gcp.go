@@ -23,6 +23,8 @@ import (
 	"google.golang.org/api/option"
 	run "google.golang.org/api/run/v1"
 	"google.golang.org/api/storage/v1"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -49,6 +51,7 @@ type OrganizationProvider struct {
 	assetClient           *asset.Client
 	services              schema.ServiceMap
 	projects              []string
+	projectScope          *projectScope
 	extendedMetadata      bool
 	readTimeOffsetSeconds int
 	compute               *compute.Service // For extended metadata
@@ -243,6 +246,8 @@ func newIndividualProvider(options schema.OptionBlock, id, JSONData string) (*Pr
 	}
 	provider.services = services
 
+	configuredProjects := getProjectIDsFromOptions(options)
+
 	// Extract short-lived credentials configuration
 	useShortLived := false
 	if val, ok := options.GetMetadata("use_short_lived_credentials"); ok {
@@ -338,20 +343,31 @@ func newIndividualProvider(options schema.OptionBlock, id, JSONData string) (*Pr
 		provider.run = cloudRunService
 	}
 
-	projects := []string{}
-	manager, err := cloudresourcemanager.NewService(context.Background(), creds)
-	if err != nil {
-		return nil, errkit.Wrap(err, "could not list projects")
-	}
-	list := manager.Projects.List()
-	err = list.Pages(context.Background(), func(resp *cloudresourcemanager.ListProjectsResponse) error {
-		for _, project := range resp.Projects {
-			projects = append(projects, project.ProjectId)
+	projects := append([]string{}, configuredProjects...)
+	if len(projects) == 0 {
+		manager, err := cloudresourcemanager.NewService(context.Background(), creds)
+		if err != nil {
+			return nil, errkit.Wrap(err, "could not list projects")
 		}
-		return nil
-	})
+		list := manager.Projects.List()
+		err = list.Pages(context.Background(), func(resp *cloudresourcemanager.ListProjectsResponse) error {
+			for _, project := range resp.Projects {
+				projects = append(projects, project.ProjectId)
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, errkit.Wrap(err, "could not iterate projects")
+		}
+	}
+	if len(projects) == 0 {
+		return nil, errkit.New("no projects available for discovery")
+	}
+	if len(configuredProjects) > 0 {
+		gologger.Info().Msgf("Using %d configured GCP project(s) for provider %s", len(projects), id)
+	}
 	provider.projects = projects
-	return provider, err
+	return provider, nil
 }
 
 // Name returns the name of the provider
@@ -369,32 +385,65 @@ func (p *OrganizationProvider) Services() []string {
 	return p.services.Keys()
 }
 
-// Resources returns the provider resources using organization-level Cloud Asset Inventory API
+// Resources returns the provider resources using project-scoped / organization-level Cloud Asset Inventory API
 func (p *OrganizationProvider) Resources(ctx context.Context) (*schema.Resources, error) {
 	gologger.Info().Msgf("OrgProvider.Resources called with organization_id: '%s', projects: %v, services: %v", p.organizationID, p.projects, p.services.Keys())
 
-	parent := "organizations/" + p.organizationID
-	gologger.Info().Msgf("Using organization-level discovery with parent: %s", parent)
-
 	finalResources := schema.NewResources()
 
-	// Use Cloud Asset Inventory API to get assets
-	if p.services.Has("all") {
-		gologger.Info().Msgf("Found 'all' service, starting comprehensive asset discovery")
-		allAssets, err := p.getAllAssets(ctx, parent)
-		if err != nil {
-			gologger.Warning().Msgf("Could not get all assets: %s", err)
-		} else {
-			finalResources.Merge(allAssets)
+	// Use per-project API calls when specific projects are configured
+	if p.projectScope != nil && len(p.projectScope.listIDs()) > 0 {
+		gologger.Info().Msgf("Using project-scoped discovery for %d configured projects", len(p.projectScope.listIDs()))
+
+		for _, projectID := range p.projectScope.listIDs() {
+			parent := "projects/" + projectID
+			gologger.Info().Msgf("Fetching assets for project: %s", projectID)
+
+			var projectResources *schema.Resources
+			var err error
+           // if projects has all, then get all assets
+			if p.services.Has("all") {
+				projectResources, err = p.getAllAssets(ctx, parent)
+				if err != nil {
+					gologger.Warning().Msgf("Could not get all assets for project %s: %s", projectID, err)
+					continue
+				}
+			} else {
+				projectResources = schema.NewResources()
+				for _, service := range p.services.Keys() {
+					assets, err := p.getAssetsForService(ctx, parent, service)
+					if err != nil {
+						gologger.Warning().Msgf("Could not get assets for service %s in project %s: %s", service, projectID, err)
+					} else {
+						projectResources.Merge(assets)
+					}
+				}
+			}
+
+			finalResources.Merge(projectResources)
 		}
 	} else {
-		// Get assets for specific services
-		for _, service := range p.services.Keys() {
-			assets, err := p.getAssetsForService(ctx, parent, service)
+		// Fallback to organization-level discovery when no specific projects configured
+		parent := "organizations/" + p.organizationID
+		gologger.Info().Msgf("Using organization-level discovery with parent: %s", parent)
+		// Note: When using organization-level discovery, all assets are wanted maybe?
+		if p.services.Has("all") {
+			gologger.Info().Msgf("Found 'all' service, starting comprehensive asset discovery")
+			allAssets, err := p.getAllAssets(ctx, parent)
 			if err != nil {
-				gologger.Warning().Msgf("Could not get assets for service %s: %s", service, err)
+				gologger.Warning().Msgf("Could not get all assets: %s", err)
 			} else {
-				finalResources.Merge(assets)
+				finalResources.Merge(allAssets)
+			}
+		} else {
+			// Get assets for specific services
+			for _, service := range p.services.Keys() {
+				assets, err := p.getAssetsForService(ctx, parent, service)
+				if err != nil {
+					gologger.Warning().Msgf("Could not get assets for service %s: %s", service, err)
+				} else {
+					finalResources.Merge(assets)
+				}
 			}
 		}
 	}
@@ -456,16 +505,54 @@ func (p *OrganizationProvider) getAssetsForTypes(ctx context.Context, parent str
 	resources := schema.NewResources()
 	it := p.assetClient.ListAssets(ctx, req)
 
-	// Collect all assets first
+	// Collect all assets, with retry on rate limit errors and partial result preservation
+	const maxRateLimitRetries = 10
+	const rateLimitWait = 90 * time.Second
 	var assetInfos []assetInfo
+	var lastErr error
+	rateLimitRetries := 0
 
+pagination:
 	for {
 		asset, err := it.Next()
 		if err != nil {
 			if errors.Is(err, iterator.Done) {
 				break
 			}
-			return nil, err
+
+			// On rate limit, wait and resume from where we left off
+			if isRateLimitError(err) && rateLimitRetries < maxRateLimitRetries {
+				rateLimitRetries++
+				pageToken := it.PageInfo().Token
+
+				gologger.Debug().Msgf("Rate limit hit after %d assets, waiting %s before retry (%d/%d)",
+					len(assetInfos), rateLimitWait, rateLimitRetries, maxRateLimitRetries)
+
+				select {
+				case <-time.After(rateLimitWait):
+				case <-ctx.Done():
+					lastErr = ctx.Err()
+					break pagination
+				}
+
+				// Resume with a new iterator using the page token
+				req.PageToken = pageToken
+				it = p.assetClient.ListAssets(ctx, req)
+				continue
+			}
+
+			// Non-rate-limit error or max retries exceeded: save error and return partial results
+			lastErr = err
+			gologger.Debug().Msgf("ListAssets pagination stopped after %d assets: %s", len(assetInfos), err)
+			break
+		}
+
+		// Note: When using project-scoped API calls, client-side filtering is unnecessary
+		// as the API only returns assets from the specified scope (project or organization)
+		// For organization-level calls without project_ids config, all assets are wanted anyway
+		needsFiltering := strings.HasPrefix(parent, "organizations/") && p.projectScope != nil
+		if needsFiltering && !p.projectScope.allowsAsset(asset) {
+			continue
 		}
 
 		resource := p.parseAssetToResource(asset)
@@ -474,6 +561,19 @@ func (p *OrganizationProvider) getAssetsForTypes(ctx context.Context, parent str
 				asset:    asset,
 				resource: resource,
 			})
+			if len(assetInfos)%25000 == 0 {
+				gologger.Debug().Msgf("Progress: %d assets fetched so far", len(assetInfos))
+			}
+		}
+	}
+
+	// If we had an error, propagate cancellations immediately, otherwise return error only if empty.
+	if lastErr != nil {
+		if errors.Is(lastErr, context.Canceled) || errors.Is(lastErr, context.DeadlineExceeded) {
+			return nil, lastErr
+		}
+		if len(assetInfos) == 0 {
+			return nil, lastErr
 		}
 	}
 
@@ -527,6 +627,8 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 		id:             id,
 		organizationID: organizationID,
 	}
+
+	configuredProjects := getProjectIDsFromOptions(options)
 
 	// Check for extended metadata flag
 	if extendedMetadata, ok := options.GetMetadata("extended_metadata"); ok {
@@ -659,23 +761,56 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 
 	// Get projects under the organization
 	projects := []string{}
-	manager, err := cloudresourcemanager.NewService(context.Background(), creds)
-	if err != nil {
-		return nil, errkit.Wrap(err, "could not create resource manager")
-	}
-	list := manager.Projects.List()
-	err = list.Pages(context.Background(), func(resp *cloudresourcemanager.ListProjectsResponse) error {
-		for _, project := range resp.Projects {
-			projects = append(projects, project.ProjectId)
+	if len(configuredProjects) > 0 {
+		manager, err := cloudresourcemanager.NewService(context.Background(), creds)
+		if err != nil {
+			return nil, errkit.Wrap(err, "could not create resource manager")
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, errkit.Wrap(err, "could not list projects")
+		scope := newProjectScope(configuredProjects)
+		if scope == nil {
+			return nil, errkit.New("no valid project ids provided in configuration")
+		}
+		if err := scope.enrichWithProjectNumbers(context.Background(), manager); err != nil {
+			gologger.Warning().Msgf("Could not resolve configured project ids: %s", err)
+		}
+		projects = scope.listIDs()
+		provider.projectScope = scope
+		if len(projects) == 0 {
+			return nil, errkit.New("no valid project ids available after resolution")
+		}
+		gologger.Info().Msgf("Restricting organization discovery to %d configured project(s)", len(projects))
+	} else {
+		manager, err := cloudresourcemanager.NewService(context.Background(), creds)
+		if err != nil {
+			gologger.Warning().Msgf("Could not create resource manager to list projects: %s", err)
+		} else {
+			list := manager.Projects.List()
+			err = list.Pages(context.Background(), func(resp *cloudresourcemanager.ListProjectsResponse) error {
+				for _, project := range resp.Projects {
+					projects = append(projects, project.ProjectId)
+				}
+				return nil
+			})
+			if err != nil {
+				gologger.Warning().Msgf("Could not list projects under organization: %s", err)
+			}
+		}
+		if len(projects) == 0 {
+			gologger.Info().Msgf("No projects listed, will use organization-level Asset API discovery for org %s", organizationID)
+		}
 	}
 	provider.projects = projects
 
 	return provider, nil
+}
+
+// isRateLimitError returns whether the error is a rate limit error
+func isRateLimitError(err error) bool {
+	s, ok := status.FromError(err)
+	if !ok || s.Code() != codes.ResourceExhausted {
+		return false
+	}
+	return true
 }
 
 // Helper functions to reduce nesting and improve readability
@@ -889,4 +1024,220 @@ func (p *OrganizationProvider) Verify(ctx context.Context) error {
 		return errkit.Wrap(err, fmt.Sprintf("failed to verify GCP Asset API access for organization %s", p.organizationID))
 	}
 	return nil
+}
+
+func getProjectIDsFromOptions(options schema.OptionBlock) []string {
+	raw, ok := options.GetMetadata("project_ids")
+	if !ok || strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	return splitAndCleanProjectList(raw)
+}
+
+func splitAndCleanProjectList(raw string) []string {
+	replacer := strings.NewReplacer("\n", ",", "\r", ",", ";", ",")
+	normalized := replacer.Replace(raw)
+	parts := strings.Split(normalized, ",")
+	result := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		result = append(result, trimmed)
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+type projectScope struct {
+	allowedIDs     map[string]struct{}
+	allowedNumbers map[string]struct{}
+	orderedIDs     []string
+}
+
+func newProjectScope(projectIDs []string) *projectScope {
+	seen := make(map[string]struct{}, len(projectIDs))
+	sanitized := make([]string, 0, len(projectIDs))
+	for _, id := range projectIDs {
+		trimmed := strings.TrimSpace(id)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		sanitized = append(sanitized, trimmed)
+	}
+	if len(sanitized) == 0 {
+		return nil
+	}
+	scope := &projectScope{
+		allowedIDs:     make(map[string]struct{}, len(sanitized)),
+		allowedNumbers: make(map[string]struct{}),
+		orderedIDs:     append([]string{}, sanitized...),
+	}
+	for _, id := range sanitized {
+		scope.allowedIDs[id] = struct{}{}
+		if isNumeric(id) {
+			scope.allowedNumbers[id] = struct{}{}
+		}
+	}
+	return scope
+}
+
+func (ps *projectScope) listIDs() []string {
+	if ps == nil {
+		return nil
+	}
+	return append([]string{}, ps.orderedIDs...)
+}
+
+func (ps *projectScope) enrichWithProjectNumbers(ctx context.Context, manager *cloudresourcemanager.Service) error {
+	if ps == nil || manager == nil {
+		return nil
+	}
+	var firstErr error
+	for idx, id := range ps.orderedIDs {
+		project, err := manager.Projects.Get(id).Context(ctx).Do()
+		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		if project.ProjectId != "" {
+			ps.allowedIDs[project.ProjectId] = struct{}{}
+			ps.orderedIDs[idx] = project.ProjectId
+		}
+		if project.ProjectNumber != 0 {
+			number := strconv.FormatInt(project.ProjectNumber, 10)
+			ps.allowedNumbers[number] = struct{}{}
+		}
+	}
+	return firstErr
+}
+
+func (ps *projectScope) allowsAsset(asset *assetpb.Asset) bool {
+	if ps == nil {
+		return true
+	}
+	if ps.containsID(extractProjectIDFromAsset(asset)) {
+		return true
+	}
+	if ps.containsNumber(extractProjectNumberFromAsset(asset)) {
+		return true
+	}
+	return false
+}
+
+func (ps *projectScope) containsID(id string) bool {
+	if id == "" {
+		return false
+	}
+	_, ok := ps.allowedIDs[id]
+	return ok
+}
+
+func (ps *projectScope) containsNumber(number string) bool {
+	if number == "" {
+		return false
+	}
+	_, ok := ps.allowedNumbers[number]
+	return ok
+}
+
+func extractProjectIDFromAsset(asset *assetpb.Asset) string {
+	if asset == nil {
+		return ""
+	}
+	if id := extractProjectToken(asset.GetName()); id != "" && id != "_" {
+		return id
+	}
+	if resource := asset.GetResource(); resource != nil {
+		if id := extractProjectToken(resource.Parent); id != "" && id != "_" {
+			return id
+		}
+		if data := resource.Data; data != nil {
+			for _, key := range []string{"projectId", "project", "project_id"} {
+				if field, ok := data.Fields[key]; ok {
+					if value := strings.TrimSpace(field.GetStringValue()); value != "" && value != "_" {
+						return value
+					}
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func extractProjectNumberFromAsset(asset *assetpb.Asset) string {
+	if asset == nil {
+		return ""
+	}
+	if resource := asset.GetResource(); resource != nil {
+		if number := extractNumericProjectToken(resource.Parent); number != "" {
+			return number
+		}
+		if data := resource.Data; data != nil {
+			if field, ok := data.Fields["projectNumber"]; ok {
+				if value := strings.TrimSpace(field.GetStringValue()); value != "" {
+					return value
+				}
+			}
+		}
+	}
+	for _, ancestor := range asset.Ancestors {
+		if number := extractNumericProjectToken(ancestor); number != "" {
+			return number
+		}
+	}
+	return ""
+}
+
+func extractNumericProjectToken(value string) string {
+	token := extractProjectToken(value)
+	if token == "" {
+		return ""
+	}
+	if !isNumeric(token) {
+		return ""
+	}
+	return token
+}
+
+func extractProjectToken(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	trimmed = strings.TrimPrefix(trimmed, "//")
+	index := strings.Index(trimmed, "projects/")
+	if index == -1 {
+		return ""
+	}
+	trimmed = trimmed[index+len("projects/"):]
+	parts := strings.Split(trimmed, "/")
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(parts[0])
+}
+
+func isNumeric(value string) bool {
+	if value == "" {
+		return false
+	}
+	if _, err := strconv.ParseInt(value, 10, 64); err != nil {
+		return false
+	}
+	return true
 }
