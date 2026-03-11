@@ -249,16 +249,21 @@ func New(block schema.OptionBlock) (*Provider, error) {
 
 	if err != nil && options.AssumeRoleName != "" && len(options.AccountIds) > 0 {
 		// Base user doesn't have DescribeRegions permission, try with assumed role
-		tempSession, err := createAssumedRoleSession(options, sess, config, options.AccountIds[0])
-		if err != nil {
-			return nil, errors.Wrap(err, "could not create assumed role session")
+		var regionErr error
+		for _, accountId := range options.AccountIds {
+			tempSession, err := createAssumedRoleSession(options, sess, config, accountId)
+			if err != nil {
+				regionErr = err
+				continue
+			}
+			tempRC := ec2.New(tempSession)
+			regions, regionErr = tempRC.DescribeRegions(&ec2.DescribeRegionsInput{})
+			if regionErr == nil {
+				break
+			}
 		}
-
-		// Use assumed role session for DescribeRegions
-		tempRC := ec2.New(tempSession)
-		regions, err = tempRC.DescribeRegions(&ec2.DescribeRegionsInput{})
-		if err != nil {
-			return nil, errors.Wrap(err, "could not get list of regions even with assumed role")
+		if regionErr != nil {
+			return nil, errors.Wrap(regionErr, "could not get list of regions with any account")
 		}
 	} else if err != nil {
 		return nil, errors.Wrap(err, "could not get list of regions")
