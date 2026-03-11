@@ -529,11 +529,14 @@ func (p *Provider) Verify(ctx context.Context) error {
 		var mu sync.Mutex
 		var failedAccounts []string
 		var wg sync.WaitGroup
+		sem := make(chan struct{}, 200)
 
 		for _, accountId := range p.options.AccountIds {
 			wg.Add(1)
+			sem <- struct{}{}
 			go func(id string) {
 				defer wg.Done()
+				defer func() { <-sem }()
 				tempSession, err := createAssumedRoleSession(p.options, p.session, p.session.Config, id)
 				if err != nil {
 					mu.Lock()
