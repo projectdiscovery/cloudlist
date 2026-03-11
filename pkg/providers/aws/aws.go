@@ -521,21 +521,40 @@ func (p *Provider) Verify(ctx context.Context) error {
 	}
 
 	if p.options.AssumeRoleName != "" && len(p.options.AccountIds) > 0 {
-		var lastErr error
+		var mu sync.Mutex
+		var failedAccounts []string
+		var wg sync.WaitGroup
+
 		for _, accountId := range p.options.AccountIds {
-			tempSession, err := createAssumedRoleSession(p.options, p.session, p.session.Config, accountId)
-			if err != nil {
-				lastErr = err
-				continue
-			}
-			p.initServices(tempSession)
-			if err := p.verify(); err != nil {
-				lastErr = err
-				continue
-			}
-			return nil
+			wg.Add(1)
+			go func(id string) {
+				defer wg.Done()
+				tempSession, err := createAssumedRoleSession(p.options, p.session, p.session.Config, id)
+				if err != nil {
+					mu.Lock()
+					failedAccounts = append(failedAccounts, id)
+					mu.Unlock()
+					return
+				}
+				tempProvider := &Provider{options: p.options, session: tempSession}
+				tempProvider.initServices(tempSession)
+				if err := tempProvider.verify(); err != nil {
+					mu.Lock()
+					failedAccounts = append(failedAccounts, id)
+					mu.Unlock()
+				}
+			}(accountId)
 		}
-		return errors.Wrap(lastErr, "failed to verify credentials across all accounts")
+		wg.Wait()
+
+		if len(failedAccounts) > 0 {
+			msg := fmt.Sprintf("failed to assume role %s in accounts: %s", p.options.AssumeRoleName, strings.Join(failedAccounts, ", "))
+			if p.options.OrgDiscoveryRoleArn != "" {
+				msg += ". Add these to exclude_account_ids if they should not be part of discovery"
+			}
+			return errors.New(msg)
+		}
+		return nil
 	}
 	return err
 }
