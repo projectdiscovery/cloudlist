@@ -2,6 +2,7 @@ package cloudflare
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/cloudflare/cloudflare-go"
@@ -95,6 +96,34 @@ func (p *Provider) ID() string {
 // Services returns the provider services
 func (p *Provider) Services() []string {
 	return p.services.Keys()
+}
+
+// Verify checks if the provider credentials are valid using minimal API calls.
+func (p *Provider) Verify(ctx context.Context) error {
+	zones, err := p.client.ListZones(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to verify Cloudflare zone access: %w", err)
+	}
+
+	if len(zones) == 0 {
+		return fmt.Errorf("no accessible Cloudflare zones found with provided credentials")
+	}
+
+	if !p.services.Has("dns") {
+		return nil
+	}
+
+	_, _, err = p.client.ListDNSRecords(ctx, cloudflare.ZoneIdentifier(zones[0].ID), cloudflare.ListDNSRecordsParams{
+		ResultInfo: cloudflare.ResultInfo{
+			Page:    1,
+			PerPage: 1,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to verify Cloudflare DNS access for zone %s: %w", zones[0].Name, err)
+	}
+
+	return nil
 }
 
 // Resources returns the provider for an resource deployment source.
