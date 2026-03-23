@@ -100,6 +100,10 @@ func (p *Provider) Services() []string {
 
 // Verify checks if the provider credentials are valid using minimal API calls.
 func (p *Provider) Verify(ctx context.Context) error {
+	if !p.services.Has("dns") {
+		return nil
+	}
+
 	zones, err := p.client.ListZones(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to verify Cloudflare zone access: %w", err)
@@ -107,10 +111,6 @@ func (p *Provider) Verify(ctx context.Context) error {
 
 	if len(zones) == 0 {
 		return fmt.Errorf("no accessible Cloudflare zones found with provided credentials")
-	}
-
-	if !p.services.Has("dns") {
-		return nil
 	}
 
 	_, _, err = p.client.ListDNSRecords(ctx, cloudflare.ZoneIdentifier(zones[0].ID), cloudflare.ListDNSRecordsParams{
