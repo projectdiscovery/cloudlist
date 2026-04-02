@@ -509,15 +509,17 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	}()
 
 	var errs []error
+	successfulWorkers := 0
 	for result := range results {
 		if result.err != nil {
 			gologger.Warning().Msgf("provider worker error: %v", result.err)
 			errs = append(errs, result.err)
 			continue
 		}
+		successfulWorkers++
 		finalResources.Merge(result.resources)
 	}
-	if len(errs) > 0 && len(finalResources.Items) == 0 {
+	if len(errs) > 0 && successfulWorkers == 0 {
 		return finalResources, fmt.Errorf("all provider workers failed: %v", errs)
 	}
 	return finalResources, nil
