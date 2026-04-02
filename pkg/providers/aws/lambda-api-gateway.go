@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/lambda"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 )
 
 // lambdaAndapiGatewayProvider is a provider for AWS Lambda and API Gateway resources
@@ -41,6 +42,11 @@ func (ap *lambdaAndapiGatewayProvider) GetResource(ctx context.Context) (*schema
 
 			go func(regionName string, gatewayClient *apigateway.APIGateway, gatewayV2Client *apigatewayv2.ApiGatewayV2, lambdaClient *lambda.Lambda) {
 				defer wg.Done()
+				defer func() {
+					if r := recover(); r != nil {
+						gologger.Error().Msgf("panic in %s provider goroutine: %v", "lambda-apigateway", r)
+					}
+				}()
 
 				resources := schema.NewResources()
 

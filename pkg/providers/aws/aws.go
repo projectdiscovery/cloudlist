@@ -154,6 +154,7 @@ func New(block schema.OptionBlock) (*Provider, error) {
 	}
 
 	provider := &Provider{options: options}
+	gologger.Debug().Msgf("[cloudlist-debug] aws.New() starting for %d accounts, assume_role_name=%q", len(options.AccountIds), options.AssumeRoleName)
 	config := aws.NewConfig()
 	config.WithRegion("us-east-1")
 	config.WithCredentials(credentials.NewStaticCredentials(options.AccessKey, options.SecretKey, options.Token))
@@ -245,19 +246,26 @@ func New(block schema.OptionBlock) (*Provider, error) {
 	// Handle DescribeRegions call with fallback for assume_role_name case
 	var regions *ec2.DescribeRegionsOutput
 	rc := ec2.New(sess)
+	gologger.Debug().Msgf("[cloudlist-debug] calling DescribeRegions (base session)")
 	regions, err = rc.DescribeRegions(&ec2.DescribeRegionsInput{})
+	gologger.Debug().Msgf("[cloudlist-debug] DescribeRegions returned, err=%v", err)
 
 	if err != nil && options.AssumeRoleName != "" && len(options.AccountIds) > 0 {
+		gologger.Debug().Msgf("[cloudlist-debug] DescribeRegions failed, trying fallback with %d accounts", len(options.AccountIds))
 		// Base user doesn't have DescribeRegions permission, try with assumed role
 		var regionErr error
 		for _, accountId := range options.AccountIds {
+			gologger.Debug().Msgf("[cloudlist-debug] fallback: AssumeRole for account %s", accountId)
 			tempSession, err := createAssumedRoleSession(options, sess, config, accountId)
 			if err != nil {
+				gologger.Debug().Msgf("[cloudlist-debug] fallback: AssumeRole failed for %s: %v", accountId, err)
 				regionErr = err
 				continue
 			}
+			gologger.Debug().Msgf("[cloudlist-debug] fallback: DescribeRegions for account %s", accountId)
 			tempRC := ec2.New(tempSession)
 			regions, regionErr = tempRC.DescribeRegions(&ec2.DescribeRegionsInput{})
+			gologger.Debug().Msgf("[cloudlist-debug] fallback: DescribeRegions for %s returned, err=%v", accountId, regionErr)
 			if regionErr == nil {
 				break
 			}
@@ -269,9 +277,11 @@ func New(block schema.OptionBlock) (*Provider, error) {
 		return nil, errors.Wrap(err, "could not get list of regions")
 	}
 
+	gologger.Debug().Msgf("[cloudlist-debug] aws.New() got %d regions", len(regions.Regions))
 	provider.regions = regions
 
 	provider.initServices(sess)
+	gologger.Debug().Msgf("[cloudlist-debug] aws.New() completed successfully")
 	return provider, nil
 }
 
@@ -435,17 +445,25 @@ type result struct {
 type getResourcesFunc func(context.Context) (*schema.Resources, error)
 
 func worker(ctx context.Context, fn getResourcesFunc, ch chan<- result) {
+	defer func() {
+		if r := recover(); r != nil {
+			ch <- result{resources: nil, err: fmt.Errorf("panic in provider worker: %v", r)}
+		}
+	}()
 	resources, err := fn(ctx)
 	ch <- result{resources, err}
 }
 
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
+	gologger.Debug().Msgf("[cloudlist-debug] Resources() starting, services=%v, accounts=%d, regions=%d", p.options.Services.Keys(), len(p.options.AccountIds), len(p.regions.Regions))
 	finalResources := schema.NewResources()
 
 	var workersWaitGroup sync.WaitGroup
 	results := make(chan result)
 
+	workerCount := 0
 	assignWorker := func(fn getResourcesFunc) {
+		workerCount++
 		workersWaitGroup.Add(1)
 		go func() {
 			defer workersWaitGroup.Done()
@@ -497,17 +515,22 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		assignWorker(cloudfrontProvider.GetResource)
 	}
 
+	gologger.Debug().Msgf("[cloudlist-debug] Resources() spawned %d workers", workerCount)
+
 	go func() {
 		workersWaitGroup.Wait()
+		gologger.Debug().Msgf("[cloudlist-debug] Resources() all workers finished")
 		close(results)
 	}()
 
 	for result := range results {
 		if result.err != nil {
+			gologger.Debug().Msgf("[cloudlist-debug] Resources() worker error: %v", result.err)
 			continue
 		}
 		finalResources.Merge(result.resources)
 	}
+	gologger.Debug().Msgf("[cloudlist-debug] Resources() completed, total items=%d", len(finalResources.Items))
 	return finalResources, nil
 }
 

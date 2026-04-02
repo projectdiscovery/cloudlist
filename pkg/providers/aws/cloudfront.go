@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudfront"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 )
 
 // cloudfrontProvider is a provider for AWS CloudFront API
@@ -37,6 +38,11 @@ func (cp *cloudfrontProvider) GetResource(ctx context.Context) (*schema.Resource
 
 		go func(cloudfrontClient *cloudfront.CloudFront) {
 			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					gologger.Error().Msgf("panic in %s provider goroutine: %v", "cloudfront", r)
+				}
+			}()
 
 			if resources, err := cp.listCloudFrontResources(cloudfrontClient); err == nil {
 				mu.Lock()

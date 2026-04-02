@@ -15,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/eks"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -45,6 +46,11 @@ func (ep *eksProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 
 			go func(client *eks.EKS) {
 				defer wg.Done()
+				defer func() {
+					if r := recover(); r != nil {
+						gologger.Error().Msgf("panic in %s provider goroutine: %v", "eks", r)
+					}
+				}()
 				if resources, err := ep.listEKSResources(client); err == nil {
 					mu.Lock()
 					list.Merge(resources)

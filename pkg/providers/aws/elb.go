@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elb"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 )
 
 // elbProvider is a provider for AWS Elastic Load Balancing (ELB) resources
@@ -41,6 +42,11 @@ func (ep *elbProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 
 			go func(elbClient *elb.ELB, ec2Client *ec2.EC2) {
 				defer wg.Done()
+				defer func() {
+					if r := recover(); r != nil {
+						gologger.Error().Msgf("panic in %s provider goroutine: %v", "elb", r)
+					}
+				}()
 
 				if resources, err := ep.listELBResources(elbClient, ec2Client); err == nil {
 					mu.Lock()

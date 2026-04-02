@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 )
 
 // s3Provider is a provider for aws S3 API
@@ -37,6 +38,11 @@ func (s *s3Provider) GetResource(ctx context.Context) (*schema.Resources, error)
 
 		go func(s3Client *wrappedS3Client) {
 			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					gologger.Error().Msgf("panic in %s provider goroutine: %v", "s3", r)
+				}
+			}()
 
 			if resources, err := s.getS3Resources(s3Client); err == nil {
 				mu.Lock()

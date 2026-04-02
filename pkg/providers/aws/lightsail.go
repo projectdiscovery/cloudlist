@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/lightsail"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 )
 
 // lightsailProvider is an instance provider for AWS Lightsail API
@@ -38,6 +39,11 @@ func (l *lightsailProvider) GetResource(ctx context.Context) (*schema.Resources,
 
 			go func(client *lightsail.Lightsail) {
 				defer wg.Done()
+				defer func() {
+					if r := recover(); r != nil {
+						gologger.Error().Msgf("panic in %s provider goroutine: %v", "lightsail", r)
+					}
+				}()
 
 				if resources, err := l.listListsailResources(client); err == nil {
 					mu.Lock()

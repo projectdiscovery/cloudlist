@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 )
 
 // awsInstanceProvider is an instance provider for aws API
@@ -32,22 +33,35 @@ func (i *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 
+	totalGoroutines := 0
 	for _, region := range i.regions.Regions {
-		for _, ec2Client := range i.getEc2Clients(region.RegionName) {
+		clients := i.getEc2Clients(region.RegionName)
+		fmt.Printf("[cloudlist-debug] ec2: region=%s clients=%d (1 base + %d assumed)\n", aws.StringValue(region.RegionName), len(clients), len(clients)-1)
+		for _, ec2Client := range clients {
 			wg.Add(1)
+			totalGoroutines++
 
-			go func(ec2Client *ec2.EC2) {
+			go func(ec2Client *ec2.EC2, regionName string) {
 				defer wg.Done()
-
-				if resources, err := i.getEC2Resources(ec2Client); err == nil {
+				defer func() {
+					if r := recover(); r != nil {
+						gologger.Error().Msgf("panic in %s provider goroutine: %v", "ec2", r)
+					}
+				}()
+				start := time.Now()
+				resources, err := i.getEC2Resources(ec2Client)
+				fmt.Printf("[cloudlist-debug] ec2: region=%s took=%v err=%v items=%d\n", regionName, time.Since(start), err, func() int { if resources != nil { return len(resources.Items) }; return 0 }())
+				if err == nil {
 					mu.Lock()
 					list.Merge(resources)
 					mu.Unlock()
 				}
-			}(ec2Client)
+			}(ec2Client, aws.StringValue(region.RegionName))
 		}
 	}
+	fmt.Printf("[cloudlist-debug] ec2: waiting for %d goroutines\n", totalGoroutines)
 	wg.Wait()
+	fmt.Printf("[cloudlist-debug] ec2: all goroutines done, total items=%d\n", len(list.Items))
 	return list, nil
 }
 

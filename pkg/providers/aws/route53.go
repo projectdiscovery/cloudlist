@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 )
 
 // route53Provider is a provider for aws Route53 API
@@ -36,6 +37,11 @@ func (r *route53Provider) GetResource(ctx context.Context) (*schema.Resources, e
 
 		go func(client *route53.Route53) {
 			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					gologger.Error().Msgf("panic in %s provider goroutine: %v", "route53", r)
+				}
+			}()
 
 			zones, err := r.getHostedZones(client)
 			if err != nil {
