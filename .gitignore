@@ -14,3 +14,4 @@ test-*.yaml
 /cloudlist
 /terraform/
 azure-readonly-config.yaml
+docs/superpowers/
