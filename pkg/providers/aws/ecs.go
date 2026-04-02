@@ -14,7 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
-	"github.com/projectdiscovery/gologger"
 )
 
 // ecsProvider is a provider for aws ecs API
@@ -34,6 +33,7 @@ func (ep *ecsProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 	list := schema.NewResources()
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	var errs []error
 
 	for _, region := range ep.regions.Regions {
 		ecsClients, ec2Clients := ep.getEcsAndEc2Clients(region.RegionName)
@@ -44,7 +44,9 @@ func (ep *ecsProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 				defer wg.Done()
 				defer func() {
 					if r := recover(); r != nil {
-						gologger.Error().Msgf("panic in %s provider goroutine: %v", "ecs", r)
+						mu.Lock()
+						errs = append(errs, fmt.Errorf("panic in ecs provider: %v", r))
+						mu.Unlock()
 					}
 				}()
 				if resources, err := ep.listECSResources(ecsClient, ec2Client); err == nil {
@@ -56,6 +58,9 @@ func (ep *ecsProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 		}
 	}
 	wg.Wait()
+	if len(errs) > 0 && len(list.Items) == 0 {
+		return nil, fmt.Errorf("ecs: all workers failed: %v", errs)
+	}
 	return list, nil
 }
 

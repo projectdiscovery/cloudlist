@@ -13,7 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
-	"github.com/projectdiscovery/gologger"
 )
 
 // s3Provider is a provider for aws S3 API
@@ -32,6 +31,7 @@ func (s *s3Provider) GetResource(ctx context.Context) (*schema.Resources, error)
 	list := schema.NewResources()
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	var errs []error
 
 	for _, s3Client := range s.getS3Clients() {
 		wg.Add(1)
@@ -40,7 +40,9 @@ func (s *s3Provider) GetResource(ctx context.Context) (*schema.Resources, error)
 			defer wg.Done()
 			defer func() {
 				if r := recover(); r != nil {
-					gologger.Error().Msgf("panic in %s provider goroutine: %v", "s3", r)
+					mu.Lock()
+					errs = append(errs, fmt.Errorf("panic in s3 provider: %v", r))
+					mu.Unlock()
 				}
 			}()
 
@@ -52,6 +54,9 @@ func (s *s3Provider) GetResource(ctx context.Context) (*schema.Resources, error)
 		}(s3Client)
 	}
 	wg.Wait()
+	if len(errs) > 0 && len(list.Items) == 0 {
+		return nil, fmt.Errorf("s3: all workers failed: %v", errs)
+	}
 	return list, nil
 }
 

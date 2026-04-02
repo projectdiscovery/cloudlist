@@ -12,7 +12,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
-	"github.com/projectdiscovery/gologger"
 )
 
 // route53Provider is a provider for aws Route53 API
@@ -31,6 +30,7 @@ func (r *route53Provider) GetResource(ctx context.Context) (*schema.Resources, e
 	list := schema.NewResources()
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	var errs []error
 
 	for _, route53Client := range r.getRoute53Clients() {
 		wg.Add(1)
@@ -38,8 +38,10 @@ func (r *route53Provider) GetResource(ctx context.Context) (*schema.Resources, e
 		go func(client *route53.Route53) {
 			defer wg.Done()
 			defer func() {
-				if r := recover(); r != nil {
-					gologger.Error().Msgf("panic in %s provider goroutine: %v", "route53", r)
+				if rec := recover(); rec != nil {
+					mu.Lock()
+					errs = append(errs, fmt.Errorf("panic in route53 provider: %v", rec))
+					mu.Unlock()
 				}
 			}()
 
@@ -55,6 +57,9 @@ func (r *route53Provider) GetResource(ctx context.Context) (*schema.Resources, e
 		}(route53Client)
 	}
 	wg.Wait()
+	if len(errs) > 0 && len(list.Items) == 0 {
+		return nil, fmt.Errorf("route53: all workers failed: %v", errs)
+	}
 	return list, nil
 }
 

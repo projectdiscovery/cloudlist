@@ -15,7 +15,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/eks"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
-	"github.com/projectdiscovery/gologger"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -40,6 +39,7 @@ func (ep *eksProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 	list := schema.NewResources()
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	var errs []error
 	for _, region := range ep.regions.Regions {
 		for _, eksClient := range ep.getEksClients(region.RegionName) {
 			wg.Add(1)
@@ -48,7 +48,9 @@ func (ep *eksProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 				defer wg.Done()
 				defer func() {
 					if r := recover(); r != nil {
-						gologger.Error().Msgf("panic in %s provider goroutine: %v", "eks", r)
+						mu.Lock()
+						errs = append(errs, fmt.Errorf("panic in eks provider: %v", r))
+						mu.Unlock()
 					}
 				}()
 				if resources, err := ep.listEKSResources(client); err == nil {
@@ -60,6 +62,9 @@ func (ep *eksProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 		}
 	}
 	wg.Wait()
+	if len(errs) > 0 && len(list.Items) == 0 {
+		return nil, fmt.Errorf("eks: all workers failed: %v", errs)
+	}
 	return list, nil
 }
 

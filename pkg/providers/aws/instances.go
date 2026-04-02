@@ -12,7 +12,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
-	"github.com/projectdiscovery/gologger"
 )
 
 // awsInstanceProvider is an instance provider for aws API
@@ -32,6 +31,7 @@ func (i *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 	list := schema.NewResources()
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	var errs []error
 
 	for _, region := range i.regions.Regions {
 		for _, ec2Client := range i.getEc2Clients(region.RegionName) {
@@ -41,7 +41,9 @@ func (i *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 				defer wg.Done()
 				defer func() {
 					if r := recover(); r != nil {
-						gologger.Error().Msgf("panic in %s provider goroutine: %v", "ec2", r)
+						mu.Lock()
+						errs = append(errs, fmt.Errorf("panic in instance provider: %v", r))
+						mu.Unlock()
 					}
 				}()
 
@@ -54,6 +56,9 @@ func (i *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 		}
 	}
 	wg.Wait()
+	if len(errs) > 0 && len(list.Items) == 0 {
+		return nil, fmt.Errorf("instance: all workers failed: %v", errs)
+	}
 	return list, nil
 }
 

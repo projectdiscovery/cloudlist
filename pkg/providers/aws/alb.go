@@ -14,7 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
-	"github.com/projectdiscovery/gologger"
 )
 
 // elbV2Provider is a provider for AWS Application Load Balancing (ELBV2) resources
@@ -34,6 +33,7 @@ func (ep *elbV2Provider) GetResource(ctx context.Context) (*schema.Resources, er
 	list := schema.NewResources()
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	var errs []error
 
 	for _, region := range ep.regions.Regions {
 		albClients, ec2Clients := ep.getElbV2AndEc2Clients(region.RegionName)
@@ -44,7 +44,9 @@ func (ep *elbV2Provider) GetResource(ctx context.Context) (*schema.Resources, er
 				defer wg.Done()
 				defer func() {
 					if r := recover(); r != nil {
-						gologger.Error().Msgf("panic in %s provider goroutine: %v", "alb", r)
+						mu.Lock()
+						errs = append(errs, fmt.Errorf("panic in alb provider: %v", r))
+						mu.Unlock()
 					}
 				}()
 
@@ -57,6 +59,9 @@ func (ep *elbV2Provider) GetResource(ctx context.Context) (*schema.Resources, er
 		}
 	}
 	wg.Wait()
+	if len(errs) > 0 && len(list.Items) == 0 {
+		return nil, fmt.Errorf("alb: all workers failed: %v", errs)
+	}
 	return list, nil
 }
 

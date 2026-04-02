@@ -16,7 +16,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/lambda"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
-	"github.com/projectdiscovery/gologger"
 )
 
 // lambdaAndapiGatewayProvider is a provider for AWS Lambda and API Gateway resources
@@ -34,6 +33,7 @@ func (ap *lambdaAndapiGatewayProvider) GetResource(ctx context.Context) (*schema
 	list := schema.NewResources()
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	var errs []error
 
 	for _, region := range ap.regions.Regions {
 		apigatewayClients, apigatewayV2Clients, lambdaClients := ap.getApiGatewayAndLamdaClients(region.RegionName)
@@ -44,7 +44,9 @@ func (ap *lambdaAndapiGatewayProvider) GetResource(ctx context.Context) (*schema
 				defer wg.Done()
 				defer func() {
 					if r := recover(); r != nil {
-						gologger.Error().Msgf("panic in %s provider goroutine: %v", "lambda-apigateway", r)
+						mu.Lock()
+						errs = append(errs, fmt.Errorf("panic in lambda-apigateway provider: %v", r))
+						mu.Unlock()
 					}
 				}()
 
@@ -72,6 +74,9 @@ func (ap *lambdaAndapiGatewayProvider) GetResource(ctx context.Context) (*schema
 		}
 	}
 	wg.Wait()
+	if len(errs) > 0 && len(list.Items) == 0 {
+		return nil, fmt.Errorf("lambda-apigateway: all workers failed: %v", errs)
+	}
 	return list, nil
 }
 

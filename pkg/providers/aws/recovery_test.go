@@ -3,12 +3,14 @@ package aws
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
 func TestWorkerPanicRecovery(t *testing.T) {
+	t.Parallel()
 	results := make(chan result, 1)
 
 	worker(context.Background(), func(ctx context.Context) (*schema.Resources, error) {
@@ -19,13 +21,16 @@ func TestWorkerPanicRecovery(t *testing.T) {
 	if res.err == nil {
 		t.Fatal("expected error from panicking worker, got nil")
 	}
+	if !strings.Contains(res.err.Error(), "panic") {
+		t.Fatalf("expected panic error, got: %v", res.err)
+	}
 	if res.resources != nil {
 		t.Fatal("expected nil resources from panicking worker")
 	}
-	t.Logf("worker panic recovered: %v", res.err)
 }
 
 func TestWorkerNormalOperation(t *testing.T) {
+	t.Parallel()
 	results := make(chan result, 1)
 	expected := schema.NewResources()
 	expected.Append(&schema.Resource{Provider: "test", DNSName: "example.com"})
@@ -44,6 +49,7 @@ func TestWorkerNormalOperation(t *testing.T) {
 }
 
 func TestWorkerErrorPropagation(t *testing.T) {
+	t.Parallel()
 	results := make(chan result, 1)
 
 	worker(context.Background(), func(ctx context.Context) (*schema.Resources, error) {
