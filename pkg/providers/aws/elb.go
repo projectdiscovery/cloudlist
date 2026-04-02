@@ -63,6 +63,9 @@ func (ep *elbProvider) listELBResources(elbClient *elb.ELB, ec2Client *ec2.EC2) 
 	}
 
 	for _, lb := range loadBalancerDescriptions {
+		if lb.DNSName == nil || lb.LoadBalancerName == nil {
+			continue
+		}
 		elbDNS := *lb.DNSName
 
 		// Extract metadata for this load balancer
@@ -86,6 +89,9 @@ func (ep *elbProvider) listELBResources(elbClient *elb.ELB, ec2Client *ec2.EC2) 
 		}
 		// Describe Instances for the Load Balancer
 		for _, instance := range lb.Instances {
+			if instance.InstanceId == nil {
+				continue
+			}
 			instanceID := *instance.InstanceId
 			instanceOutput, err := ec2Client.DescribeInstances(&ec2.DescribeInstancesInput{
 				InstanceIds: []*string{&instanceID},
