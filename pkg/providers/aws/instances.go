@@ -31,6 +31,7 @@ func (i *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 	list := schema.NewResources()
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	var errs []error
 
 	for _, region := range i.regions.Regions {
 		for _, ec2Client := range i.getEc2Clients(region.RegionName) {
@@ -38,6 +39,13 @@ func (i *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 
 			go func(ec2Client *ec2.EC2) {
 				defer wg.Done()
+				defer func() {
+					if r := recover(); r != nil {
+						mu.Lock()
+						errs = append(errs, fmt.Errorf("panic in instance provider: %v", r))
+						mu.Unlock()
+					}
+				}()
 
 				if resources, err := i.getEC2Resources(ec2Client); err == nil {
 					mu.Lock()
@@ -48,6 +56,9 @@ func (i *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 		}
 	}
 	wg.Wait()
+	if len(errs) > 0 && len(list.Items) == 0 {
+		return nil, fmt.Errorf("instance: all workers failed: %v", errs)
+	}
 	return list, nil
 }
 

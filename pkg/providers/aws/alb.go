@@ -33,6 +33,7 @@ func (ep *elbV2Provider) GetResource(ctx context.Context) (*schema.Resources, er
 	list := schema.NewResources()
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	var errs []error
 
 	for _, region := range ep.regions.Regions {
 		albClients, ec2Clients := ep.getElbV2AndEc2Clients(region.RegionName)
@@ -41,6 +42,13 @@ func (ep *elbV2Provider) GetResource(ctx context.Context) (*schema.Resources, er
 
 			go func(albClient *elbv2.ELBV2, ec2Client *ec2.EC2) {
 				defer wg.Done()
+				defer func() {
+					if r := recover(); r != nil {
+						mu.Lock()
+						errs = append(errs, fmt.Errorf("panic in alb provider: %v", r))
+						mu.Unlock()
+					}
+				}()
 
 				if resources, err := ep.listELBV2Resources(albClient, ec2Client); err == nil {
 					mu.Lock()
@@ -51,6 +59,9 @@ func (ep *elbV2Provider) GetResource(ctx context.Context) (*schema.Resources, er
 		}
 	}
 	wg.Wait()
+	if len(errs) > 0 && len(list.Items) == 0 {
+		return nil, fmt.Errorf("alb: all workers failed: %v", errs)
+	}
 	return list, nil
 }
 
@@ -63,6 +74,9 @@ func (ep *elbV2Provider) listELBV2Resources(albClient *elbv2.ELBV2, ec2Client *e
 	}
 
 	for _, lb := range loadBalancers {
+		if lb.DNSName == nil || lb.LoadBalancerName == nil {
+			continue
+		}
 		albDNS := *lb.DNSName
 
 		// Extract metadata for this load balancer
@@ -101,6 +115,9 @@ func (ep *elbV2Provider) listELBV2Resources(albClient *elbv2.ELBV2, ec2Client *e
 			}
 
 			for _, target := range targets.TargetHealthDescriptions {
+				if target.Target == nil || target.Target.Id == nil {
+					continue
+				}
 				instanceID := *target.Target.Id
 				instanceOutput, err := ec2Client.DescribeInstances(&ec2.DescribeInstancesInput{
 					InstanceIds: []*string{&instanceID},

@@ -31,12 +31,20 @@ func (s *s3Provider) GetResource(ctx context.Context) (*schema.Resources, error)
 	list := schema.NewResources()
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	var errs []error
 
 	for _, s3Client := range s.getS3Clients() {
 		wg.Add(1)
 
 		go func(s3Client *wrappedS3Client) {
 			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					mu.Lock()
+					errs = append(errs, fmt.Errorf("panic in s3 provider: %v", r))
+					mu.Unlock()
+				}
+			}()
 
 			if resources, err := s.getS3Resources(s3Client); err == nil {
 				mu.Lock()
@@ -46,6 +54,9 @@ func (s *s3Provider) GetResource(ctx context.Context) (*schema.Resources, error)
 		}(s3Client)
 	}
 	wg.Wait()
+	if len(errs) > 0 && len(list.Items) == 0 {
+		return nil, fmt.Errorf("s3: all workers failed: %v", errs)
+	}
 	return list, nil
 }
 

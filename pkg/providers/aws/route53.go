@@ -30,12 +30,20 @@ func (r *route53Provider) GetResource(ctx context.Context) (*schema.Resources, e
 	list := schema.NewResources()
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	var errs []error
 
 	for _, route53Client := range r.getRoute53Clients() {
 		wg.Add(1)
 
 		go func(client *route53.Route53) {
 			defer wg.Done()
+			defer func() {
+				if rec := recover(); rec != nil {
+					mu.Lock()
+					errs = append(errs, fmt.Errorf("panic in route53 provider: %v", rec))
+					mu.Unlock()
+				}
+			}()
 
 			zones, err := r.getHostedZones(client)
 			if err != nil {
@@ -49,6 +57,9 @@ func (r *route53Provider) GetResource(ctx context.Context) (*schema.Resources, e
 		}(route53Client)
 	}
 	wg.Wait()
+	if len(errs) > 0 && len(list.Items) == 0 {
+		return nil, fmt.Errorf("route53: all workers failed: %v", errs)
+	}
 	return list, nil
 }
 

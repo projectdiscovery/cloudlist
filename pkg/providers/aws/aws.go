@@ -435,6 +435,11 @@ type result struct {
 type getResourcesFunc func(context.Context) (*schema.Resources, error)
 
 func worker(ctx context.Context, fn getResourcesFunc, ch chan<- result) {
+	defer func() {
+		if r := recover(); r != nil {
+			ch <- result{resources: nil, err: fmt.Errorf("panic in provider worker: %v", r)}
+		}
+	}()
 	resources, err := fn(ctx)
 	ch <- result{resources, err}
 }
@@ -497,16 +502,25 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		assignWorker(cloudfrontProvider.GetResource)
 	}
 
+
 	go func() {
 		workersWaitGroup.Wait()
 		close(results)
 	}()
 
+	var errs []error
+	successfulWorkers := 0
 	for result := range results {
 		if result.err != nil {
+			gologger.Warning().Msgf("provider worker error: %v", result.err)
+			errs = append(errs, result.err)
 			continue
 		}
+		successfulWorkers++
 		finalResources.Merge(result.resources)
+	}
+	if len(errs) > 0 && successfulWorkers == 0 {
+		return finalResources, fmt.Errorf("all provider workers failed: %v", errs)
 	}
 	return finalResources, nil
 }
