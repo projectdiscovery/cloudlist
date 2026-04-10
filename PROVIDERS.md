@@ -153,6 +153,7 @@ Google Cloud Platform supports **two discovery approaches** and **two authentica
 - `source_credentials` (string, optional): Path to source credentials file (uses ADC if not provided)
 - `token_lifetime` (string, optional): Token lifetime in seconds (e.g., "3600s") or Go duration format (e.g., "1h"). Range: 1s to 3600s (1 hour). Default: "3600s"
 - `project_ids` (list, optional): Comma-separated/list of project IDs to enumerate. When provided, Cloudlist skips discovery in every other accessible project, both for individual APIs and the organization-level Asset API.
+- `exclude_project_ids` (list, optional): Comma-separated/list of project IDs to exclude from organization-wide discovery. Requires `organization_id`. Mutually exclusive with `project_ids`. When provided, Cloudlist discovers all projects in the organization and skips the excluded ones, using per-project Asset API calls for the remaining projects.
 
 ---
 
@@ -198,6 +199,20 @@ Google Cloud Platform supports **two discovery approaches** and **two authentica
 ```
 
 Add `project_ids` to either configuration style to limit enumeration strictly to the listed projects (Cloud Asset API requests are filtered too), which is helpful for large organizations or delegated-access service accounts.
+
+**Excluding Projects:**
+
+```yaml
+- provider: gcp
+  organization_id: "123456789012"
+  gcp_service_account_key: '$GCP_SA_KEY'
+  exclude_project_ids:
+    - sandbox-project
+    - legacy-app
+    - test-environment
+```
+
+Use `exclude_project_ids` to scan all projects in an organization except the listed ones. This is useful when only a few projects need to be excluded from a large organization.
 
 **Required Organization-Level Roles:**
 1. `roles/cloudasset.viewer` - Core Asset API access
