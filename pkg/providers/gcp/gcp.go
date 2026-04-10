@@ -205,6 +205,18 @@ func New(options schema.OptionBlock) (schema.Provider, error) {
 
 	gologger.Info().Msgf("Creating GCP provider with id: %s", id)
 
+	// Validate exclude_project_ids constraints
+	hasInclude := len(getProjectIDsFromOptions(options)) > 0
+	hasExclude := len(getExcludeProjectIDsFromOptions(options)) > 0
+	if hasInclude && hasExclude {
+		return nil, errkit.New("project_ids and exclude_project_ids are mutually exclusive")
+	}
+	if hasExclude {
+		if _, ok := options.GetMetadata("organization_id"); !ok {
+			return nil, errkit.New("exclude_project_ids requires organization_id to be set")
+		}
+	}
+
 	// Note: gcp_service_account_key is optional
 	// Authentication will fall back to Application Default Credentials (ADC) if not provided
 	// This works for both traditional and short-lived credential modes
@@ -798,6 +810,40 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 		if len(projects) == 0 {
 			gologger.Info().Msgf("No projects listed, will use organization-level Asset API discovery for org %s", organizationID)
 		}
+
+		// Apply exclude filter if configured
+		excludeIDs := getExcludeProjectIDsFromOptions(options)
+		if len(excludeIDs) > 0 && len(projects) > 0 {
+			excludeScope := newProjectScope(excludeIDs)
+			if excludeScope != nil {
+				if manager != nil {
+					if err := excludeScope.enrichWithProjectNumbers(context.Background(), manager); err != nil {
+						gologger.Warning().Msgf("Could not resolve excluded project ids: %s", err)
+					}
+				}
+				filtered := make([]string, 0, len(projects))
+				for _, p := range projects {
+					if !excludeScope.containsID(p) {
+						filtered = append(filtered, p)
+					}
+				}
+				gologger.Info().Msgf("Excluded %d project(s), %d remaining", len(projects)-len(filtered), len(filtered))
+				projects = filtered
+			}
+
+			// Build projectScope from remaining projects so Resources() uses per-project Asset API path
+			if len(projects) > 0 {
+				scope := newProjectScope(projects)
+				if scope != nil {
+					if manager != nil {
+						if err := scope.enrichWithProjectNumbers(context.Background(), manager); err != nil {
+							gologger.Warning().Msgf("Could not resolve remaining project ids: %s", err)
+						}
+					}
+					provider.projectScope = scope
+				}
+			}
+		}
 	}
 	provider.projects = projects
 
@@ -1028,6 +1074,14 @@ func (p *OrganizationProvider) Verify(ctx context.Context) error {
 
 func getProjectIDsFromOptions(options schema.OptionBlock) []string {
 	raw, ok := options.GetMetadata("project_ids")
+	if !ok || strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	return splitAndCleanProjectList(raw)
+}
+
+func getExcludeProjectIDsFromOptions(options schema.OptionBlock) []string {
+	raw, ok := options.GetMetadata("exclude_project_ids")
 	if !ok || strings.TrimSpace(raw) == "" {
 		return nil
 	}
