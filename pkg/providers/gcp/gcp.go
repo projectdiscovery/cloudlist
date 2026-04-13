@@ -831,6 +831,10 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 				projects = filtered
 			}
 
+			if len(projects) == 0 {
+				return nil, errkit.New("all projects were excluded, no projects remaining for discovery")
+			}
+
 			// Build projectScope from remaining projects so Resources() uses per-project Asset API path
 			if len(projects) > 0 {
 				scope := newProjectScope(projects)
