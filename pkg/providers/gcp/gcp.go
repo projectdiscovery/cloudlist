@@ -813,7 +813,10 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 
 		// Apply exclude filter if configured
 		excludeIDs := getExcludeProjectIDsFromOptions(options)
-		if len(excludeIDs) > 0 && len(projects) > 0 {
+		if len(excludeIDs) > 0 {
+			if len(projects) == 0 {
+				return nil, errkit.New("exclude_project_ids requires project listing to succeed, but no projects were discovered")
+			}
 			excludeScope := newProjectScope(excludeIDs)
 			if excludeScope != nil {
 				if manager != nil {
@@ -827,7 +830,8 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 						filtered = append(filtered, p)
 					}
 				}
-				gologger.Info().Msgf("Excluded %d project(s), %d remaining", len(projects)-len(filtered), len(filtered))
+				matched := len(projects) - len(filtered)
+				gologger.Info().Msgf("Excluded %d/%d project(s), %d remaining", matched, len(excludeIDs), len(filtered))
 				projects = filtered
 			}
 
@@ -836,16 +840,14 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 			}
 
 			// Build projectScope from remaining projects so Resources() uses per-project Asset API path
-			if len(projects) > 0 {
-				scope := newProjectScope(projects)
-				if scope != nil {
-					if manager != nil {
-						if err := scope.enrichWithProjectNumbers(context.Background(), manager); err != nil {
-							gologger.Warning().Msgf("Could not resolve remaining project ids: %s", err)
-						}
+			scope := newProjectScope(projects)
+			if scope != nil {
+				if manager != nil {
+					if err := scope.enrichWithProjectNumbers(context.Background(), manager); err != nil {
+						gologger.Warning().Msgf("Could not resolve remaining project ids: %s", err)
 					}
-					provider.projectScope = scope
 				}
+				provider.projectScope = scope
 			}
 		}
 	}
