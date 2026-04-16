@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	assetpb "cloud.google.com/go/asset/apiv1/assetpb"
+	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -44,4 +45,63 @@ func TestProjectScopeAllowsAssetByNumber(t *testing.T) {
 	}
 
 	assert.True(t, scope.allowsAsset(asset))
+}
+
+func TestGetExcludeProjectIDsFromOptions(t *testing.T) {
+	t.Run("returns nil when not set", func(t *testing.T) {
+		options := schema.OptionBlock{}
+		result := getExcludeProjectIDsFromOptions(options)
+		assert.Nil(t, result)
+	})
+
+	t.Run("parses comma-separated list", func(t *testing.T) {
+		options := schema.OptionBlock{"exclude_project_ids": "project-a,project-b,project-c"}
+		result := getExcludeProjectIDsFromOptions(options)
+		assert.Equal(t, []string{"project-a", "project-b", "project-c"}, result)
+	})
+
+	t.Run("deduplicates entries", func(t *testing.T) {
+		options := schema.OptionBlock{"exclude_project_ids": "project-a,project-a,project-b"}
+		result := getExcludeProjectIDsFromOptions(options)
+		assert.Equal(t, []string{"project-a", "project-b"}, result)
+	})
+}
+
+func TestExcludeProjectValidation(t *testing.T) {
+	t.Run("errors when both include and exclude set", func(t *testing.T) {
+		options := schema.OptionBlock{
+			"provider":            "gcp",
+			"organization_id":     "123456",
+			"project_ids":         "project-a",
+			"exclude_project_ids": "project-b",
+		}
+		_, err := New(options)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "mutually exclusive")
+	})
+
+	t.Run("errors when exclude set without organization_id", func(t *testing.T) {
+		options := schema.OptionBlock{
+			"provider":            "gcp",
+			"exclude_project_ids": "project-a",
+		}
+		_, err := New(options)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "requires organization_id")
+	})
+}
+
+func TestExcludeProjectFiltering(t *testing.T) {
+	allProjects := []string{"project-a", "project-b", "project-c", "project-d"}
+	excludeScope := newProjectScope([]string{"project-b", "project-d"})
+	require.NotNil(t, excludeScope)
+
+	filtered := make([]string, 0, len(allProjects))
+	for _, p := range allProjects {
+		if !excludeScope.containsID(p) {
+			filtered = append(filtered, p)
+		}
+	}
+
+	assert.Equal(t, []string{"project-a", "project-c"}, filtered)
 }
