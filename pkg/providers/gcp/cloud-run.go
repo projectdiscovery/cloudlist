@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 	run "google.golang.org/api/run/v1"
 )
 
@@ -55,13 +56,16 @@ func (d *cloudRunProvider) getServices() ([]*run.Service, error) {
 		locationsService := d.run.Projects.Locations.List(fmt.Sprintf("projects/%s", project))
 		locationsResponse, err := locationsService.Do()
 		if err != nil {
+			gologger.Warning().Msgf("could not list cloud run locations for project %s: %s", project, err)
 			continue
 		}
 
 		for _, location := range locationsResponse.Locations {
-			servicesService := d.run.Projects.Locations.Services.List(location.Name)
-			servicesResponse, err := servicesService.Do()
+			// build the parent explicitly because the location.Name is not returned with the projects/ prefix in Knative API
+			parent := fmt.Sprintf("projects/%s/locations/%s", project, location.LocationId)
+			servicesResponse, err := d.run.Projects.Locations.Services.List(parent).Do()
 			if err != nil {
+				gologger.Warning().Msgf("could not list cloud run services for %s: %s", parent, err)
 				continue
 			}
 			services = append(services, servicesResponse.Items...)
