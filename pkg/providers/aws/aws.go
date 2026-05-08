@@ -49,17 +49,30 @@ type ProviderOptions struct {
 
 func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
 	p.Id, _ = block.GetMetadata("id")
-	accessKey, ok := block.GetMetadata(apiAccessKey)
-	if !ok {
-		return &schema.ErrNoSuchKey{Name: apiAccessKey}
+
+	// Check if using IMDS or ECS task role (for auto-discovery mode)
+	useIMDS, _ := block.GetMetadata("use_imds")
+	useECSTaskRole, _ := block.GetMetadata("use_ecs_task_role")
+
+	// If using metadata service, credentials are optional
+	if useIMDS != "true" && useECSTaskRole != "true" {
+		accessKey, ok := block.GetMetadata(apiAccessKey)
+		if !ok {
+			return &schema.ErrNoSuchKey{Name: apiAccessKey}
+		}
+		accessToken, ok := block.GetMetadata(apiSecretKey)
+		if !ok {
+			return &schema.ErrNoSuchKey{Name: apiSecretKey}
+		}
+		p.AccessKey = accessKey
+		p.SecretKey = accessToken
+	} else {
+		// For IMDS/ECS task role, credentials are optional
+		p.AccessKey, _ = block.GetMetadata(apiAccessKey)
+		p.SecretKey, _ = block.GetMetadata(apiSecretKey)
 	}
-	accessToken, ok := block.GetMetadata(apiSecretKey)
-	if !ok {
-		return &schema.ErrNoSuchKey{Name: apiSecretKey}
-	}
+
 	p.Token, _ = block.GetMetadata(sessionToken)
-	p.AccessKey = accessKey
-	p.SecretKey = accessToken
 
 	if assumeRoleArn, ok := block.GetMetadata(assumeRoleArn); ok {
 		p.AssumeRoleArn = assumeRoleArn
@@ -156,7 +169,12 @@ func New(block schema.OptionBlock) (*Provider, error) {
 	provider := &Provider{options: options}
 	config := aws.NewConfig()
 	config.WithRegion("us-east-1")
-	config.WithCredentials(credentials.NewStaticCredentials(options.AccessKey, options.SecretKey, options.Token))
+
+	// Only set static credentials if we have them
+	// Otherwise, SDK will use default credential chain (IMDS, ECS task role, env vars, etc.)
+	if options.AccessKey != "" && options.SecretKey != "" {
+		config.WithCredentials(credentials.NewStaticCredentials(options.AccessKey, options.SecretKey, options.Token))
+	}
 
 	var sess *session.Session
 	var err error

@@ -23,15 +23,35 @@ type Runner struct {
 
 // New creates a new runner instance based on configuration options
 func New(options *Options) (*Runner, error) {
+	var config schema.Options
 
-	if options.ProviderConfig == "" {
-		options.ProviderConfig = defaultProviderConfigLocation
-		gologger.Print().Msgf("Using default provider config: %s\n", options.ProviderConfig)
-	}
+	// If auto-discovery mode is enabled, skip provider config file
+	if options.AutoDiscovery {
+		gologger.Info().Msgf("Auto-discovery mode enabled, ignoring provider config file\n")
 
-	config, err := readProviderConfig(options.ProviderConfig)
-	if err != nil {
-		return nil, err
+		ad := NewAutoDiscovery(options)
+		config = ad.DiscoverProviders()
+
+		if len(config) == 0 {
+			gologger.Warning().Msgf("No providers discovered in auto-discovery mode\n")
+			gologger.Info().Msgf("Hint: Make sure you have KUBECONFIG set or ~/.kube/config exists for Kubernetes\n")
+			gologger.Info().Msgf("Hint: Set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY for AWS\n")
+			gologger.Info().Msgf("Hint: Set GOOGLE_APPLICATION_CREDENTIALS for GCP\n")
+			gologger.Info().Msgf("Hint: Set AZURE_CLIENT_ID/AZURE_CLIENT_SECRET/AZURE_TENANT_ID/AZURE_SUBSCRIPTION_ID for Azure\n")
+			return nil, nil
+		}
+	} else {
+		// Normal mode: read from provider config file
+		if options.ProviderConfig == "" {
+			options.ProviderConfig = defaultProviderConfigLocation
+			gologger.Print().Msgf("Using default provider config: %s\n", options.ProviderConfig)
+		}
+
+		var err error
+		config, err = readProviderConfig(options.ProviderConfig)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// CLI overrides config
@@ -43,7 +63,7 @@ func New(options *Options) (*Runner, error) {
 	if len(options.Services) == 0 {
 		options.Services = append(options.Services, defaultServies...)
 	}
-	if len(options.Providers) == 0 {
+	if len(options.Providers) == 0 && !options.AutoDiscovery {
 		options.Providers = append(options.Providers, defaultProviders...)
 	}
 
@@ -86,9 +106,24 @@ func (r *Runner) Enumerate() {
 		}
 	}
 
-	inventory, err := inventory.New(finalConfig)
-	if err != nil {
-		gologger.Fatal().Msgf("Could not create inventory: %s\n", err)
+	// In auto-discovery mode, use graceful failure to skip providers with errors
+	var inv *inventory.Inventory
+	var err error
+	if r.options.AutoDiscovery {
+		inv, err = inventory.NewWithOptions(finalConfig, true, r.options.Verbose)
+		if err != nil {
+			gologger.Fatal().Msgf("Could not create inventory: %s\n", err)
+		}
+		// Check if we have any providers after graceful failure
+		if len(inv.Providers) == 0 {
+			gologger.Warning().Msgf("No providers could be initialized successfully\n")
+			return
+		}
+	} else {
+		inv, err = inventory.New(finalConfig)
+		if err != nil {
+			gologger.Fatal().Msgf("Could not create inventory: %s\n", err)
+		}
 	}
 
 	var output *os.File
@@ -102,7 +137,7 @@ func (r *Runner) Enumerate() {
 
 	builder := &bytes.Buffer{}
 	deduplicator := schema.NewResourceDeduplicator()
-	for _, provider := range inventory.Providers {
+	for _, provider := range inv.Providers {
 		gologger.Info().Msgf("Listing assets from provider: %s services: %s id: %s", provider.Name(), strings.Join(provider.Services(), ","), provider.ID())
 
 		instances, err := provider.Resources(context.Background())
