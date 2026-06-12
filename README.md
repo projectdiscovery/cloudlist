@@ -38,6 +38,7 @@ Cloudlist is a multi-cloud tool for getting Assets from Cloud Providers. This is
 
  - List Cloud assets with multiple configurations
  - Multiple Cloud providers support
+ - Keyless authentication support (AWS IRSA / instance profiles, GCP workload identity)
  - Multiple output format support
  - Multiple filters support
  - Highly extensible making adding new providers a breeze
