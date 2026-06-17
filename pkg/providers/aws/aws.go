@@ -49,17 +49,20 @@ type ProviderOptions struct {
 
 func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
 	p.Id, _ = block.GetMetadata("id")
-	accessKey, ok := block.GetMetadata(apiAccessKey)
-	if !ok {
-		return &schema.ErrNoSuchKey{Name: apiAccessKey}
-	}
-	accessToken, ok := block.GetMetadata(apiSecretKey)
-	if !ok {
-		return &schema.ErrNoSuchKey{Name: apiSecretKey}
+	// aws_access_key/aws_secret_key are optional. When both are omitted the
+	// provider falls back to the AWS SDK default credential chain, which
+	// supports keyless auth such as IRSA (IAM Roles for Service Accounts),
+	// EC2/ECS instance profiles and AWS_* environment variables.
+	accessKey, _ := block.GetMetadata(apiAccessKey)
+	secretKey, _ := block.GetMetadata(apiSecretKey)
+	// If one of the static-credential pair is set, both must be set;
+	// a half-configured pair is almost always a mistake.
+	if (accessKey == "") != (secretKey == "") {
+		return errors.Errorf("both %s and %s must be provided together", apiAccessKey, apiSecretKey)
 	}
 	p.Token, _ = block.GetMetadata(sessionToken)
 	p.AccessKey = accessKey
-	p.SecretKey = accessToken
+	p.SecretKey = secretKey
 
 	if assumeRoleArn, ok := block.GetMetadata(assumeRoleArn); ok {
 		p.AssumeRoleArn = assumeRoleArn
@@ -156,7 +159,15 @@ func New(block schema.OptionBlock) (*Provider, error) {
 	provider := &Provider{options: options}
 	config := aws.NewConfig()
 	config.WithRegion("us-east-1")
-	config.WithCredentials(credentials.NewStaticCredentials(options.AccessKey, options.SecretKey, options.Token))
+	// Only set static credentials when explicitly provided. Otherwise leave
+	// config.Credentials nil so session.NewSession resolves credentials via the
+	// SDK default chain (env vars, shared config, IRSA web identity, EC2/ECS
+	// instance profile), enabling keyless authentication.
+	if options.AccessKey != "" && options.SecretKey != "" {
+		config.WithCredentials(credentials.NewStaticCredentials(options.AccessKey, options.SecretKey, options.Token))
+	} else {
+		gologger.Verbose().Msgf("[aws] No static credentials configured for %q; using AWS SDK default credential chain (IRSA / instance profile / environment / shared config)", options.Id)
+	}
 
 	var sess *session.Session
 	var err error
@@ -501,7 +512,6 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		cloudfrontProvider := &cloudfrontProvider{cloudFrontClient: p.cloudFrontClient, options: *p.options, session: p.session}
 		assignWorker(cloudfrontProvider.GetResource)
 	}
-
 
 	go func() {
 		workersWaitGroup.Wait()

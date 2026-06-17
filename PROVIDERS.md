@@ -9,9 +9,9 @@ Amazon Web Services can be integrated by using the following configuration block
   provider: aws
   # id is the name defined by user for filtering (optional)
   id: staging
-  # aws_access_key is the access key for AWS account
+  # aws_access_key is the access key for AWS account (optional - see "Keyless Authentication" below)
   aws_access_key: $AWS_ACCESS_KEY
-  # aws_secret_key is the secret key for AWS account
+  # aws_secret_key is the secret key for AWS account (optional - see "Keyless Authentication" below)
   aws_secret_key: $AWS_SECRET_KEY
   # aws_session_token session token for temporary security credentials retrieved via STS (optional)
   aws_session_token: $AWS_SESSION_TOKEN
@@ -30,6 +30,24 @@ Amazon Web Services can be integrated by using the following configuration block
 ```
 
 `aws_access_key` and `aws_secret_key` can be generated in the IAM console. We recommend creating a new IAM user with `Read Only` permissions and providing the access token for the user.
+
+#### Keyless Authentication (IRSA / Instance Profile / Environment)
+
+`aws_access_key` and `aws_secret_key` are **optional**. When both are omitted from the config, the provider falls back to the AWS SDK default credential chain, so no secrets need to be injected into the config file. To use keyless mode, leave the keys out entirely (an `aws_access_key: $UNSET_ENV_VAR` whose environment variable is unset is treated as a literal value, not as keyless). This enables:
+
+- **IRSA (IAM Roles for Service Accounts)** on EKS — credentials are picked up automatically from the `AWS_WEB_IDENTITY_TOKEN_FILE` and `AWS_ROLE_ARN` environment variables injected by the pod identity webhook.
+- **EC2 / ECS instance profiles** — credentials are resolved from the instance/task metadata endpoint.
+- **Environment variables** — `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`.
+- **Shared config / profile** — `~/.aws/credentials` and `~/.aws/config`.
+
+```yaml
+# Zero-key config relying on IRSA / instance profile / environment
+- provider: aws
+  id: keyless-discovery
+  # no aws_access_key / aws_secret_key — credentials resolved by the SDK default chain
+```
+
+> Note: if you provide one of `aws_access_key` / `aws_secret_key`, you must provide both. `assume_role_arn`, `assume_role_name` and `org_discovery_role_arn` all work on top of keyless base credentials too.
 
 Scopes Required - 
 1. EC2
