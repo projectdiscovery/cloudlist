@@ -54,15 +54,15 @@ func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
 	// supports keyless auth such as IRSA (IAM Roles for Service Accounts),
 	// EC2/ECS instance profiles and AWS_* environment variables.
 	accessKey, _ := block.GetMetadata(apiAccessKey)
-	accessToken, _ := block.GetMetadata(apiSecretKey)
+	secretKey, _ := block.GetMetadata(apiSecretKey)
 	// If one of the static-credential pair is set, both must be set;
 	// a half-configured pair is almost always a mistake.
-	if (accessKey == "") != (accessToken == "") {
+	if (accessKey == "") != (secretKey == "") {
 		return errors.Errorf("both %s and %s must be provided together", apiAccessKey, apiSecretKey)
 	}
 	p.Token, _ = block.GetMetadata(sessionToken)
 	p.AccessKey = accessKey
-	p.SecretKey = accessToken
+	p.SecretKey = secretKey
 
 	if assumeRoleArn, ok := block.GetMetadata(assumeRoleArn); ok {
 		p.AssumeRoleArn = assumeRoleArn
@@ -165,6 +165,8 @@ func New(block schema.OptionBlock) (*Provider, error) {
 	// instance profile), enabling keyless authentication.
 	if options.AccessKey != "" && options.SecretKey != "" {
 		config.WithCredentials(credentials.NewStaticCredentials(options.AccessKey, options.SecretKey, options.Token))
+	} else {
+		gologger.Verbose().Msgf("[aws] No static credentials configured for %q; using AWS SDK default credential chain (IRSA / instance profile / environment / shared config)", options.Id)
 	}
 
 	var sess *session.Session
@@ -510,7 +512,6 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		cloudfrontProvider := &cloudfrontProvider{cloudFrontClient: p.cloudFrontClient, options: *p.options, session: p.session}
 		assignWorker(cloudfrontProvider.GetResource)
 	}
-
 
 	go func() {
 		workersWaitGroup.Wait()

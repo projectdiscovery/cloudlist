@@ -33,7 +33,7 @@ Amazon Web Services can be integrated by using the following configuration block
 
 #### Keyless Authentication (IRSA / Instance Profile / Environment)
 
-`aws_access_key` and `aws_secret_key` are **optional**. When both are omitted, the provider falls back to the AWS SDK default credential chain, so no secrets need to be injected into the config file. This enables:
+`aws_access_key` and `aws_secret_key` are **optional**. When both are omitted from the config, the provider falls back to the AWS SDK default credential chain, so no secrets need to be injected into the config file. To use keyless mode, leave the keys out entirely (an `aws_access_key: $UNSET_ENV_VAR` whose environment variable is unset is treated as a literal value, not as keyless). This enables:
 
 - **IRSA (IAM Roles for Service Accounts)** on EKS — credentials are picked up automatically from the `AWS_WEB_IDENTITY_TOKEN_FILE` and `AWS_ROLE_ARN` environment variables injected by the pod identity webhook.
 - **EC2 / ECS instance profiles** — credentials are resolved from the instance/task metadata endpoint.
