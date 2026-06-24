@@ -75,6 +75,24 @@ func TestOptionBlockZeroPadsExcludeAccountIDs(t *testing.T) {
 	require.Equal(t, "012345678901", value)
 }
 
+func TestOptionBlockParsesExcludeServices(t *testing.T) {
+	data := `
+- provider: gcp
+  exclude_services:
+    - cloud-function
+    - gke
+`
+	var options Options
+	err := yaml.Unmarshal([]byte(data), &options)
+	require.NoError(t, err)
+	require.Len(t, options, 1)
+
+	value, ok := options[0].GetMetadata("exclude_services")
+	require.True(t, ok)
+	require.Equal(t, "cloud-function,gke", value)
+	require.Equal(t, []string{"cloud-function", "gke"}, options.GetExcludeServiceNames())
+}
+
 func TestOptionBlockScalarFallback(t *testing.T) {
 	data := `
 - provider: aws

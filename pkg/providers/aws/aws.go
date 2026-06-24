@@ -101,6 +101,11 @@ func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
 			services[s] = struct{}{}
 		}
 	}
+	if es, ok := block.GetMetadata("exclude_services"); ok {
+		for _, s := range strings.Split(es, ",") {
+			delete(services, strings.TrimSpace(s))
+		}
+	}
 	p.Services = services
 
 	if extendedMetadata, ok := block.GetMetadata("extended_metadata"); ok {

@@ -46,6 +46,11 @@ func New(options schema.OptionBlock) (*Provider, error) {
 			services[s] = struct{}{}
 		}
 	}
+	if es, ok := options.GetMetadata("exclude_services"); ok {
+		for _, s := range strings.Split(es, ",") {
+			delete(services, strings.TrimSpace(s))
+		}
+	}
 
 	client, err := scw.NewClient(scw.WithAuth(accessKey, accessToken))
 	if err != nil {
