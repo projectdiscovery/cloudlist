@@ -68,7 +68,7 @@ FILTERS:
    -id string[]                 display results for given ids (comma-separated)
    -host                        display only hostnames in results
    -ip                          display only ips in results
-   -s, -service value           query and display results from given service (comma-separated)) (default cloudfront,gke,domain,compute,ec2,instance,cloud-function,app,eks,custom,consul,droplet,vm,ecs,fastly,alb,s3,lambda,elb,cloud-run,route53,publicip,dns,service,nomad,lightsail,ingress,apigateway)
+   -s, -service value           query and display results from given service (comma-separated) (default cloudfront,gke,domain,compute,ec2,instance,cloud-function,app,eks,custom,consul,droplet,vm,ecs,fastly,alb,s3,lambda,elb,cloud-run,route53,publicip,dns,service,nomad,lightsail,ingress,apigateway)
    -es, -exclude-service value  services to skip for a provider (comma-separated)
    -ep, -exclude-private        exclude private ips in cli output
 

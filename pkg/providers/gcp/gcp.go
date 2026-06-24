@@ -246,6 +246,7 @@ func newIndividualProvider(options schema.OptionBlock, id, JSONData string) (*Pr
 	services := make(schema.ServiceMap)
 	if ss, ok := options.GetMetadata("services"); ok {
 		for _, s := range strings.Split(ss, ",") {
+			s = strings.TrimSpace(s)
 			if _, ok := supportedServicesMap[s]; ok {
 				services[s] = struct{}{}
 			}
@@ -670,6 +671,7 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 	services := make(schema.ServiceMap)
 	if ss, ok := options.GetMetadata("services"); ok {
 		for _, s := range strings.Split(ss, ",") {
+			s = strings.TrimSpace(s)
 			if _, ok := supportedServicesMap[s]; ok {
 				services[s] = struct{}{}
 			}

@@ -90,6 +90,7 @@ func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
 	services := make(schema.ServiceMap)
 	if ss, ok := block.GetMetadata("services"); ok {
 		for _, s := range strings.Split(ss, ",") {
+			s = strings.TrimSpace(s)
 			if _, ok := supportedServicesMap[s]; ok {
 				services[s] = struct{}{}
 			}

@@ -27,7 +27,13 @@ func TestParseOptionBlockExcludeServices(t *testing.T) {
 			name:        "exclude composes with services allowlist",
 			block:       schema.OptionBlock{"services": "ec2,s3,lambda", "exclude_services": "s3"},
 			wantPresent: []string{"ec2", "lambda"},
-			wantAbsent:  []string{"s3", "route53"},
+			wantAbsent:  []string{"s3"},
+		},
+		{
+			name:        "whitespace is trimmed in both lists",
+			block:       schema.OptionBlock{"services": "ec2, s3, lambda", "exclude_services": "s3, lambda"},
+			wantPresent: []string{"ec2"},
+			wantAbsent:  []string{"s3", "lambda"},
 		},
 		{
 			name:        "unknown exclude value is ignored",

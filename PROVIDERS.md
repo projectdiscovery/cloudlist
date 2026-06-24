@@ -1,6 +1,6 @@
 # Providers
 
-### Service filtering
+## Service filtering
 
 Every provider enumerates all of its supported services by default. Two optional, additive keys narrow that set (also available on the CLI as `-s`/`--service` and `-es`/`--exclude-service`):
 

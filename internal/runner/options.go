@@ -85,7 +85,7 @@ func ParseOptions() *Options {
 		flagSet.BoolVar(&options.Hosts, "host", false, "display only hostnames in results"),
 		flagSet.BoolVar(&options.IPAddress, "ip", false, "display only ips in results"),
 		flagSet.BoolVar(&options.ExtendedMetadata, "extended-metadata", false, "enable extended metadata for providers"),
-		flagSet.StringSliceVarP(&options.Services, "service", "s", nil, "query and display results from given service (comma-separated)) (default "+strings.Join(defaultServices, ",")+")", goflags.CommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.Services, "service", "s", nil, "query and display results from given service (comma-separated) (default "+strings.Join(defaultServices, ",")+")", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.StringSliceVarP(&options.ExcludeServices, "exclude-service", "es", nil, "services to skip for a provider (comma-separated)", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.BoolVarP(&options.ExcludePrivate, "exclude-private", "ep", false, "exclude private ips in cli output"),
 	)
