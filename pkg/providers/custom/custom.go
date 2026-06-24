@@ -43,17 +43,8 @@ func New(block schema.OptionBlock) (*Provider, error) {
 		return nil, err
 	}
 
-	supportedServicesMap := make(map[string]struct{})
-	for _, s := range Services {
-		supportedServicesMap[s] = struct{}{}
-	}
-
-	services := make(schema.ServiceMap)
-	for _, s := range Services {
-		services[s] = struct{}{}
-	}
 	client := retryablehttp.NewClient(retryablehttp.DefaultOptionsSingle)
-	return &Provider{client: client, id: options.Id, urlList: options.URLs, headerList: options.Headers, services: services}, nil
+	return &Provider{client: client, id: options.Id, urlList: options.URLs, headerList: options.Headers, services: options.Services}, nil
 }
 
 // Name returns the name of the provider
@@ -84,30 +75,7 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
 	p.Id, _ = block.GetMetadata("id")
 
-	supportedServicesMap := make(map[string]struct{})
-	for _, s := range Services {
-		supportedServicesMap[s] = struct{}{}
-	}
-	services := make(schema.ServiceMap)
-	if ss, ok := block.GetMetadata("services"); ok {
-		for _, s := range strings.Split(ss, ",") {
-			s = strings.TrimSpace(s)
-			if _, ok := supportedServicesMap[s]; ok {
-				services[s] = struct{}{}
-			}
-		}
-	}
-	// if no services provided from -service flag, includes all services
-	if len(services) == 0 {
-		for _, s := range Services {
-			services[s] = struct{}{}
-		}
-	}
-	if es, ok := block.GetMetadata("exclude_services"); ok {
-		for _, s := range strings.Split(es, ",") {
-			delete(services, strings.TrimSpace(s))
-		}
-	}
+	p.Services = block.ResolveServices(Services)
 
 	np, err := networkpolicy.New(networkpolicy.DefaultOptions)
 	if err != nil {

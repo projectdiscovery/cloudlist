@@ -2,7 +2,6 @@ package heroku
 
 import (
 	"context"
-	"strings"
 
 	heroku "github.com/heroku/heroku-go/v5"
 
@@ -33,29 +32,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 
 	heroku.DefaultTransport.BearerToken = token
 
-	supportedServicesMap := make(map[string]struct{})
-	for _, s := range Services {
-		supportedServicesMap[s] = struct{}{}
-	}
-	services := make(schema.ServiceMap)
-	if ss, ok := options.GetMetadata("services"); ok {
-		for _, s := range strings.Split(ss, ",") {
-			s = strings.TrimSpace(s)
-			if _, ok := supportedServicesMap[s]; ok {
-				services[s] = struct{}{}
-			}
-		}
-	}
-	if len(services) == 0 {
-		for _, s := range Services {
-			services[s] = struct{}{}
-		}
-	}
-	if es, ok := options.GetMetadata("exclude_services"); ok {
-		for _, s := range strings.Split(es, ",") {
-			delete(services, strings.TrimSpace(s))
-		}
-	}
+	services := options.ResolveServices(Services)
 
 	return &Provider{id: id, client: heroku.NewService(heroku.DefaultClient), services: services}, nil
 }

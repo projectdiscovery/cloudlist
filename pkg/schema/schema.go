@@ -308,6 +308,43 @@ func (o OptionBlock) GetMetadata(key string) (string, bool) {
 	return data, true
 }
 
+// ResolveServices computes the effective service set for a provider from the
+// option block. It starts from the `services` allowlist (falling back to all
+// supported services when the allowlist is empty), then removes any
+// `exclude_services` entries. Entries are whitespace-trimmed and values that
+// are not in supported are ignored.
+func (o OptionBlock) ResolveServices(supported []string) ServiceMap {
+	supportedSet := make(map[string]struct{}, len(supported))
+	for _, s := range supported {
+		supportedSet[s] = struct{}{}
+	}
+
+	services := make(ServiceMap)
+	if allow, ok := o.GetMetadata("services"); ok {
+		for _, s := range strings.Split(allow, ",") {
+			s = strings.TrimSpace(s)
+			if _, ok := supportedSet[s]; ok {
+				services[s] = struct{}{}
+			}
+		}
+	}
+
+	// default to all supported services when no allowlist is provided
+	if len(services) == 0 {
+		for _, s := range supported {
+			services[s] = struct{}{}
+		}
+	}
+
+	if exclude, ok := o.GetMetadata("exclude_services"); ok {
+		for _, s := range strings.Split(exclude, ",") {
+			delete(services, strings.TrimSpace(s))
+		}
+	}
+
+	return services
+}
+
 type ServiceMap map[string]struct{}
 
 func (s ServiceMap) Has(service string) bool {

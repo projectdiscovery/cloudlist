@@ -1,0 +1,2 @@
+# github.com/projectdiscovery/cloudlist/pkg/providers/custom
+pkg/providers/custom/custom.go:87:2: declared and not used: services
