@@ -320,7 +320,8 @@ func (o OptionBlock) ParseServices(supportedServices []string) ServiceMap {
 	}
 
 	services := make(ServiceMap)
-	if ss, ok := o.GetMetadata("services"); ok {
+	ss, servicesSpecified := o.GetMetadata("services")
+	if servicesSpecified {
 		for _, s := range strings.Split(ss, ",") {
 			s = strings.TrimSpace(s)
 			if _, ok := supportedServicesMap[s]; ok {
@@ -330,7 +331,7 @@ func (o OptionBlock) ParseServices(supportedServices []string) ServiceMap {
 	}
 
 	// if no services explicitly specified, start with all supported services
-	if len(services) == 0 {
+	if !servicesSpecified {
 		for _, s := range supportedServices {
 			services[s] = struct{}{}
 		}

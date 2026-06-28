@@ -69,14 +69,15 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		supportedServicesMap[s] = struct{}{}
 	}
 	services := make(schema.ServiceMap)
-	if ss, ok := options.GetMetadata("services"); ok {
+	ss, servicesSpecified := options.GetMetadata("services")
+	if servicesSpecified {
 		for _, s := range strings.Split(ss, ",") {
 			if _, ok := supportedServicesMap[s]; ok {
 				services[s] = struct{}{}
 			}
 		}
 	}
-	if len(services) == 0 {
+	if !servicesSpecified {
 		for _, s := range Services {
 			services[s] = struct{}{}
 		}
@@ -111,11 +112,11 @@ func (p *Provider) Services() []string {
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalList := schema.NewResources()
-	services, err := p.clientSet.CoreV1().Services("").List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return nil, errkit.Wrap(err, "could not list kubernetes services")
-	}
 	if p.services.Has("service") {
+		services, err := p.clientSet.CoreV1().Services("").List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, errkit.Wrap(err, "could not list kubernetes services")
+		}
 		k8sServiceProvider := K8sServiceProvider{serviceClient: services, id: p.id}
 		serviceIPs, _ := k8sServiceProvider.GetResource(ctx)
 		finalList.Merge(serviceIPs)

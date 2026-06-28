@@ -115,3 +115,19 @@ func TestOptionBlockParsesExcludeServices(t *testing.T) {
 	require.False(t, serviceMap.Has("cloud-function"))
 	require.False(t, serviceMap.Has("cloud-run"))
 }
+
+func TestOptionBlockExplicitUnsupportedServicesDoesNotFallback(t *testing.T) {
+	data := `
+- provider: gcp
+  services:
+    - unknown
+`
+	var options Options
+	err := yaml.Unmarshal([]byte(data), &options)
+	require.NoError(t, err)
+	require.Len(t, options, 1)
+
+	supported := []string{"dns", "compute"}
+	serviceMap := options[0].ParseServices(supported)
+	require.Equal(t, 0, len(serviceMap))
+}

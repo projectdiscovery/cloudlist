@@ -41,14 +41,15 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	}
 
 	services := make(schema.ServiceMap)
-	if ss, ok := options.GetMetadata("services"); ok {
+	ss, servicesSpecified := options.GetMetadata("services")
+	if servicesSpecified {
 		for _, s := range strings.Split(ss, ",") {
 			if _, ok := supportedServicesMap[s]; ok {
 				services[s] = struct{}{}
 			}
 		}
 	}
-	if len(services) == 0 {
+	if !servicesSpecified {
 		for _, s := range Services {
 			services[s] = struct{}{}
 		}

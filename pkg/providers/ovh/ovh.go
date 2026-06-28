@@ -26,7 +26,8 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	// service selection
 	supported := map[string]struct{}{"dns": {}}
 	services := make(schema.ServiceMap)
-	if ss, ok := options.GetMetadata("services"); ok {
+	ss, servicesSpecified := options.GetMetadata("services")
+	if servicesSpecified {
 		for _, s := range strings.Split(ss, ",") {
 			s = strings.TrimSpace(s)
 			if _, ok := supported[s]; ok {
@@ -34,7 +35,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 			}
 		}
 	}
-	if len(services) == 0 {
+	if !servicesSpecified {
 		for _, s := range Services {
 			services[s] = struct{}{}
 		}
