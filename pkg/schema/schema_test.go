@@ -89,3 +89,45 @@ func TestOptionBlockScalarFallback(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "PDScannerRole", value)
 }
+
+func TestOptionBlockParsesExcludeServices(t *testing.T) {
+	data := `
+- provider: gcp
+  exclude_services:
+    - cloud-function
+    - cloud-run
+`
+	var options Options
+	err := yaml.Unmarshal([]byte(data), &options)
+	require.NoError(t, err)
+	require.Len(t, options, 1)
+
+	value, ok := options[0].GetMetadata("exclude_services")
+	require.True(t, ok)
+	require.Equal(t, "cloud-function,cloud-run", value)
+	require.Equal(t, []string{"cloud-function", "cloud-run"}, options.GetExcludeServiceNames())
+
+	supported := []string{"dns", "compute", "gke", "cloud-function", "cloud-run"}
+	serviceMap := options[0].ParseServices(supported)
+	require.True(t, serviceMap.Has("dns"))
+	require.True(t, serviceMap.Has("compute"))
+	require.True(t, serviceMap.Has("gke"))
+	require.False(t, serviceMap.Has("cloud-function"))
+	require.False(t, serviceMap.Has("cloud-run"))
+}
+
+func TestOptionBlockExplicitUnsupportedServicesDoesNotFallback(t *testing.T) {
+	data := `
+- provider: gcp
+  services:
+    - unknown
+`
+	var options Options
+	err := yaml.Unmarshal([]byte(data), &options)
+	require.NoError(t, err)
+	require.Len(t, options, 1)
+
+	supported := []string{"dns", "compute"}
+	serviceMap := options[0].ParseServices(supported)
+	require.Equal(t, 0, len(serviceMap))
+}

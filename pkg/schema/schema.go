@@ -226,6 +226,22 @@ func (o Options) GetServiceNames() []string {
 	return services
 }
 
+// GetExcludeServiceNames returns the excluded services from the options
+func (o Options) GetExcludeServiceNames() []string {
+	services := make([]string, 0)
+	for _, option := range o {
+		if serviceNameList, ok := option["exclude_services"]; ok {
+			for _, serviceName := range strings.Split(serviceNameList, ",") {
+				trimmedServiceName := strings.TrimSpace(serviceName)
+				if trimmedServiceName != "" {
+					services = append(services, trimmedServiceName)
+				}
+			}
+		}
+	}
+	return services
+}
+
 // OptionBlock is a single option on which operation is possible
 type OptionBlock map[string]string
 
@@ -240,7 +256,7 @@ func (ob *OptionBlock) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	// Convert raw map to OptionBlock and handle special cases
 	for key, value := range rawMap {
 		switch key {
-		case "account_ids", "exclude_account_ids", "urls", "services", "project_ids", "exclude_project_ids":
+		case "account_ids", "exclude_account_ids", "urls", "services", "exclude_services", "project_ids", "exclude_project_ids":
 			if valueArr, ok := value.([]interface{}); ok {
 				var strArr []string
 				for _, v := range valueArr {
@@ -294,6 +310,42 @@ func (o OptionBlock) GetMetadata(key string) (string, bool) {
 		}
 	}
 	return data, true
+}
+
+// ParseServices parses services and exclude_services metadata from option block against supported services
+func (o OptionBlock) ParseServices(supportedServices []string) ServiceMap {
+	supportedServicesMap := make(map[string]struct{})
+	for _, s := range supportedServices {
+		supportedServicesMap[s] = struct{}{}
+	}
+
+	services := make(ServiceMap)
+	ss, servicesSpecified := o.GetMetadata("services")
+	if servicesSpecified {
+		for _, s := range strings.Split(ss, ",") {
+			s = strings.TrimSpace(s)
+			if _, ok := supportedServicesMap[s]; ok {
+				services[s] = struct{}{}
+			}
+		}
+	}
+
+	// if no services explicitly specified, start with all supported services
+	if !servicesSpecified {
+		for _, s := range supportedServices {
+			services[s] = struct{}{}
+		}
+	}
+
+	// subtract exclude_services if specified
+	if es, ok := o.GetMetadata("exclude_services"); ok {
+		for _, s := range strings.Split(es, ",") {
+			s = strings.TrimSpace(s)
+			delete(services, s)
+		}
+	}
+
+	return services
 }
 
 type ServiceMap map[string]struct{}

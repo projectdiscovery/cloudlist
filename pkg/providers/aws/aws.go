@@ -88,7 +88,8 @@ func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
 		supportedServicesMap[s] = struct{}{}
 	}
 	services := make(schema.ServiceMap)
-	if ss, ok := block.GetMetadata("services"); ok {
+	ss, servicesSpecified := block.GetMetadata("services")
+	if servicesSpecified {
 		for _, s := range strings.Split(ss, ",") {
 			if _, ok := supportedServicesMap[s]; ok {
 				services[s] = struct{}{}
@@ -96,9 +97,14 @@ func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
 		}
 	}
 	// if no services provided from -service flag, includes all services
-	if len(services) == 0 {
+	if !servicesSpecified {
 		for _, s := range Services {
 			services[s] = struct{}{}
+		}
+	}
+	if es, ok := block.GetMetadata("exclude_services"); ok {
+		for _, s := range strings.Split(es, ",") {
+			delete(services, strings.TrimSpace(s))
 		}
 	}
 	p.Services = services

@@ -68,6 +68,9 @@ func (r *Runner) Enumerate() {
 		if len(services) > 0 {
 			item["services"] = strings.Join(services, ",")
 		}
+		if len(r.options.ExcludeServices) > 0 {
+			item["exclude_services"] = strings.Join(r.options.ExcludeServices, ",")
+		}
 		if r.options.ExtendedMetadata {
 			item["extended_metadata"] = "true"
 		}

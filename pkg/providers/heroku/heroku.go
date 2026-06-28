@@ -38,16 +38,22 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		supportedServicesMap[s] = struct{}{}
 	}
 	services := make(schema.ServiceMap)
-	if ss, ok := options.GetMetadata("services"); ok {
+	ss, servicesSpecified := options.GetMetadata("services")
+	if servicesSpecified {
 		for _, s := range strings.Split(ss, ",") {
 			if _, ok := supportedServicesMap[s]; ok {
 				services[s] = struct{}{}
 			}
 		}
 	}
-	if len(services) == 0 {
+	if !servicesSpecified {
 		for _, s := range Services {
 			services[s] = struct{}{}
+		}
+	}
+	if es, ok := options.GetMetadata("exclude_services"); ok {
+		for _, s := range strings.Split(es, ",") {
+			delete(services, strings.TrimSpace(s))
 		}
 	}
 
