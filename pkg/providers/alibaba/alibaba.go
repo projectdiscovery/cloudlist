@@ -59,6 +59,11 @@ func New(options schema.OptionBlock) (*Provider, error) {
 			services[s] = struct{}{}
 		}
 	}
+	if es, ok := options.GetMetadata("exclude_services"); ok {
+		for _, s := range strings.Split(es, ",") {
+			delete(services, strings.TrimSpace(s))
+		}
+	}
 	provider.services = services
 
 	if services.Has("instance") {

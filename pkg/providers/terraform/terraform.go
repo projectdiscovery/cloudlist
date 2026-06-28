@@ -46,6 +46,11 @@ func New(options schema.OptionBlock) (*Provider, error) {
 			services[s] = struct{}{}
 		}
 	}
+	if es, ok := options.GetMetadata("exclude_services"); ok {
+		for _, s := range strings.Split(es, ",") {
+			delete(services, strings.TrimSpace(s))
+		}
+	}
 	return &Provider{path: StatePathFile, id: id, services: services}, nil
 }
 

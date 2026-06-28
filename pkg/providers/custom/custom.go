@@ -102,6 +102,11 @@ func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
 			services[s] = struct{}{}
 		}
 	}
+	if es, ok := block.GetMetadata("exclude_services"); ok {
+		for _, s := range strings.Split(es, ",") {
+			delete(services, strings.TrimSpace(s))
+		}
+	}
 
 	np, err := networkpolicy.New(networkpolicy.DefaultOptions)
 	if err != nil {
