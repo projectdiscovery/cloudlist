@@ -38,9 +38,6 @@ func New(options *Options) (*Runner, error) {
 	if len(options.Services) == 0 {
 		options.Services = append(options.Services, config.GetServiceNames()...)
 	}
-	if len(options.ExcludeServices) == 0 {
-		options.ExcludeServices = append(options.ExcludeServices, config.GetExcludeServiceNames()...)
-	}
 
 	// assign default services if not provided
 	if len(options.Services) == 0 {
@@ -60,10 +57,6 @@ func (r *Runner) Enumerate() {
 	if r.options.Services != nil {
 		services = r.options.Services
 	}
-	excludeServices := []string{}
-	if r.options.ExcludeServices != nil {
-		excludeServices = r.options.ExcludeServices
-	}
 
 	for _, item := range r.config {
 		if item == nil {
@@ -75,8 +68,8 @@ func (r *Runner) Enumerate() {
 		if len(services) > 0 {
 			item["services"] = strings.Join(services, ",")
 		}
-		if len(excludeServices) > 0 {
-			item["exclude_services"] = strings.Join(excludeServices, ",")
+		if len(r.options.ExcludeServices) > 0 {
+			item["exclude_services"] = strings.Join(r.options.ExcludeServices, ",")
 		}
 		if r.options.ExtendedMetadata {
 			item["extended_metadata"] = "true"
