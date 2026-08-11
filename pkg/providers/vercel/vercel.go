@@ -2,7 +2,6 @@ package vercel
 
 import (
 	"context"
-	"strings"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
@@ -25,23 +24,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	teamID, _ := options.GetMetadata(apiTeamID)
 
 	id, _ := options.GetMetadata("id")
-	supportedServicesMap := make(map[string]struct{})
-	for _, s := range Services {
-		supportedServicesMap[s] = struct{}{}
-	}
-	services := make(schema.ServiceMap)
-	if ss, ok := options.GetMetadata("services"); ok {
-		for _, s := range strings.Split(ss, ",") {
-			if _, ok := supportedServicesMap[s]; ok {
-				services[s] = struct{}{}
-			}
-		}
-	}
-	if len(services) == 0 {
-		for _, s := range Services {
-			services[s] = struct{}{}
-		}
-	}
+	services := options.ResolveServices(Services)
 
 	client := newAPIClient(newClientConfig{
 		Token:  accessKey,

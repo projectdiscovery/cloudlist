@@ -1,5 +1,20 @@
 # Providers
 
+## Service filtering
+
+Every provider enumerates all of its supported services by default. Two optional, additive keys narrow that set (also available on the CLI as `-s`/`--service` and `-es`/`--exclude-service`):
+
+- `services` (list): allowlist. Only the listed services are enumerated. Unknown values are ignored.
+- `exclude_services` (list): blocklist applied after `services` (or after the default-all set when `services` is omitted). Unknown values are ignored.
+
+```yaml
+- provider: gcp
+  exclude_services:
+    - cloud-function
+  project_ids:
+    - my-project
+```
+
 ### Amazon Web Services (AWS)
 
 Amazon Web Services can be integrated by using the following configuration block.

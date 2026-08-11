@@ -3,7 +3,6 @@ package ovh
 import (
 	"context"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/ovh/go-ovh/ovh"
@@ -24,21 +23,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	id, _ := options.GetMetadata("id")
 
 	// service selection
-	supported := map[string]struct{}{"dns": {}}
-	services := make(schema.ServiceMap)
-	if ss, ok := options.GetMetadata("services"); ok {
-		for _, s := range strings.Split(ss, ",") {
-			s = strings.TrimSpace(s)
-			if _, ok := supported[s]; ok {
-				services[s] = struct{}{}
-			}
-		}
-	}
-	if len(services) == 0 {
-		for _, s := range Services {
-			services[s] = struct{}{}
-		}
-	}
+	services := options.ResolveServices(Services)
 
 	// OVH endpoint (default ovh-eu)
 	endpoint := "ovh-eu"

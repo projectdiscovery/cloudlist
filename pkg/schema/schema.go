@@ -212,18 +212,30 @@ type Options []OptionBlock
 
 // GetServiceNames returns the services from the options
 func (o Options) GetServiceNames() []string {
-	services := make([]string, 0)
+	return o.collectListValues("services")
+}
+
+// GetExcludeServiceNames returns the excluded services from the options
+func (o Options) GetExcludeServiceNames() []string {
+	return o.collectListValues("exclude_services")
+}
+
+// collectListValues flattens a comma-separated option key across all blocks,
+// trimming blanks.
+func (o Options) collectListValues(key string) []string {
+	values := make([]string, 0)
 	for _, option := range o {
-		if serviceNameList, ok := option["services"]; ok {
-			for _, serviceName := range strings.Split(serviceNameList, ",") {
-				trimmedServiceName := strings.TrimSpace(serviceName)
-				if trimmedServiceName != "" {
-					services = append(services, trimmedServiceName)
-				}
+		list, ok := option[key]
+		if !ok {
+			continue
+		}
+		for _, value := range strings.Split(list, ",") {
+			if trimmed := strings.TrimSpace(value); trimmed != "" {
+				values = append(values, trimmed)
 			}
 		}
 	}
-	return services
+	return values
 }
 
 // OptionBlock is a single option on which operation is possible
@@ -240,7 +252,7 @@ func (ob *OptionBlock) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	// Convert raw map to OptionBlock and handle special cases
 	for key, value := range rawMap {
 		switch key {
-		case "account_ids", "exclude_account_ids", "urls", "services", "project_ids", "exclude_project_ids":
+		case "account_ids", "exclude_account_ids", "urls", "services", "exclude_services", "project_ids", "exclude_project_ids":
 			if valueArr, ok := value.([]interface{}); ok {
 				var strArr []string
 				for _, v := range valueArr {
@@ -294,6 +306,43 @@ func (o OptionBlock) GetMetadata(key string) (string, bool) {
 		}
 	}
 	return data, true
+}
+
+// ResolveServices computes the effective service set for a provider from the
+// option block. It starts from the `services` allowlist (falling back to all
+// supported services when the allowlist is empty), then removes any
+// `exclude_services` entries. Entries are whitespace-trimmed and values that
+// are not in supported are ignored.
+func (o OptionBlock) ResolveServices(supported []string) ServiceMap {
+	supportedSet := make(map[string]struct{}, len(supported))
+	for _, s := range supported {
+		supportedSet[s] = struct{}{}
+	}
+
+	services := make(ServiceMap)
+	if allow, ok := o.GetMetadata("services"); ok {
+		for _, s := range strings.Split(allow, ",") {
+			s = strings.TrimSpace(s)
+			if _, ok := supportedSet[s]; ok {
+				services[s] = struct{}{}
+			}
+		}
+	}
+
+	// default to all supported services when no allowlist is provided
+	if len(services) == 0 {
+		for _, s := range supported {
+			services[s] = struct{}{}
+		}
+	}
+
+	if exclude, ok := o.GetMetadata("exclude_services"); ok {
+		for _, s := range strings.Split(exclude, ",") {
+			delete(services, strings.TrimSpace(s))
+		}
+	}
+
+	return services
 }
 
 type ServiceMap map[string]struct{}

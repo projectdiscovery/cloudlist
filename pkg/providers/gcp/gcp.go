@@ -239,23 +239,7 @@ func newIndividualProvider(options schema.OptionBlock, id, JSONData string) (*Pr
 		provider.extendedMetadata = extendedMetadata == "true"
 	}
 
-	supportedServicesMap := make(map[string]struct{})
-	for _, s := range Services {
-		supportedServicesMap[s] = struct{}{}
-	}
-	services := make(schema.ServiceMap)
-	if ss, ok := options.GetMetadata("services"); ok {
-		for _, s := range strings.Split(ss, ",") {
-			if _, ok := supportedServicesMap[s]; ok {
-				services[s] = struct{}{}
-			}
-		}
-	}
-	if len(services) == 0 {
-		for _, s := range Services {
-			services[s] = struct{}{}
-		}
-	}
+	services := options.ResolveServices(Services)
 	provider.services = services
 
 	configuredProjects := getProjectIDsFromOptions(options)
@@ -413,7 +397,7 @@ func (p *OrganizationProvider) Resources(ctx context.Context) (*schema.Resources
 
 			var projectResources *schema.Resources
 			var err error
-           // if projects has all, then get all assets
+			// if projects has all, then get all assets
 			if p.services.Has("all") {
 				projectResources, err = p.getAllAssets(ctx, parent)
 				if err != nil {
@@ -665,6 +649,7 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 	services := make(schema.ServiceMap)
 	if ss, ok := options.GetMetadata("services"); ok {
 		for _, s := range strings.Split(ss, ",") {
+			s = strings.TrimSpace(s)
 			if _, ok := supportedServicesMap[s]; ok {
 				services[s] = struct{}{}
 			}
@@ -673,6 +658,22 @@ func newOrganizationProvider(options schema.OptionBlock, id, JSONData, organizat
 	if len(services) == 0 {
 		// Default to all services for organization-level discovery
 		services["all"] = struct{}{}
+	}
+	if es, ok := options.GetMetadata("exclude_services"); ok {
+		// The "all" sentinel routes to the comprehensive Asset API path, which
+		// cannot drop individual services; expand it to the concrete set first
+		// so exclusions take effect.
+		if services.Has("all") {
+			delete(services, "all")
+			for _, s := range allServices {
+				if s != "all" {
+					services[s] = struct{}{}
+				}
+			}
+		}
+		for _, s := range strings.Split(es, ",") {
+			delete(services, strings.TrimSpace(s))
+		}
 	}
 	provider.services = services
 

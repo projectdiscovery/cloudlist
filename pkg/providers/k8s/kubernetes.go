@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"strings"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/projectdiscovery/utils/errkit"
@@ -64,23 +63,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		return nil, errkit.Wrap(err, "could not create kubernetes clientset")
 	}
 
-	supportedServicesMap := make(map[string]struct{})
-	for _, s := range Services {
-		supportedServicesMap[s] = struct{}{}
-	}
-	services := make(schema.ServiceMap)
-	if ss, ok := options.GetMetadata("services"); ok {
-		for _, s := range strings.Split(ss, ",") {
-			if _, ok := supportedServicesMap[s]; ok {
-				services[s] = struct{}{}
-			}
-		}
-	}
-	if len(services) == 0 {
-		for _, s := range Services {
-			services[s] = struct{}{}
-		}
-	}
+	services := options.ResolveServices(Services)
 	var providerExtendedMetadata bool
 	if extendedMetadata, ok := options.GetMetadata("extended_metadata"); ok {
 		providerExtendedMetadata = extendedMetadata == "true"

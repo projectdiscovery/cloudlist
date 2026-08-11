@@ -2,7 +2,6 @@ package hetzner
 
 import (
 	"context"
-	"strings"
 
 	hetzner "github.com/hetznercloud/hcloud-go/hcloud"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
@@ -32,23 +31,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	id, _ := options.GetMetadata("id")
 	opts := hetzner.WithToken(token)
 
-	supportedServicesMap := make(map[string]struct{})
-	for _, s := range Services {
-		supportedServicesMap[s] = struct{}{}
-	}
-	services := make(schema.ServiceMap)
-	if ss, ok := options.GetMetadata("services"); ok {
-		for _, s := range strings.Split(ss, ",") {
-			if _, ok := supportedServicesMap[s]; ok {
-				services[s] = struct{}{}
-			}
-		}
-	}
-	if len(services) == 0 {
-		for _, s := range Services {
-			services[s] = struct{}{}
-		}
-	}
+	services := options.ResolveServices(Services)
 	return &Provider{id: id, client: hetzner.NewClient(opts), services: services}, nil
 }
 
