@@ -15,7 +15,7 @@ import (
 func processLoadBalancersForTest(lbs []*elbv2.LoadBalancer) *schema.Resources {
 	list := schema.NewResources()
 	for _, lb := range lbs {
-		if lb.DNSName == nil || lb.LoadBalancerName == nil {
+		if lb == nil || lb.DNSName == nil || lb.LoadBalancerName == nil {
 			continue
 		}
 		list.Append(&schema.Resource{
@@ -41,10 +41,11 @@ func processTargetsForTest(targets []*elbv2.TargetHealthDescription) []string {
 	return ids
 }
 
-func TestListELBV2Resources_NilDNSName(t *testing.T) {
+func TestListELBV2Resources_NilLoadBalancer(t *testing.T) {
 	t.Parallel()
 
 	lbs := []*elbv2.LoadBalancer{
+		nil,
 		{
 			DNSName:         nil,
 			LoadBalancerName: aws.String("internal-lb"),
@@ -58,7 +59,7 @@ func TestListELBV2Resources_NilDNSName(t *testing.T) {
 
 	require.NotPanics(t, func() {
 		resources := processLoadBalancersForTest(lbs)
-		assert.Equal(t, 0, len(resources.Items), "nil DNSName or LoadBalancerName LBs must be skipped")
+		assert.Equal(t, 0, len(resources.Items), "nil or incomplete load balancers must be skipped")
 	})
 }
 

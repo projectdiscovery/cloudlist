@@ -74,7 +74,7 @@ func (ep *elbV2Provider) listELBV2Resources(albClient *elbv2.ELBV2, ec2Client *e
 	}
 
 	for _, lb := range loadBalancers {
-		if lb.DNSName == nil || lb.LoadBalancerName == nil {
+		if lb == nil || lb.DNSName == nil || lb.LoadBalancerName == nil {
 			continue
 		}
 		albDNS := *lb.DNSName
