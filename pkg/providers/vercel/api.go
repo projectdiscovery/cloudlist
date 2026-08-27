@@ -64,7 +64,9 @@ func (c *vercelClient) Call(req apiRequest) error {
 	if err != nil {
 		return err
 	}
-	defer httpResponse.Body.Close()
+	defer func() {
+		_ = httpResponse.Body.Close()
+	}()
 	if req.ResponseTarget == nil {
 		return nil
 	}
