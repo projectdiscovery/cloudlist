@@ -22,7 +22,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/goflags v0.1.76
 	github.com/projectdiscovery/gologger v1.1.72
-	github.com/projectdiscovery/utils v0.11.1
+	github.com/projectdiscovery/utils v0.11.2
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.14
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/oauth2 v0.30.0
@@ -129,7 +129,7 @@ require (
 	github.com/zcalusic/sysinfo v1.0.2 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/crypto v0.51.0 // indirect
+	golang.org/x/crypto v0.52.0 // indirect
 	golang.org/x/exp v0.0.0-20260112195511-716be5621a96 // indirect
 	golang.org/x/mod v0.35.0 // indirect
 	golang.org/x/net v0.55.0 // indirect
@@ -174,8 +174,8 @@ require (
 	github.com/alitto/pond/v2 v2.3.2
 	github.com/dnsimple/dnsimple-go v1.7.0
 	github.com/ovh/go-ovh v1.9.0
-	github.com/projectdiscovery/networkpolicy v0.1.38
-	github.com/projectdiscovery/retryablehttp-go v1.3.11
+	github.com/projectdiscovery/networkpolicy v0.1.46
+	github.com/projectdiscovery/retryablehttp-go v1.3.23
 )
 
 require (
@@ -199,7 +199,7 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/ebitengine/purego v0.10.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/gaissmai/bart v0.26.1 // indirect
+	github.com/gaissmai/bart v0.29.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
@@ -207,9 +207,9 @@ require (
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/logrusorgru/aurora/v4 v4.0.0 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
-	github.com/projectdiscovery/fastdialer v0.5.7 // indirect
-	github.com/projectdiscovery/hmap v0.0.101 // indirect
-	github.com/projectdiscovery/retryabledns v1.0.115 // indirect
+	github.com/projectdiscovery/fastdialer v0.5.17 // indirect
+	github.com/projectdiscovery/hmap v0.0.102 // indirect
+	github.com/projectdiscovery/retryabledns v1.0.116 // indirect
 	github.com/refraction-networking/utls v1.8.2 // indirect
 	github.com/shirou/gopsutil/v4 v4.26.3 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
