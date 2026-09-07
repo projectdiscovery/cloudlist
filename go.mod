@@ -20,11 +20,11 @@ require (
 	github.com/linode/linodego v1.22.0
 	github.com/namecheap/go-namecheap-sdk/v2 v2.1.0
 	github.com/pkg/errors v0.9.1
-	github.com/projectdiscovery/goflags v0.1.76
+	github.com/projectdiscovery/goflags v0.2.0
 	github.com/projectdiscovery/gologger v1.1.72
-	github.com/projectdiscovery/utils v0.11.2
+	github.com/projectdiscovery/utils v0.11.3
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.14
-	github.com/stretchr/testify v1.11.1
+	github.com/stretchr/testify v1.12.1
 	golang.org/x/oauth2 v0.30.0
 	google.golang.org/api v0.240.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -106,7 +106,6 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b // indirect
 	github.com/pborman/uuid v1.2.0 // indirect
-	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/projectdiscovery/blackrock v0.0.2 // indirect
 	github.com/projectdiscovery/machineid v0.0.0-20250715113114-c77eb3567582 // indirect
@@ -174,8 +173,8 @@ require (
 	github.com/alitto/pond/v2 v2.3.2
 	github.com/dnsimple/dnsimple-go v1.7.0
 	github.com/ovh/go-ovh v1.9.0
-	github.com/projectdiscovery/networkpolicy v0.1.46
-	github.com/projectdiscovery/retryablehttp-go v1.3.23
+	github.com/projectdiscovery/networkpolicy v0.1.49
+	github.com/projectdiscovery/retryablehttp-go v1.3.25
 )
 
 require (
@@ -207,7 +206,7 @@ require (
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/logrusorgru/aurora/v4 v4.0.0 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
-	github.com/projectdiscovery/fastdialer v0.5.17 // indirect
+	github.com/projectdiscovery/fastdialer v0.5.18 // indirect
 	github.com/projectdiscovery/hmap v0.0.102 // indirect
 	github.com/projectdiscovery/retryabledns v1.0.116 // indirect
 	github.com/refraction-networking/utls v1.8.2 // indirect
@@ -229,6 +228,7 @@ require (
 	go.opentelemetry.io/otel v1.36.0 // indirect
 	go.opentelemetry.io/otel/metric v1.36.0 // indirect
 	go.opentelemetry.io/otel/trace v1.36.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	google.golang.org/genproto v0.0.0-20250505200425-f936aa4a68b2 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250505200425-f936aa4a68b2 // indirect
