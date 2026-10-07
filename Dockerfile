@@ -1,4 +1,4 @@
-FROM alpine:3.23
+FROM alpine:latest
 
 LABEL org.opencontainers.image.authors="ProjectDiscovery"
 LABEL org.opencontainers.image.description="Cloudlist is a multi-cloud tool for getting Assets from Cloud Providers."
