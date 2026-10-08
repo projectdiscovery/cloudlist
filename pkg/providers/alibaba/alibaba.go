@@ -5,6 +5,7 @@ import (
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 )
 
 var Services = []string{"instance"}
@@ -79,8 +80,12 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalResources := schema.NewResources()
 	if p.ecsClient != nil {
 		ecsprovider := &instanceProvider{client: p.ecsClient, id: p.id}
-		if resources, err := ecsprovider.GetResource(ctx); err == nil {
+		resources, err := ecsprovider.GetResource(ctx)
+		if resources != nil {
 			finalResources.Merge(resources)
+		}
+		if err != nil {
+			gologger.Warning().Msgf("alibaba: instance listing failed: %v", err)
 		}
 	}
 	return finalResources, nil
