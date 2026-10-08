@@ -21,7 +21,7 @@ const (
 	providerName = "azure"
 )
 
-var Services = []string{"vm", "publicip", "trafficmanager", "cdn", "dns", "loadbalancer", "applicationgateway", "aks", "storage", "containerinstances", "appservice", "functions", "apimanagement", "frontdoor", "containerapps", "staticwebapps"}
+var Services = []string{"vm", "publicip", "trafficmanager", "cdn", "dns", "loadbalancer", "applicationgateway", "aks", "storage", "containerinstances", "appservice", "functions", "apimanagement", "frontdoor", "containerapps", "staticwebapps", "servicefabric"}
 
 // Provider is a data provider for Azure API using Track 2 SDK
 type Provider struct {
@@ -272,6 +272,16 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 				continue
 			}
 			resources.Merge(frontDoors)
+		}
+
+		if p.services.Has("servicefabric") {
+			sfp := &serviceFabricProvider{Credential: p.Credential, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
+			clusters, err := sfp.GetResource(ctx)
+			if err != nil {
+				gologger.Warning().Msgf("Error listing Service Fabric clusters for subscription %s: %s", subscriptionID, err)
+				continue
+			}
+			resources.Merge(clusters)
 		}
 	}
 	return resources, nil
