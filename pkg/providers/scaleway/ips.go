@@ -6,6 +6,7 @@ import (
 	"net"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 	"github.com/scaleway/scaleway-sdk-go/api/flexibleip/v1alpha1"
 	"github.com/scaleway/scaleway-sdk-go/api/instance/v1"
 	"github.com/scaleway/scaleway-sdk-go/api/lb/v1"
@@ -25,7 +26,7 @@ type ipProvider struct {
 func (d *ipProvider) GetFlexibleIPs(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
 
-	err := forEachLocality(d.instanceAPI.Zones(), func(zone scw.Zone) error {
+	instanceErr := forEachLocality(d.instanceAPI.Zones(), func(zone scw.Zone) error {
 		resp, err := d.instanceAPI.ListIPs(&instance.ListIPsRequest{Zone: zone}, scw.WithAllPages(), scw.WithContext(ctx))
 		if err != nil {
 			return err
@@ -35,11 +36,8 @@ func (d *ipProvider) GetFlexibleIPs(ctx context.Context) (*schema.Resources, err
 		}
 		return nil
 	})
-	if err != nil {
-		return nil, err
-	}
 
-	err = forEachLocality(d.flexibleIPAPI.Zones(), func(zone scw.Zone) error {
+	metalErr := forEachLocality(d.flexibleIPAPI.Zones(), func(zone scw.Zone) error {
 		resp, err := d.flexibleIPAPI.ListFlexibleIPs(&flexibleip.ListFlexibleIPsRequest{Zone: zone}, scw.WithAllPages(), scw.WithContext(ctx))
 		if err != nil {
 			return err
@@ -49,8 +47,13 @@ func (d *ipProvider) GetFlexibleIPs(ctx context.Context) (*schema.Resources, err
 		}
 		return nil
 	})
-	if err != nil {
-		return nil, err
+	if len(list.Items) == 0 && instanceErr != nil && metalErr != nil {
+		return nil, fmt.Errorf("scaleway: flexible ip listing failed: %v; %v", instanceErr, metalErr)
+	}
+	for _, err := range []error{instanceErr, metalErr} {
+		if err != nil {
+			gologger.Warning().Msgf("scaleway: flexible ip listing failed: %v", err)
+		}
 	}
 	return list, nil
 }

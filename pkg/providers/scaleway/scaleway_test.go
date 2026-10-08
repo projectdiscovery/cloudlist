@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
@@ -84,4 +85,37 @@ func TestResources(t *testing.T) {
 		"kapsule abc.api.k8s.nl-ams.scw.cloud",
 		"lb 51.159.10.30",
 	}, got)
+}
+
+func TestFlexibleIPsKeptWhenMetalListingFails(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.Path, "/flexible-ip/") {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"message":"failed"}`))
+			return
+		}
+		if strings.Contains(r.URL.Path, "/instance/") && strings.HasSuffix(r.URL.Path, "/ips") {
+			_, _ = w.Write([]byte(`{"ips":[{"address":"51.15.0.10"}],"total_count":1}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	t.Cleanup(server.Close)
+
+	client, err := scw.NewClient(
+		scw.WithAuth("SCWXXXXXXXXXXXXXXXXX", "11111111-1111-1111-1111-111111111111"),
+		scw.WithAPIURL(server.URL),
+	)
+	require.NoError(t, err)
+
+	provider := &Provider{id: "test", client: client, services: schema.ServiceMap{"flexibleip": {}}}
+	resources, err := provider.Resources(context.Background())
+	require.NoError(t, err)
+
+	var got []string
+	for _, item := range resources.Items {
+		got = append(got, item.PublicIPv4)
+	}
+	assert.Contains(t, got, "51.15.0.10")
 }
