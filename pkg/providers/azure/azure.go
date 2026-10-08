@@ -21,7 +21,7 @@ const (
 	providerName = "azure"
 )
 
-var Services = []string{"vm", "publicip", "trafficmanager", "cdn", "dns", "loadbalancer", "applicationgateway", "aks", "storage", "containerinstances", "appservice", "functions", "apimanagement", "frontdoor", "containerapps", "staticwebapps"}
+var Services = []string{"vm", "publicip", "trafficmanager", "cdn", "dns", "loadbalancer", "applicationgateway", "aks", "storage", "containerinstances", "appservice", "functions", "apimanagement", "frontdoor", "containerapps", "staticwebapps", "redis", "mysql", "postgresql", "sql", "cosmosdb"}
 
 // Provider is a data provider for Azure API using Track 2 SDK
 type Provider struct {
@@ -119,9 +119,9 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			vmIPs, err := vmp.GetResource(ctx)
 			if err != nil {
 				gologger.Warning().Msgf("Error listing VM public IPs for subscription %s: %s", subscriptionID, err)
-				continue
+			} else {
+				resources.Merge(vmIPs)
 			}
-			resources.Merge(vmIPs)
 		}
 
 		if p.services.Has("publicip") {
@@ -129,9 +129,9 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			publicIPs, err := publicIPp.GetResource(ctx)
 			if err != nil {
 				gologger.Warning().Msgf("Error listing public IPs for subscription %s: %s", subscriptionID, err)
-				continue
+			} else {
+				resources.Merge(publicIPs)
 			}
-			resources.Merge(publicIPs)
 		}
 
 		if p.services.Has("trafficmanager") {
@@ -139,9 +139,9 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			trafficManager, err := trafficManagerp.GetResource(ctx)
 			if err != nil {
 				gologger.Warning().Msgf("Error listing traffic manager for subscription %s: %s", subscriptionID, err)
-				continue
+			} else {
+				resources.Merge(trafficManager)
 			}
-			resources.Merge(trafficManager)
 		}
 
 		if p.services.Has("cdn") {
@@ -149,9 +149,9 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			cdn, err := cdnp.GetResource(ctx)
 			if err != nil {
 				gologger.Warning().Msgf("Error listing CDN for subscription %s: %s", subscriptionID, err)
-				continue
+			} else {
+				resources.Merge(cdn)
 			}
-			resources.Merge(cdn)
 		}
 
 		if p.services.Has("dns") {
@@ -159,9 +159,9 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			dnsRecords, err := dnsp.GetResource(ctx)
 			if err != nil {
 				gologger.Warning().Msgf("Error listing DNS records for subscription %s: %s", subscriptionID, err)
-				continue
+			} else {
+				resources.Merge(dnsRecords)
 			}
-			resources.Merge(dnsRecords)
 		}
 
 		if p.services.Has("loadbalancer") {
@@ -169,9 +169,9 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			loadBalancers, err := lbp.GetResource(ctx)
 			if err != nil {
 				gologger.Warning().Msgf("Error listing load balancers for subscription %s: %s", subscriptionID, err)
-				continue
+			} else {
+				resources.Merge(loadBalancers)
 			}
-			resources.Merge(loadBalancers)
 		}
 
 		if p.services.Has("applicationgateway") {
@@ -179,9 +179,9 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			appGateways, err := agp.GetResource(ctx)
 			if err != nil {
 				gologger.Warning().Msgf("Error listing application gateways for subscription %s: %s", subscriptionID, err)
-				continue
+			} else {
+				resources.Merge(appGateways)
 			}
-			resources.Merge(appGateways)
 		}
 
 		if p.services.Has("aks") {
@@ -189,9 +189,9 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			aksClusters, err := aksp.GetResource(ctx)
 			if err != nil {
 				gologger.Warning().Msgf("Error listing AKS clusters for subscription %s: %s", subscriptionID, err)
-				continue
+			} else {
+				resources.Merge(aksClusters)
 			}
-			resources.Merge(aksClusters)
 		}
 
 		if p.services.Has("storage") {
@@ -199,9 +199,9 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			storageAccounts, err := storagep.GetResource(ctx)
 			if err != nil {
 				gologger.Warning().Msgf("Error listing storage accounts for subscription %s: %s", subscriptionID, err)
-				continue
+			} else {
+				resources.Merge(storageAccounts)
 			}
-			resources.Merge(storageAccounts)
 		}
 
 		if p.services.Has("containerinstances") {
@@ -209,9 +209,9 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			containerInstances, err := containerInstancesp.GetResource(ctx)
 			if err != nil {
 				gologger.Warning().Msgf("Error listing container instances for subscription %s: %s", subscriptionID, err)
-				continue
+			} else {
+				resources.Merge(containerInstances)
 			}
-			resources.Merge(containerInstances)
 		}
 
 		if p.services.Has("appservice") {
@@ -219,9 +219,9 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			appService, err := appServicep.GetResource(ctx)
 			if err != nil {
 				gologger.Warning().Msgf("Error listing App Service for subscription %s: %s", subscriptionID, err)
-				continue
+			} else {
+				resources.Merge(appService)
 			}
-			resources.Merge(appService)
 		}
 
 		if p.services.Has("functions") {
@@ -229,9 +229,9 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			functions, err := functionsp.GetResource(ctx)
 			if err != nil {
 				gologger.Warning().Msgf("Error listing Functions for subscription %s: %s", subscriptionID, err)
-				continue
+			} else {
+				resources.Merge(functions)
 			}
-			resources.Merge(functions)
 		}
 
 		if p.services.Has("apimanagement") {
@@ -239,9 +239,9 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			apiManagement, err := apimgmtp.GetResource(ctx)
 			if err != nil {
 				gologger.Warning().Msgf("Error listing API Management for subscription %s: %s", subscriptionID, err)
-				continue
+			} else {
+				resources.Merge(apiManagement)
 			}
-			resources.Merge(apiManagement)
 		}
 
 		if p.services.Has("containerapps") {
@@ -249,9 +249,9 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			containerApps, err := containerAppsp.GetResource(ctx)
 			if err != nil {
 				gologger.Warning().Msgf("Error listing container apps for subscription %s: %s", subscriptionID, err)
-				continue
+			} else {
+				resources.Merge(containerApps)
 			}
-			resources.Merge(containerApps)
 		}
 
 		if p.services.Has("staticwebapps") {
@@ -259,9 +259,9 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			staticWebApps, err := staticWebAppsp.GetResource(ctx)
 			if err != nil {
 				gologger.Warning().Msgf("Error listing static web apps for subscription %s: %s", subscriptionID, err)
-				continue
+			} else {
+				resources.Merge(staticWebApps)
 			}
-			resources.Merge(staticWebApps)
 		}
 
 		if p.services.Has("frontdoor") {
@@ -269,9 +269,22 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			frontDoors, err := fdp.GetResource(ctx)
 			if err != nil {
 				gologger.Warning().Msgf("Error listing Front Door for subscription %s: %s", subscriptionID, err)
+			} else {
+				resources.Merge(frontDoors)
+			}
+		}
+
+		dbp := &databaseProvider{Credential: p.Credential, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
+		for _, fetcher := range dbp.fetchers() {
+			if !p.services.Has(fetcher.service) {
 				continue
 			}
-			resources.Merge(frontDoors)
+			databases, err := fetcher.fetch(ctx)
+			if err != nil {
+				gologger.Warning().Msgf("Error listing %s for subscription %s: %s", fetcher.service, subscriptionID, err)
+			} else {
+				resources.Merge(databases)
+			}
 		}
 	}
 	return resources, nil
