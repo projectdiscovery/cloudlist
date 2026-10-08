@@ -20,13 +20,15 @@ const (
 	providerName = "openstack"
 )
 
-var Services = []string{"instance"}
+var Services = []string{"instance", "floatingip", "loadbalancer"}
 
 // Provider is a data provider for Openstack API
 type Provider struct {
-	id       string
-	client   *gophercloud.ServiceClient
-	services schema.ServiceMap
+	id           string
+	client       *gophercloud.ServiceClient
+	network      *gophercloud.ServiceClient
+	loadBalancer *gophercloud.ServiceClient
+	services     schema.ServiceMap
 }
 
 // New creates a new provider client for Openstack API
@@ -72,9 +74,8 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		return nil, err
 	}
 
-	client, err := openstack.NewComputeV2(provider, gophercloud.EndpointOpts{
-		Region: "RegionOne",
-	})
+	endpointOpts := gophercloud.EndpointOpts{Region: "RegionOne"}
+	client, err := openstack.NewComputeV2(provider, endpointOpts)
 
 	if err != nil {
 		gologger.Error().Msgf("Couldn't use Openstack region: %s\n", err)
@@ -82,7 +83,27 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	}
 
 	services := options.ResolveServices(Services)
-	return &Provider{id: id, client: client, services: services}, nil
+	p := &Provider{id: id, client: client, services: services}
+
+	// Neutron and Octavia are optional on many clouds, so a missing catalog
+	// entry only disables that service instead of failing the provider.
+	if services.Has("floatingip") {
+		p.network = optionalClient(openstack.NewNetworkV2(provider, endpointOpts))
+	}
+	if services.Has("loadbalancer") {
+		p.loadBalancer = optionalClient(openstack.NewLoadBalancerV2(provider, endpointOpts))
+	}
+	return p, nil
+}
+
+// optionalClient drops the client on error, since gophercloud returns a
+// non-nil but unusable client when the endpoint is not in the catalog.
+func optionalClient(client *gophercloud.ServiceClient, err error) *gophercloud.ServiceClient {
+	if err != nil {
+		gologger.Warning().Msgf("Couldn't use Openstack service: %s\n", err)
+		return nil
+	}
+	return client
 }
 
 // Name returns the name of the provider
@@ -105,6 +126,18 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalResources := schema.NewResources()
 	if p.services.Has("instance") {
 		provider := &instanceProvider{id: p.id, client: p.client}
+		if resources, err := provider.GetResource(ctx); err == nil {
+			finalResources.Merge(resources)
+		}
+	}
+	if p.network != nil {
+		provider := &floatingIPProvider{id: p.id, client: p.network}
+		if resources, err := provider.GetResource(ctx); err == nil {
+			finalResources.Merge(resources)
+		}
+	}
+	if p.loadBalancer != nil {
+		provider := &loadBalancerProvider{id: p.id, client: p.loadBalancer}
 		if resources, err := provider.GetResource(ctx); err == nil {
 			finalResources.Merge(resources)
 		}
