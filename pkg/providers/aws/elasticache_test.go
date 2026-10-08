@@ -80,7 +80,7 @@ var elastiCacheResponses = map[string]string{
 </DescribeServerlessCachesResponse>`,
 }
 
-func newTestElastiCacheClient(t *testing.T, serverlessStatus int) *elasticache.ElastiCache {
+func newTestElastiCacheClient(t *testing.T, serverlessStatus, cacheStatus int) *elasticache.ElastiCache {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.NoError(t, r.ParseForm())
@@ -89,6 +89,11 @@ func newTestElastiCacheClient(t *testing.T, serverlessStatus int) *elasticache.E
 			assert.Equal(t, "true", r.Form.Get("ShowCacheNodeInfo"))
 		}
 		w.Header().Set("Content-Type", "text/xml")
+		if action == "DescribeCacheClusters" && cacheStatus != http.StatusOK {
+			w.WriteHeader(cacheStatus)
+			_, _ = w.Write([]byte(`<ErrorResponse><Error><Code>AccessDenied</Code><Message>denied</Message></Error></ErrorResponse>`))
+			return
+		}
 		if action == "DescribeServerlessCaches" && serverlessStatus != http.StatusOK {
 			w.WriteHeader(serverlessStatus)
 			_, _ = w.Write([]byte(`<ErrorResponse><Error><Code>InvalidParameterValue</Code><Message>not supported</Message></Error></ErrorResponse>`))
@@ -135,21 +140,34 @@ func TestListElastiCacheResources(t *testing.T) {
 		"redis-rg-ro.abc123.ng.0001.use1.cache.amazonaws.com",
 		"redis-rg.abc123.ng.0001.use1.cache.amazonaws.com",
 		"valkey-serverless-abc123.serverless.use1.cache.amazonaws.com",
-	}, dnsNames(t, provider, newTestElastiCacheClient(t, http.StatusOK)))
+	}, dnsNames(t, provider, newTestElastiCacheClient(t, http.StatusOK, http.StatusOK)))
 }
 
 func TestListElastiCacheResources_ServerlessUnsupported(t *testing.T) {
 	provider := &elastiCacheProvider{options: ProviderOptions{Id: "test"}}
 
-	names := dnsNames(t, provider, newTestElastiCacheClient(t, http.StatusBadRequest))
+	names := dnsNames(t, provider, newTestElastiCacheClient(t, http.StatusBadRequest, http.StatusOK))
 	assert.Len(t, names, 6, "a serverless API failure must not drop cluster endpoints")
 	assert.NotContains(t, names, "valkey-serverless-abc123.serverless.use1.cache.amazonaws.com")
+}
+
+func TestListElastiCacheResourcesKeepsReplicationGroups(t *testing.T) {
+	provider := &elastiCacheProvider{options: ProviderOptions{Id: "test"}}
+	resources, err := provider.listElastiCacheResources(newTestElastiCacheClient(t, http.StatusOK, http.StatusForbidden))
+	require.Error(t, err)
+
+	var names []string
+	for _, item := range resources.Items {
+		names = append(names, item.DNSName)
+	}
+	assert.Contains(t, names, "redis-rg.abc123.ng.0001.use1.cache.amazonaws.com")
+	assert.NotContains(t, names, "memcached.abc123.cfg.use1.cache.amazonaws.com")
 }
 
 func TestListElastiCacheResources_ExtendedMetadata(t *testing.T) {
 	provider := &elastiCacheProvider{options: ProviderOptions{Id: "test", ExtendedMetadata: true}}
 
-	resources, err := provider.listElastiCacheResources(newTestElastiCacheClient(t, http.StatusOK))
+	resources, err := provider.listElastiCacheResources(newTestElastiCacheClient(t, http.StatusOK, http.StatusOK))
 	require.NoError(t, err)
 
 	byName := map[string]map[string]string{}

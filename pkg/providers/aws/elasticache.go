@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elasticache"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 )
 
 // elastiCacheProvider is a provider for AWS ElastiCache API.
@@ -52,17 +53,21 @@ func (ep *elastiCacheProvider) GetResource(ctx context.Context) (*schema.Resourc
 				resources, err := ep.listElastiCacheResources(client)
 				mu.Lock()
 				defer mu.Unlock()
+				if resources != nil {
+					list.Merge(resources)
+				}
 				if err != nil {
 					errs = append(errs, err)
-					return
 				}
-				list.Merge(resources)
 			}(client)
 		}
 	}
 	wg.Wait()
 	if len(errs) > 0 && len(list.Items) == 0 {
 		return nil, fmt.Errorf("elasticache: all workers failed: %v", errs)
+	}
+	if len(errs) > 0 {
+		gologger.Warning().Msgf("elasticache: some listings failed: %v", errs)
 	}
 	return list, nil
 }
@@ -120,7 +125,7 @@ func (ep *elastiCacheProvider) listElastiCacheResources(client *elasticache.Elas
 		return true
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "could not describe elasticache cache clusters")
+		return list, errors.Wrap(err, "could not describe elasticache cache clusters")
 	}
 
 	// Serverless caches are not available in every region, so a failure here
