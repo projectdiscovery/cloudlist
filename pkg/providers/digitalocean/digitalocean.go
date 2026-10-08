@@ -100,10 +100,11 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			extendedMetadata: p.extendedMetadata,
 		}
 		reservedIPs, err := reservedipprovider.GetResource(ctx)
+		if reservedIPs != nil {
+			finalResources.Merge(reservedIPs)
+		}
 		if err != nil {
 			gologger.Warning().Msgf("digitalocean: could not list reserved ips: %s", err)
-		} else {
-			finalResources.Merge(reservedIPs)
 		}
 	}
 
@@ -114,10 +115,11 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			extendedMetadata: p.extendedMetadata,
 		}
 		loadBalancers, err := loadbalancerprovider.GetResource(ctx)
+		if loadBalancers != nil {
+			finalResources.Merge(loadBalancers)
+		}
 		if err != nil {
 			gologger.Warning().Msgf("digitalocean: could not list load balancers: %s", err)
-		} else {
-			finalResources.Merge(loadBalancers)
 		}
 	}
 
@@ -128,10 +130,11 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			extendedMetadata: p.extendedMetadata,
 		}
 		clusters, err := kubernetesprovider.GetResource(ctx)
+		if clusters != nil {
+			finalResources.Merge(clusters)
+		}
 		if err != nil {
 			gologger.Warning().Msgf("digitalocean: could not list kubernetes clusters: %s", err)
-		} else {
-			finalResources.Merge(clusters)
 		}
 	}
 

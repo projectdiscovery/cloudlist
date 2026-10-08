@@ -29,7 +29,7 @@ func (d *reservedIPProvider) GetResource(ctx context.Context) (*schema.Resources
 	for {
 		ips, resp, err := d.client.ReservedIPs.List(ctx, opt)
 		if err != nil {
-			return nil, err
+			return list, err
 		}
 
 		for _, ip := range ips {
@@ -56,7 +56,7 @@ func (d *reservedIPProvider) GetResource(ctx context.Context) (*schema.Resources
 
 		page, err := resp.Links.CurrentPage()
 		if err != nil {
-			return nil, err
+			return list, err
 		}
 		opt.Page = page + 1
 	}
@@ -65,7 +65,7 @@ func (d *reservedIPProvider) GetResource(ctx context.Context) (*schema.Resources
 	for {
 		ips, resp, err := d.client.ReservedIPV6s.List(ctx, opt)
 		if err != nil {
-			return nil, err
+			return list, err
 		}
 
 		for _, ip := range ips {
@@ -93,7 +93,7 @@ func (d *reservedIPProvider) GetResource(ctx context.Context) (*schema.Resources
 
 		page, err := resp.Links.CurrentPage()
 		if err != nil {
-			return nil, err
+			return list, err
 		}
 		opt.Page = page + 1
 	}

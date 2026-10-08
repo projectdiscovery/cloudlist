@@ -27,7 +27,7 @@ func (d *loadBalancerProvider) GetResource(ctx context.Context) (*schema.Resourc
 	for {
 		lbs, resp, err := d.client.LoadBalancers.List(ctx, opt)
 		if err != nil {
-			return nil, err
+			return list, err
 		}
 
 		for _, lb := range lbs {
@@ -66,7 +66,7 @@ func (d *loadBalancerProvider) GetResource(ctx context.Context) (*schema.Resourc
 
 		page, err := resp.Links.CurrentPage()
 		if err != nil {
-			return nil, err
+			return list, err
 		}
 		opt.Page = page + 1
 	}

@@ -168,3 +168,24 @@ func TestResourcesSkipsUnreadableNewServices(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, resourcesByValue(resources), "159.203.150.1")
 }
+
+func TestReservedIPv4KeptWhenIPv6Fails(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/v2/reserved_ips" {
+			_, _ = w.Write([]byte(`{"reserved_ips":[{"ip":"45.55.96.47"}],"links":{},"meta":{"total":1}}`))
+			return
+		}
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"id":"forbidden","message":"denied"}`))
+	}))
+	t.Cleanup(server.Close)
+
+	client, err := godo.New(http.DefaultClient, godo.SetBaseURL(server.URL+"/"))
+	require.NoError(t, err)
+	provider := &Provider{id: "test", client: client, services: schema.ServiceMap{"reservedip": {}}}
+
+	resources, err := provider.Resources(context.Background())
+	require.NoError(t, err)
+	assert.Contains(t, resourcesByValue(resources), "45.55.96.47")
+}
