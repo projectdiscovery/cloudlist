@@ -63,6 +63,8 @@ func (d *cloudVMProvider) GetResource(ctx context.Context) (*schema.Resources, e
 			log.Printf("Could not get all instances for project %s: %s\n", project, err)
 			continue
 		}
+		// Merged after instances so an in-use address keeps its instance metadata on dedup.
+		list.Merge(d.getAddressResources(ctx, project))
 	}
 	return list, nil
 }
