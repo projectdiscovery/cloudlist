@@ -9,7 +9,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-var Services = []string{"instance"}
+var Services = []string{"instance", "nodebalancer", "ip", "lke"}
 
 const (
 	apiKey       = "linode_personal_access_token"
@@ -63,9 +63,20 @@ func (p *Provider) Services() []string {
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalResources := schema.NewResources()
-	if p.services.Has("instance") {
-		provider := &instanceProvider{client: p.client, id: p.id}
-		if resources, err := provider.GetResource(ctx); err == nil {
+	providers := map[string]interface {
+		GetResource(ctx context.Context) (*schema.Resources, error)
+	}{
+		"instance":     &instanceProvider{client: p.client, id: p.id},
+		"nodebalancer": &nodeBalancerProvider{client: p.client, id: p.id},
+		"ip":           &ipProvider{client: p.client, id: p.id},
+		"lke":          &lkeProvider{client: p.client, id: p.id},
+	}
+	// Iterate Services, not the map, so output order stays deterministic.
+	for _, service := range Services {
+		if !p.services.Has(service) {
+			continue
+		}
+		if resources, err := providers[service].GetResource(ctx); err == nil {
 			finalResources.Merge(resources)
 		}
 	}
