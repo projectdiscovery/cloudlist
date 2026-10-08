@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/servicefabric/armservicefabric"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/servicefabricmanagedclusters/armservicefabricmanagedclusters"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 )
 
 // serviceFabricProvider is a provider for classic and managed Azure Service Fabric clusters
@@ -81,6 +82,11 @@ func (sp *serviceFabricProvider) GetResource(ctx context.Context) (*schema.Resou
 
 	if classicErr != nil && managedErr != nil {
 		return nil, fmt.Errorf("%w; %w", classicErr, managedErr)
+	}
+	for _, err := range []error{classicErr, managedErr} {
+		if err != nil {
+			gologger.Warning().Msgf("Error listing Service Fabric clusters for subscription %s: %s", sp.SubscriptionID, err)
+		}
 	}
 	return list, nil
 }
