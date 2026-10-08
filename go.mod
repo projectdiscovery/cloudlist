@@ -7,7 +7,7 @@ require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.62.560
 	github.com/aws/aws-sdk-go v1.45.19
 	github.com/cloudflare/cloudflare-go v0.77.0
-	github.com/digitalocean/godo v1.102.1
+	github.com/digitalocean/godo v1.218.0
 	github.com/fastly/go-fastly/v3 v3.12.0
 	github.com/gophercloud/gophercloud v1.7.0
 	github.com/hashicorp/consul/api v1.20.0
@@ -54,7 +54,7 @@ require (
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
-	github.com/fatih/color v1.15.0 // indirect
+	github.com/fatih/color v1.16.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-openapi/jsonpointer v0.20.2 // indirect
@@ -78,8 +78,8 @@ require (
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hashicorp/cronexpr v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
-	github.com/hashicorp/go-hclog v1.2.0 // indirect
-	github.com/hashicorp/go-retryablehttp v0.7.4 // indirect
+	github.com/hashicorp/go-hclog v1.6.3 // indirect
+	github.com/hashicorp/go-retryablehttp v0.7.7 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/serf v0.10.1 // indirect

@@ -5,9 +5,10 @@ import (
 
 	"github.com/digitalocean/godo"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 )
 
-var Services = []string{"droplet", "app", "instance"}
+var Services = []string{"droplet", "app", "instance", "reservedip", "loadbalancer", "kubernetes"}
 
 // Provider is a data provider for digitalocean API
 type Provider struct {
@@ -88,6 +89,50 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			return nil, err
 		}
 		finalResources.Merge(apps)
+	}
+
+	// Newer services only warn on failure so a token scoped to the original
+	// services (droplet, app) keeps working after upgrade.
+	if p.services.Has("reservedip") {
+		reservedipprovider := &reservedIPProvider{
+			client:           p.client,
+			id:               p.id,
+			extendedMetadata: p.extendedMetadata,
+		}
+		reservedIPs, err := reservedipprovider.GetResource(ctx)
+		if err != nil {
+			gologger.Warning().Msgf("digitalocean: could not list reserved ips: %s", err)
+		} else {
+			finalResources.Merge(reservedIPs)
+		}
+	}
+
+	if p.services.Has("loadbalancer") {
+		loadbalancerprovider := &loadBalancerProvider{
+			client:           p.client,
+			id:               p.id,
+			extendedMetadata: p.extendedMetadata,
+		}
+		loadBalancers, err := loadbalancerprovider.GetResource(ctx)
+		if err != nil {
+			gologger.Warning().Msgf("digitalocean: could not list load balancers: %s", err)
+		} else {
+			finalResources.Merge(loadBalancers)
+		}
+	}
+
+	if p.services.Has("kubernetes") {
+		kubernetesprovider := &kubernetesProvider{
+			client:           p.client,
+			id:               p.id,
+			extendedMetadata: p.extendedMetadata,
+		}
+		clusters, err := kubernetesprovider.GetResource(ctx)
+		if err != nil {
+			gologger.Warning().Msgf("digitalocean: could not list kubernetes clusters: %s", err)
+		} else {
+			finalResources.Merge(clusters)
+		}
 	}
 
 	return finalResources, nil

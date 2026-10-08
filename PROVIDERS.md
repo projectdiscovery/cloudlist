@@ -316,7 +316,9 @@ Digitalocean can be integrated by using the following configuration block.
   digitalocean_token: $DIGITALOCEAN_TOKEN
 ```
 
-`digitalocean_token` can be generated from the Digitalocean Control Panel. We recommend only giving Read Access to the token.
+`digitalocean_token` can be generated from the Digitalocean Control Panel. We recommend only giving Read Access to the token. With custom scopes, the token needs `droplet:read`, `app:read`, `reserved_ip:read`, `load_balancer:read` and `kubernetes:read`. Services the token cannot read are skipped with a warning.
+
+Supported services: `droplet` (alias `instance`), `app`, `reservedip` (reserved IPv4 and IPv6, including unassigned ones), `loadbalancer`, `kubernetes` (DOKS control plane endpoints).
 
 References - 
 1. https://www.digitalocean.com/docs/apis-clis/api/create-personal-access-token/
