@@ -493,6 +493,8 @@ Alibaba Cloud can be integrated by using the following configuration block.
 
 Alibaba Cloud Access Key ID and Secret can be created by visiting https://ram.console.aliyun.com/manage/ak
 
+Supported services: `instance` (ECS), `slb` (Classic Load Balancer), `alb` (Application Load Balancer), `eip` (Elastic IP), `ack` (Container Service for Kubernetes API server endpoints). The RAM user needs read-only access to each of them, e.g. the `AliyunECSReadOnlyAccess`, `AliyunSLBReadOnlyAccess`, `AliyunALBReadOnlyAccess`, `AliyunVPCReadOnlyAccess` and `AliyunCSReadOnlyAccess` system policies.
+
 
 References - 
 - https://www.alibabacloud.com/help/faq-detail/142101.htm
