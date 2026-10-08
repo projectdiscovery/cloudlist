@@ -55,22 +55,15 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	services := options.ResolveServices(Services)
 	provider.services = services
 
-	if services.Has("instance") {
-		client, err := ecs.NewClientWithAccessKey(
-			regionID,        // region ID
-			accessKeyID,     // AccessKey ID
-			accessKeySecret, // AccessKey secret
-		)
-		if err != nil {
-			return nil, err
-		}
-		provider.ecsClient = client
-	}
-
-	// The SDK defaults to plain HTTP, so the newer clients opt into HTTPS.
+	// The SDK defaults to plain HTTP.
 	config := sdk.NewConfig().WithScheme("HTTPS")
 	credential := credentials.NewAccessKeyCredential(accessKeyID, accessKeySecret)
 	var err error
+	if services.Has("instance") {
+		if provider.ecsClient, err = ecs.NewClientWithOptions(regionID, config, credential); err != nil {
+			return nil, err
+		}
+	}
 	if services.Has("slb") {
 		if provider.slbClient, err = slb.NewClientWithOptions(regionID, config, credential); err != nil {
 			return nil, err
