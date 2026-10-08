@@ -106,7 +106,7 @@ func (ep *elastiCacheProvider) listElastiCacheResources(client *elasticache.Elas
 		return true
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "could not describe elasticache replication groups")
+		return list, errors.Wrap(err, "could not describe elasticache replication groups")
 	}
 
 	// Node endpoints are only returned when ShowCacheNodeInfo is set; Memcached

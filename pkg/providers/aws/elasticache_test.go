@@ -151,6 +151,55 @@ func TestListElastiCacheResources_ServerlessUnsupported(t *testing.T) {
 	assert.NotContains(t, names, "valkey-serverless-abc123.serverless.use1.cache.amazonaws.com")
 }
 
+func TestListElastiCacheResourcesKeepsEarlierReplicationGroupPage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, r.ParseForm())
+		w.Header().Set("Content-Type", "text/xml")
+		if r.Form.Get("Action") == "DescribeReplicationGroups" && r.Form.Get("Marker") == "next" {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`<ErrorResponse><Error><Code>InternalError</Code><Message>page failed</Message></Error></ErrorResponse>`))
+			return
+		}
+		if r.Form.Get("Action") != "DescribeReplicationGroups" {
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write([]byte(`<ErrorResponse><Error><Code>AccessDenied</Code><Message>denied</Message></Error></ErrorResponse>`))
+			return
+		}
+		_, _ = w.Write([]byte(`<DescribeReplicationGroupsResponse xmlns="http://elasticache.amazonaws.com/doc/2015-02-02/">
+  <DescribeReplicationGroupsResult>
+    <Marker>next</Marker>
+    <ReplicationGroups>
+      <ReplicationGroup>
+        <ReplicationGroupId>redis-rg</ReplicationGroupId>
+        <NodeGroups><NodeGroup>
+          <PrimaryEndpoint><Address>redis-rg.abc123.ng.0001.use1.cache.amazonaws.com</Address><Port>6379</Port></PrimaryEndpoint>
+        </NodeGroup></NodeGroups>
+      </ReplicationGroup>
+    </ReplicationGroups>
+  </DescribeReplicationGroupsResult>
+</DescribeReplicationGroupsResponse>`))
+	}))
+	t.Cleanup(server.Close)
+
+	sess, err := session.NewSession(&aws.Config{
+		Region:      aws.String("us-east-1"),
+		Endpoint:    aws.String(server.URL),
+		Credentials: credentials.NewStaticCredentials("test", "test", ""),
+		MaxRetries:  aws.Int(0),
+	})
+	require.NoError(t, err)
+
+	provider := &elastiCacheProvider{options: ProviderOptions{Id: "test"}}
+	resources, err := provider.listElastiCacheResources(elasticache.New(sess))
+	require.Error(t, err)
+	require.NotNil(t, resources)
+	var names []string
+	for _, item := range resources.Items {
+		names = append(names, item.DNSName)
+	}
+	assert.Equal(t, []string{"redis-rg.abc123.ng.0001.use1.cache.amazonaws.com"}, names)
+}
+
 func TestListElastiCacheResourcesKeepsReplicationGroups(t *testing.T) {
 	provider := &elastiCacheProvider{options: ProviderOptions{Id: "test"}}
 	resources, err := provider.listElastiCacheResources(newTestElastiCacheClient(t, http.StatusOK, http.StatusForbidden))
