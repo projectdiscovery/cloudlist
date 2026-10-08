@@ -119,3 +119,35 @@ func TestFlexibleIPsKeptWhenMetalListingFails(t *testing.T) {
 	}
 	assert.Contains(t, got, "51.15.0.10")
 }
+
+func TestContainerKeptWhenLaterNamespaceFails(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/containers/v1beta1/regions/fr-par/namespaces":
+			_, _ = w.Write([]byte(`{"namespaces":[{"id":"ns-1"},{"id":"ns-2"}],"total_count":2}`))
+		case "/containers/v1beta1/regions/fr-par/containers":
+			if r.URL.Query().Get("namespace_id") == "ns-2" {
+				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = w.Write([]byte(`{"message":"failed"}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"containers":[{"domain_name":"ns1-app.functions.fnc.fr-par.scw.cloud"}],"total_count":1}`))
+		default:
+			_, _ = w.Write([]byte(`{}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	client, err := scw.NewClient(
+		scw.WithAuth("SCWXXXXXXXXXXXXXXXXX", "11111111-1111-1111-1111-111111111111"),
+		scw.WithAPIURL(server.URL),
+	)
+	require.NoError(t, err)
+
+	provider := &Provider{id: "test", client: client, services: schema.ServiceMap{"container": {}}}
+	resources, err := provider.Resources(context.Background())
+	require.NoError(t, err)
+	require.Len(t, resources.Items, 1)
+	assert.Equal(t, "ns1-app.functions.fnc.fr-par.scw.cloud", resources.Items[0].DNSName)
+}

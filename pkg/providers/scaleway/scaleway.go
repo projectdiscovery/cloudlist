@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 	container "github.com/scaleway/scaleway-sdk-go/api/container/v1beta1"
 	"github.com/scaleway/scaleway-sdk-go/api/flexibleip/v1alpha1"
 	function "github.com/scaleway/scaleway-sdk-go/api/function/v1beta1"
@@ -87,8 +88,12 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		if !p.services.Has(s.name) {
 			continue
 		}
-		if resources, err := s.getResources(ctx); err == nil {
+		resources, err := s.getResources(ctx)
+		if resources != nil {
 			finalResources.Merge(resources)
+		}
+		if err != nil {
+			gologger.Warning().Msgf("scaleway: %s listing failed: %v", s.name, err)
 		}
 	}
 	return finalResources, nil

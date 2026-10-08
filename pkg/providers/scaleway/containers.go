@@ -25,6 +25,7 @@ type containerProvider struct {
 // namespace_id on ListContainers.
 func (d *containerProvider) GetContainers(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
+	var listingErr error
 
 	err := forEachLocality(d.containerAPI.Regions(), func(region scw.Region) error {
 		namespaces, err := d.containerAPI.ListNamespaces(&container.ListNamespacesRequest{Region: region}, scw.WithAllPages(), scw.WithContext(ctx))
@@ -34,7 +35,8 @@ func (d *containerProvider) GetContainers(ctx context.Context) (*schema.Resource
 		for _, namespace := range namespaces.Namespaces {
 			resp, err := d.containerAPI.ListContainers(&container.ListContainersRequest{Region: region, NamespaceID: namespace.ID}, scw.WithAllPages(), scw.WithContext(ctx))
 			if err != nil {
-				return err
+				listingErr = err
+				continue
 			}
 			for _, c := range resp.Containers {
 				list.Append(d.dnsResource(c.DomainName, "container"))
@@ -42,15 +44,19 @@ func (d *containerProvider) GetContainers(ctx context.Context) (*schema.Resource
 		}
 		return nil
 	})
-	if err != nil {
+	if listingErr != nil {
+		err = listingErr
+	}
+	if err != nil && len(list.Items) == 0 {
 		return nil, err
 	}
-	return list, nil
+	return list, err
 }
 
 // GetFunctions returns Serverless Functions domain names.
 func (d *containerProvider) GetFunctions(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
+	var listingErr error
 
 	err := forEachLocality(d.functionAPI.Regions(), func(region scw.Region) error {
 		namespaces, err := d.functionAPI.ListNamespaces(&function.ListNamespacesRequest{Region: region}, scw.WithAllPages(), scw.WithContext(ctx))
@@ -60,7 +66,8 @@ func (d *containerProvider) GetFunctions(ctx context.Context) (*schema.Resources
 		for _, namespace := range namespaces.Namespaces {
 			resp, err := d.functionAPI.ListFunctions(&function.ListFunctionsRequest{Region: region, NamespaceID: namespace.ID}, scw.WithAllPages(), scw.WithContext(ctx))
 			if err != nil {
-				return err
+				listingErr = err
+				continue
 			}
 			for _, f := range resp.Functions {
 				list.Append(d.dnsResource(f.DomainName, "function"))
@@ -68,10 +75,13 @@ func (d *containerProvider) GetFunctions(ctx context.Context) (*schema.Resources
 		}
 		return nil
 	})
-	if err != nil {
+	if listingErr != nil {
+		err = listingErr
+	}
+	if err != nil && len(list.Items) == 0 {
 		return nil, err
 	}
-	return list, nil
+	return list, err
 }
 
 // GetKapsuleClusters returns Kapsule cluster API server hostnames.
@@ -91,10 +101,10 @@ func (d *containerProvider) GetKapsuleClusters(ctx context.Context) (*schema.Res
 		}
 		return nil
 	})
-	if err != nil {
+	if err != nil && len(list.Items) == 0 {
 		return nil, err
 	}
-	return list, nil
+	return list, err
 }
 
 func (d *containerProvider) dnsResource(hostname, service string) *schema.Resource {
