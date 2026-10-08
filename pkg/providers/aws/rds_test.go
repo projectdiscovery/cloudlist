@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/rds"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -129,4 +130,28 @@ func TestListRDSResources(t *testing.T) {
 		require.Contains(t, byDNS, endpoint)
 		assert.Equal(t, "aurora-cluster", byDNS[endpoint]["db_cluster_identifier"])
 	}
+}
+
+func TestRDSGetResourceReportsListingErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`<ErrorResponse><Error><Code>AccessDenied</Code><Message>denied</Message></Error></ErrorResponse>`))
+	}))
+	t.Cleanup(server.Close)
+
+	sess, err := session.NewSession(&aws.Config{
+		Region:      aws.String("us-east-1"),
+		Endpoint:    aws.String(server.URL),
+		Credentials: credentials.NewStaticCredentials("test", "test", ""),
+		MaxRetries:  aws.Int(0),
+	})
+	require.NoError(t, err)
+
+	provider := &rdsProvider{
+		options: ProviderOptions{Id: "test"},
+		session: sess,
+		regions: &ec2.DescribeRegionsOutput{Regions: []*ec2.Region{{RegionName: aws.String("us-east-1")}, {RegionName: aws.String("eu-west-1")}}},
+	}
+	_, err = provider.GetResource(context.Background())
+	require.Error(t, err, "a denied listing in every region must not look like an empty account")
 }

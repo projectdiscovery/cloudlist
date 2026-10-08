@@ -50,11 +50,14 @@ func (rp *rdsProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 					}
 				}()
 
-				if resources, err := rp.listRDSResources(ctx, client); err == nil {
-					mu.Lock()
-					list.Merge(resources)
-					mu.Unlock()
+				resources, err := rp.listRDSResources(ctx, client)
+				mu.Lock()
+				defer mu.Unlock()
+				if err != nil {
+					errs = append(errs, err)
+					return
 				}
+				list.Merge(resources)
 			}(rdsClient)
 		}
 	}
