@@ -44,7 +44,7 @@ func (p *floatingIPProvider) GetResource(ctx context.Context) (*schema.Resources
 
 	if err != nil {
 		gologger.Error().Msgf("Couldn't list Openstack floating IPs: %s\n", err)
-		return nil, err
+		return list, err
 	}
 
 	return list, nil

@@ -126,19 +126,22 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalResources := schema.NewResources()
 	if p.services.Has("instance") {
 		provider := &instanceProvider{id: p.id, client: p.client}
-		if resources, err := provider.GetResource(ctx); err == nil {
+		resources, _ := provider.GetResource(ctx)
+		if resources != nil {
 			finalResources.Merge(resources)
 		}
 	}
 	if p.network != nil {
 		provider := &floatingIPProvider{id: p.id, client: p.network}
-		if resources, err := provider.GetResource(ctx); err == nil {
+		resources, _ := provider.GetResource(ctx)
+		if resources != nil {
 			finalResources.Merge(resources)
 		}
 	}
 	if p.loadBalancer != nil {
 		provider := &loadBalancerProvider{id: p.id, client: p.loadBalancer}
-		if resources, err := provider.GetResource(ctx); err == nil {
+		resources, _ := provider.GetResource(ctx)
+		if resources != nil {
 			finalResources.Merge(resources)
 		}
 	}

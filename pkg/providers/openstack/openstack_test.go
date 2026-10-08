@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/gophercloud/gophercloud"
+	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -64,4 +65,29 @@ func TestLoadBalancerProvider(t *testing.T) {
 func TestOptionalClientDropsClientOnError(t *testing.T) {
 	assert.Nil(t, optionalClient(&gophercloud.ServiceClient{}, &gophercloud.ErrEndpointNotFound{}))
 	assert.NotNil(t, optionalClient(&gophercloud.ServiceClient{}, nil))
+}
+
+func TestFloatingIPProviderKeepsEarlierPage(t *testing.T) {
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Query().Get("marker") == "2" {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"error":{"message":"page failed"}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"floatingips":[{"id":"one","floating_ip_address":"185.12.64.10"}],"floatingips_links":[{"href":"` + server.URL + `/v2.0/floatingips?marker=2","rel":"next"}]}`))
+	}))
+	t.Cleanup(server.Close)
+
+	client := &gophercloud.ServiceClient{
+		ProviderClient: &gophercloud.ProviderClient{TokenID: "test"},
+		Endpoint:       server.URL + "/",
+		ResourceBase:   server.URL + "/v2.0/",
+	}
+	provider := &Provider{id: "test", network: client, services: schema.ServiceMap{"floatingip": {}}}
+	resources, err := provider.Resources(context.Background())
+	require.NoError(t, err)
+	require.Len(t, resources.Items, 1)
+	assert.Equal(t, "185.12.64.10", resources.Items[0].PublicIPv4)
 }

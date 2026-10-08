@@ -45,7 +45,7 @@ func (p *loadBalancerProvider) GetResource(ctx context.Context) (*schema.Resourc
 
 	if err != nil {
 		gologger.Error().Msgf("Couldn't list Openstack load balancers: %s\n", err)
-		return nil, err
+		return list, err
 	}
 
 	return list, nil
