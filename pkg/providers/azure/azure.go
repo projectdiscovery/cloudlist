@@ -21,7 +21,7 @@ const (
 	providerName = "azure"
 )
 
-var Services = []string{"vm", "publicip", "trafficmanager", "cdn", "dns", "loadbalancer", "applicationgateway", "aks", "storage", "containerinstances", "appservice", "functions", "apimanagement", "frontdoor", "containerapps", "staticwebapps"}
+var Services = []string{"vm", "publicip", "trafficmanager", "cdn", "dns", "loadbalancer", "applicationgateway", "aks", "storage", "containerinstances", "appservice", "functions", "apimanagement", "frontdoor", "containerapps", "staticwebapps", "redis", "mysql", "postgresql", "sql", "cosmosdb"}
 
 // Provider is a data provider for Azure API using Track 2 SDK
 type Provider struct {
@@ -272,6 +272,19 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 				continue
 			}
 			resources.Merge(frontDoors)
+		}
+
+		dbp := &databaseProvider{Credential: p.Credential, SubscriptionID: subscriptionID, id: p.id, extendedMetadata: p.extendedMetadata}
+		for _, fetcher := range dbp.fetchers() {
+			if !p.services.Has(fetcher.service) {
+				continue
+			}
+			databases, err := fetcher.fetch(ctx)
+			if err != nil {
+				gologger.Warning().Msgf("Error listing %s for subscription %s: %s", fetcher.service, subscriptionID, err)
+				continue
+			}
+			resources.Merge(databases)
 		}
 	}
 	return resources, nil
