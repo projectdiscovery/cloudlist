@@ -52,6 +52,14 @@ func (i *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 					list.Merge(resources)
 					mu.Unlock()
 				}
+				resources, err := i.getElasticIPResources(ec2Client)
+				mu.Lock()
+				defer mu.Unlock()
+				if err != nil {
+					errs = append(errs, err)
+					return
+				}
+				list.Merge(resources)
 			}(ec2Client)
 		}
 	}
