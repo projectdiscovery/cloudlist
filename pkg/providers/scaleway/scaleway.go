@@ -4,11 +4,16 @@ import (
 	"context"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	container "github.com/scaleway/scaleway-sdk-go/api/container/v1beta1"
+	"github.com/scaleway/scaleway-sdk-go/api/flexibleip/v1alpha1"
+	function "github.com/scaleway/scaleway-sdk-go/api/function/v1beta1"
 	"github.com/scaleway/scaleway-sdk-go/api/instance/v1"
+	k8s "github.com/scaleway/scaleway-sdk-go/api/k8s/v1"
+	"github.com/scaleway/scaleway-sdk-go/api/lb/v1"
 	"github.com/scaleway/scaleway-sdk-go/scw"
 )
 
-var Services = []string{"instance"}
+var Services = []string{"instance", "flexibleip", "lb", "container", "function", "kapsule"}
 
 // Provider is a data provider for scaleway API
 type Provider struct {
@@ -63,6 +68,26 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	if p.services.Has("instance") {
 		provider := &instanceProvider{instanceAPI: instance.NewAPI(p.client), id: p.id}
 		if resources, err := provider.GetResource(ctx); err == nil {
+			finalResources.Merge(resources)
+		}
+	}
+
+	ips := &ipProvider{id: p.id, instanceAPI: instance.NewAPI(p.client), flexibleIPAPI: flexibleip.NewAPI(p.client), lbAPI: lb.NewZonedAPI(p.client)}
+	containers := &containerProvider{id: p.id, containerAPI: container.NewAPI(p.client), functionAPI: function.NewAPI(p.client), k8sAPI: k8s.NewAPI(p.client)}
+	for _, s := range []struct {
+		name         string
+		getResources func(context.Context) (*schema.Resources, error)
+	}{
+		{"flexibleip", ips.GetFlexibleIPs},
+		{"lb", ips.GetLoadBalancerIPs},
+		{"container", containers.GetContainers},
+		{"function", containers.GetFunctions},
+		{"kapsule", containers.GetKapsuleClusters},
+	} {
+		if !p.services.Has(s.name) {
+			continue
+		}
+		if resources, err := s.getResources(ctx); err == nil {
 			finalResources.Merge(resources)
 		}
 	}
