@@ -29,7 +29,9 @@ func (d *instanceProvider) GetResource(ctx context.Context) (*schema.Resources, 
 	for {
 		response, err := d.client.DescribeInstances(request)
 		if err != nil {
-			return nil, err
+			// A later page can fail after earlier instances were collected.
+			// Return them with the error so the caller can keep that page.
+			return list, err
 		}
 
 		for _, instance := range response.Instances.Instance {
