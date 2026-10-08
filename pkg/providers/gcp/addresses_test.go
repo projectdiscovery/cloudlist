@@ -81,3 +81,28 @@ func TestCloudVMProvider_IncludesAddressesAndForwardingRules(t *testing.T) {
 	assert.Equal(t, "pool-1", byIP["35.200.0.4"]["target"])
 	assert.Equal(t, []string{"10.128.0.5"}, private, "internal addresses are classified as private")
 }
+
+func TestCloudVMProvider_KeepsAddressesWhenInstancesFail(t *testing.T) {
+	responses := make(map[string]string, len(fakeComputeResponses))
+	for path, body := range fakeComputeResponses {
+		responses[path] = body
+	}
+	delete(responses, "/projects/p1/aggregated/instances")
+
+	provider := &cloudVMProvider{
+		id:       "test",
+		compute:  newFakeComputeService(t, responses),
+		projects: []string{"p1"},
+	}
+
+	resources, err := provider.GetResource(context.Background())
+	require.NoError(t, err)
+
+	var public []string
+	for _, item := range resources.Items {
+		if item.PublicIPv4 != "" {
+			public = append(public, item.PublicIPv4)
+		}
+	}
+	assert.ElementsMatch(t, []string{"34.10.0.1", "34.10.0.2", "34.120.0.3", "35.200.0.4"}, public)
+}
