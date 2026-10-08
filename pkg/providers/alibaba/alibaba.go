@@ -11,6 +11,7 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 )
 
 var Services = []string{"instance", "slb", "alb", "eip", "ack"}
@@ -127,8 +128,12 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	}
 
 	for _, provider := range providers {
-		if resources, err := provider.GetResource(ctx); err == nil {
+		resources, err := provider.GetResource(ctx)
+		if resources != nil {
 			finalResources.Merge(resources)
+		}
+		if err != nil {
+			gologger.Warning().Msgf("alibaba: listing failed: %v", err)
 		}
 	}
 	return finalResources, nil

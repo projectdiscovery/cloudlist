@@ -27,7 +27,7 @@ func (d *albProvider) GetResource(ctx context.Context) (*schema.Resources, error
 	for {
 		response, err := d.client.ListLoadBalancers(request)
 		if err != nil {
-			return nil, err
+			return list, err
 		}
 
 		for _, lb := range response.LoadBalancers {

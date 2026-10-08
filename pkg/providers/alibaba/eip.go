@@ -29,7 +29,7 @@ func (d *eipProvider) GetResource(ctx context.Context) (*schema.Resources, error
 		request.PageNumber = requests.NewInteger(page)
 		response, err := d.client.DescribeEipAddresses(request)
 		if err != nil {
-			return nil, err
+			return list, err
 		}
 
 		for _, eip := range response.EipAddresses.EipAddress {

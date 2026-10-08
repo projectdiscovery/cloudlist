@@ -105,3 +105,32 @@ func TestResources(t *testing.T) {
 		assert.Equal(t, providerName, resource.Provider, value)
 	}
 }
+
+func TestResourcesKeepsEarlierSLBPage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, r.ParseForm())
+		w.Header().Set("Content-Type", "application/json")
+		if r.Form.Get("Action") == "DescribeLoadBalancers" && r.Form.Get("PageNumber") == "1" {
+			_, _ = w.Write([]byte(`{"TotalCount":101,"LoadBalancers":{"LoadBalancer":[{"Address":"47.88.1.10","AddressType":"internet"}]}}`))
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(server.Close)
+
+	config := sdk.NewConfig().WithScheme("HTTP").WithAutoRetry(false)
+	client, err := slb.NewClientWithOptions("cn-hangzhou", config, credentials.NewAccessKeyCredential("test", "test"))
+	require.NoError(t, err)
+	client.Domain = strings.TrimPrefix(server.URL, "http://")
+
+	resources, err := (&Provider{id: "test", slbClient: client}).Resources(context.Background())
+	require.NoError(t, err)
+
+	var public []string
+	for _, item := range resources.Items {
+		if item.PublicIPv4 != "" {
+			public = append(public, item.PublicIPv4)
+		}
+	}
+	assert.Equal(t, []string{"47.88.1.10"}, public)
+}

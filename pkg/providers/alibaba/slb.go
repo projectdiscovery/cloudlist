@@ -28,7 +28,7 @@ func (d *slbProvider) GetResource(ctx context.Context) (*schema.Resources, error
 		request.PageNumber = requests.NewInteger(page)
 		response, err := d.client.DescribeLoadBalancers(request)
 		if err != nil {
-			return nil, err
+			return list, err
 		}
 
 		for _, lb := range response.LoadBalancers.LoadBalancer {

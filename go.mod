@@ -154,8 +154,8 @@ require (
 
 require (
 	cloud.google.com/go/asset v1.21.1
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.19.1
-	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.0
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.22.0
+	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.14.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/apimanagement/armapimanagement v1.1.1
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/appcontainers/armappcontainers v1.1.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/appservice/armappservice v1.0.0
@@ -163,11 +163,18 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute v1.0.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerinstance/armcontainerinstance v1.0.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice v1.0.0
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/cosmos/armcosmos/v4 v4.0.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns v1.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/frontdoor/armfrontdoor v1.4.0
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/mysql/armmysqlflexibleservers/v2 v2.0.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork v1.1.0
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/postgresql/armpostgresqlflexibleservers/v5 v5.0.0
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/redis/armredis/v4 v4.0.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions v1.3.0
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/servicefabric/armservicefabric v1.2.0
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/servicefabricmanagedclusters/armservicefabricmanagedclusters v1.0.0
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/sql/armsql v1.2.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage v1.8.1
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/trafficmanager/armtrafficmanager v1.3.0
 	github.com/alitto/pond/v2 v2.3.2
@@ -186,8 +193,8 @@ require (
 	cloud.google.com/go/longrunning v0.6.7 // indirect
 	cloud.google.com/go/orgpolicy v1.15.0 // indirect
 	cloud.google.com/go/osconfig v1.14.6 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.2 // indirect
-	github.com/AzureAD/microsoft-authentication-library-for-go v1.5.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0 // indirect
+	github.com/AzureAD/microsoft-authentication-library-for-go v1.7.2 // indirect
 	github.com/Mzack9999/gcache v0.0.0-20230410081825-519e28eab057 // indirect
 	github.com/Mzack9999/go-http-digest-auth-client v0.6.1-0.20220414142836-eb8883508809 // indirect
 	github.com/akrylysov/pogreb v0.10.1 // indirect
@@ -201,7 +208,7 @@ require (
 	github.com/gaissmai/bart v0.29.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
-	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
+	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/logrusorgru/aurora/v4 v4.0.0 // indirect

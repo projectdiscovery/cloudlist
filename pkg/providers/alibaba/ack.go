@@ -48,12 +48,12 @@ func (d *ackProvider) GetResource(ctx context.Context) (*schema.Resources, error
 		request.PageNumber = requests.NewInteger(page)
 		response, err := d.client.DescribeClustersV1(request)
 		if err != nil {
-			return nil, err
+			return list, err
 		}
 
 		var clusters ackClustersResponse
 		if err := json.Unmarshal(response.GetHttpContentBytes(), &clusters); err != nil {
-			return nil, err
+			return list, err
 		}
 
 		for _, cluster := range clusters.Clusters {
