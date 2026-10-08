@@ -80,7 +80,7 @@ func (sp *serviceFabricProvider) GetResource(ctx context.Context) (*schema.Resou
 		})
 	}
 
-	if classicErr != nil && managedErr != nil {
+	if len(list.Items) == 0 && classicErr != nil && managedErr != nil {
 		return nil, fmt.Errorf("%w; %w", classicErr, managedErr)
 	}
 	for _, err := range []error{classicErr, managedErr} {
@@ -116,7 +116,8 @@ func (sp *serviceFabricProvider) fetchManagedClusters(ctx context.Context) ([]*a
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to list Service Fabric managed clusters: %w", err)
+			// A later page can fail after earlier clusters were collected.
+			return clusters, fmt.Errorf("failed to list Service Fabric managed clusters: %w", err)
 		}
 		clusters = append(clusters, page.Value...)
 	}

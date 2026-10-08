@@ -7,9 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
@@ -17,14 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-const testSubscriptionID = "00000000-0000-0000-0000-000000000000"
-
-type fakeCredential struct{}
-
-func (fakeCredential) GetToken(context.Context, policy.TokenRequestOptions) (azcore.AccessToken, error) {
-	return azcore.AccessToken{Token: "fake", ExpiresOn: time.Now().Add(time.Hour)}, nil
-}
 
 const classicClustersResponse = `{"value": [
   {
@@ -85,7 +75,7 @@ const managedClustersPage2 = `{"value": [
 ]}`
 
 // newTestServiceFabricProvider points the real SDK clients at a fake ARM endpoint.
-func newTestServiceFabricProvider(t *testing.T, classicStatus int) *serviceFabricProvider {
+func newTestServiceFabricProvider(t *testing.T, classicStatus, page2Status int) *serviceFabricProvider {
 	t.Helper()
 	var server *httptest.Server
 	server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -100,6 +90,11 @@ func newTestServiceFabricProvider(t *testing.T, classicStatus int) *serviceFabri
 			_, _ = w.Write([]byte(classicClustersResponse))
 		case strings.HasSuffix(r.URL.Path, "/providers/Microsoft.ServiceFabric/managedClusters"):
 			if r.URL.Query().Get("page") == "2" {
+				if page2Status != http.StatusOK {
+					w.WriteHeader(page2Status)
+					_, _ = w.Write([]byte(`{"error": {"code": "InternalError", "message": "page failed"}}`))
+					return
+				}
 				_, _ = w.Write([]byte(managedClustersPage2))
 				return
 			}
@@ -143,7 +138,7 @@ func resourceByValue(resources *schema.Resources) map[string]*schema.Resource {
 }
 
 func TestServiceFabricGetResource(t *testing.T) {
-	resources, err := newTestServiceFabricProvider(t, http.StatusOK).GetResource(context.Background())
+	resources, err := newTestServiceFabricProvider(t, http.StatusOK, http.StatusOK).GetResource(context.Background())
 	require.NoError(t, err)
 
 	byValue := resourceByValue(resources)
@@ -172,10 +167,20 @@ func TestServiceFabricGetResource(t *testing.T) {
 }
 
 func TestServiceFabricGetResourceClassicForbidden(t *testing.T) {
-	resources, err := newTestServiceFabricProvider(t, http.StatusForbidden).GetResource(context.Background())
+	resources, err := newTestServiceFabricProvider(t, http.StatusForbidden, http.StatusOK).GetResource(context.Background())
 	require.NoError(t, err, "a failing classic API must not hide managed clusters")
 
 	byValue := resourceByValue(resources)
 	assert.NotNil(t, byValue["managed1.eastus.cloudapp.azure.com"])
 	assert.Nil(t, byValue["classic1.eastus.cloudapp.azure.com"])
+}
+
+func TestServiceFabricKeepsEarlierManagedPage(t *testing.T) {
+	resources, err := newTestServiceFabricProvider(t, http.StatusOK, http.StatusInternalServerError).GetResource(context.Background())
+	require.NoError(t, err)
+
+	byValue := resourceByValue(resources)
+	assert.NotNil(t, byValue["managed1.eastus.cloudapp.azure.com"])
+	assert.NotNil(t, byValue["classic1.eastus.cloudapp.azure.com"])
+	assert.Nil(t, byValue["managed2.westus.cloudapp.azure.com"])
 }

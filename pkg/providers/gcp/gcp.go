@@ -66,7 +66,7 @@ type OrganizationProvider struct {
 // Services that provide IP addresses or DNS names only
 var Services = []string{
 	"dns",            // DNS names, IPv4/IPv6 addresses from DNS records
-	"compute",        // IPv4/IPv6 addresses from VM instances
+	"compute",        // IPv4/IPv6 addresses from VM instances, reserved addresses and forwarding rules
 	"gke",            // DNS names and IPs from Kubernetes ingresses
 	"cloud-function", // DNS names from function HTTPS URLs
 	"cloud-run",      // DNS names from service URLs
