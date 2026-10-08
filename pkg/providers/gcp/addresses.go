@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
@@ -169,5 +170,6 @@ func joinLabels(labels map[string]string) string {
 	for key, value := range labels {
 		pairs = append(pairs, fmt.Sprintf("%s=%s", key, value))
 	}
+	sort.Strings(pairs)
 	return strings.Join(pairs, ",")
 }
