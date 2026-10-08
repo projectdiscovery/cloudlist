@@ -155,3 +155,68 @@ func TestRDSGetResourceReportsListingErrors(t *testing.T) {
 	_, err = provider.GetResource(context.Background())
 	require.Error(t, err, "a denied listing in every region must not look like an empty account")
 }
+
+func TestListRDSResourcesKeepsTheCallThatSucceeded(t *testing.T) {
+	tests := []struct {
+		name    string
+		deny    string
+		wantDNS string
+	}{
+		{name: "clusters denied", deny: "DescribeDBClusters", wantDNS: "private-db.abc123.us-east-1.rds.amazonaws.com"},
+		{name: "instances denied", deny: "DescribeDBInstances", wantDNS: "aurora-cluster.cluster-abc123.us-east-1.rds.amazonaws.com"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				require.NoError(t, r.ParseForm())
+				if r.Form.Get("Action") == tt.deny {
+					w.WriteHeader(http.StatusForbidden)
+					_, _ = w.Write([]byte(`<ErrorResponse><Error><Code>AccessDenied</Code><Message>denied</Message></Error></ErrorResponse>`))
+					return
+				}
+				w.Header().Set("Content-Type", "text/xml")
+				switch r.Form.Get("Action") {
+				case "DescribeDBInstances":
+					_, _ = w.Write([]byte(describeDBInstancesPage2))
+				case "DescribeDBClusters":
+					_, _ = w.Write([]byte(describeDBClustersResponse))
+				default:
+					t.Errorf("unexpected action %q", r.Form.Get("Action"))
+					w.WriteHeader(http.StatusBadRequest)
+				}
+			}))
+			t.Cleanup(server.Close)
+
+			sess, err := session.NewSession(&aws.Config{
+				Region:      aws.String("us-east-1"),
+				Endpoint:    aws.String(server.URL),
+				Credentials: credentials.NewStaticCredentials("test", "test", ""),
+				MaxRetries:  aws.Int(0),
+			})
+			require.NoError(t, err)
+
+			provider := &rdsProvider{
+				options: ProviderOptions{Id: "test"},
+				session: sess,
+				regions: &ec2.DescribeRegionsOutput{Regions: []*ec2.Region{{RegionName: aws.String("us-east-1")}}},
+			}
+			resources, err := provider.listRDSResources(context.Background(), rds.New(sess))
+			require.Error(t, err)
+			require.NotNil(t, resources)
+
+			var hosts []string
+			for _, item := range resources.Items {
+				hosts = append(hosts, item.DNSName)
+			}
+			require.Contains(t, hosts, tt.wantDNS)
+
+			kept, err := provider.GetResource(context.Background())
+			require.NoError(t, err)
+			var keptHosts []string
+			for _, item := range kept.Items {
+				keptHosts = append(keptHosts, item.DNSName)
+			}
+			require.Contains(t, keptHosts, tt.wantDNS)
+		})
+	}
+}

@@ -2,6 +2,7 @@ package aws
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/rds"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 )
 
 // rdsProvider is a provider for AWS RDS API
@@ -53,11 +55,12 @@ func (rp *rdsProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 				resources, err := rp.listRDSResources(ctx, client)
 				mu.Lock()
 				defer mu.Unlock()
+				if resources != nil {
+					list.Merge(resources)
+				}
 				if err != nil {
 					errs = append(errs, err)
-					return
 				}
-				list.Merge(resources)
 			}(rdsClient)
 		}
 	}
@@ -65,11 +68,15 @@ func (rp *rdsProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 	if len(errs) > 0 && len(list.Items) == 0 {
 		return nil, fmt.Errorf("rds: all workers failed: %v", errs)
 	}
+	if len(errs) > 0 {
+		gologger.Warning().Msgf("rds: some listings failed: %v", errs)
+	}
 	return list, nil
 }
 
 func (rp *rdsProvider) listRDSResources(ctx context.Context, rdsClient *rds.RDS) (*schema.Resources, error) {
 	list := schema.NewResources()
+	var errs []error
 
 	err := rdsClient.DescribeDBInstancesPagesWithContext(ctx, &rds.DescribeDBInstancesInput{}, func(page *rds.DescribeDBInstancesOutput, _ bool) bool {
 		for _, instance := range page.DBInstances {
@@ -94,7 +101,7 @@ func (rp *rdsProvider) listRDSResources(ctx context.Context, rdsClient *rds.RDS)
 		return true
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "could not describe RDS instances")
+		errs = append(errs, errors.Wrap(err, "could not describe RDS instances"))
 	}
 
 	err = rdsClient.DescribeDBClustersPagesWithContext(ctx, &rds.DescribeDBClustersInput{}, func(page *rds.DescribeDBClustersOutput, _ bool) bool {
@@ -126,7 +133,10 @@ func (rp *rdsProvider) listRDSResources(ctx context.Context, rdsClient *rds.RDS)
 		return true
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "could not describe RDS clusters")
+		errs = append(errs, errors.Wrap(err, "could not describe RDS clusters"))
+	}
+	if len(errs) > 0 {
+		return list, stderrors.Join(errs...)
 	}
 	return list, nil
 }
