@@ -49,11 +49,14 @@ func (ep *elastiCacheProvider) GetResource(ctx context.Context) (*schema.Resourc
 					}
 				}()
 
-				if resources, err := ep.listElastiCacheResources(client); err == nil {
-					mu.Lock()
-					list.Merge(resources)
-					mu.Unlock()
+				resources, err := ep.listElastiCacheResources(client)
+				mu.Lock()
+				defer mu.Unlock()
+				if err != nil {
+					errs = append(errs, err)
+					return
 				}
+				list.Merge(resources)
 			}(client)
 		}
 	}

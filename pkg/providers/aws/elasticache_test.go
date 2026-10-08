@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"sort"
@@ -9,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elasticache"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -157,4 +159,28 @@ func TestListElastiCacheResources_ExtendedMetadata(t *testing.T) {
 	assert.Equal(t, "redis-rg", byName["redis-rg.abc123.ng.0001.use1.cache.amazonaws.com"]["replication_group_id"])
 	assert.Equal(t, "memcached", byName["memcached.abc123.cfg.use1.cache.amazonaws.com"]["engine"])
 	assert.Equal(t, "valkey-serverless", byName["valkey-serverless-abc123.serverless.use1.cache.amazonaws.com"]["serverless_cache_name"])
+}
+
+func TestElastiCacheGetResourceReportsListingErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`<ErrorResponse><Error><Code>AccessDenied</Code><Message>denied</Message></Error></ErrorResponse>`))
+	}))
+	t.Cleanup(server.Close)
+
+	sess, err := session.NewSession(&aws.Config{
+		Region:      aws.String("us-east-1"),
+		Endpoint:    aws.String(server.URL),
+		Credentials: credentials.NewStaticCredentials("test", "test", ""),
+		MaxRetries:  aws.Int(0),
+	})
+	require.NoError(t, err)
+
+	provider := &elastiCacheProvider{
+		options: ProviderOptions{Id: "test"},
+		session: sess,
+		regions: &ec2.DescribeRegionsOutput{Regions: []*ec2.Region{{RegionName: aws.String("us-east-1")}, {RegionName: aws.String("eu-west-1")}}},
+	}
+	_, err = provider.GetResource(context.Background())
+	require.Error(t, err, "a denied listing in every region must not look like an empty account")
 }
