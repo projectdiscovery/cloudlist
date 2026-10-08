@@ -231,16 +231,19 @@ func (dp *databaseProvider) cosmosdb(ctx context.Context) (*schema.Resources, er
 					metadata["local_auth_disabled"] = fmt.Sprintf("%v", *props.DisableLocalAuth)
 				}
 			}
-			isMongo := account.Kind != nil && *account.Kind == armcosmos.DatabaseAccountKindMongoDB
+			// MongoDB 3.6 and later serve the wire protocol on a sibling host the API
+			// does not return. Version 3.2, and accounts that omit the version, use
+			// the documents host. Deriving the sibling keeps the sovereign cloud suffix.
+			mongoWire := account.Kind != nil && *account.Kind == armcosmos.DatabaseAccountKindMongoDB &&
+				props.APIProperties != nil && props.APIProperties.ServerVersion != nil &&
+				*props.APIProperties.ServerVersion != armcosmos.ServerVersionThree2
 			addEndpoint := func(endpoint *string) {
 				if endpoint == nil {
 					return
 				}
 				host := extractDNSFromURL(*endpoint)
 				dp.add(list, "cosmosdb", host, metadata)
-				// MongoDB accounts serve the wire protocol on a sibling host that the
-				// API does not return; deriving it keeps the sovereign cloud suffix.
-				if isMongo {
+				if mongoWire {
 					dp.add(list, "cosmosdb", strings.Replace(host, ".documents.", ".mongo.cosmos.", 1), metadata)
 				}
 			}
