@@ -41,7 +41,10 @@ var fakeARMResponses = map[string]string{
 		{"id":"/subscriptions/` + testSubscriptionID + `/resourceGroups/rg-db/providers/Microsoft.DocumentDB/databaseAccounts/contoso-cosmos","name":"contoso-cosmos","location":"eastus","kind":"GlobalDocumentDB",
 		 "properties":{"documentEndpoint":"https://contoso-cosmos.documents.azure.com:443/","publicNetworkAccess":"Enabled",
 		   "writeLocations":[{"locationName":"East US","documentEndpoint":"https://contoso-cosmos-eastus.documents.azure.com:443/"}],
-		   "readLocations":[{"locationName":"East US","documentEndpoint":"https://contoso-cosmos-eastus.documents.azure.com:443/"},{"locationName":"West US","documentEndpoint":"https://contoso-cosmos-westus.documents.azure.com:443/"}]}}
+		   "readLocations":[{"locationName":"East US","documentEndpoint":"https://contoso-cosmos-eastus.documents.azure.com:443/"},{"locationName":"West US","documentEndpoint":"https://contoso-cosmos-westus.documents.azure.com:443/"}]}},
+		{"id":"/subscriptions/` + testSubscriptionID + `/resourceGroups/rg-db/providers/Microsoft.DocumentDB/databaseAccounts/contoso-mongo","name":"contoso-mongo","location":"eastus","kind":"MongoDB",
+		 "properties":{"documentEndpoint":"https://contoso-mongo.documents.azure.com:443/","publicNetworkAccess":"Enabled",
+		   "writeLocations":[{"locationName":"East US","documentEndpoint":"https://contoso-mongo-eastus.documents.azure.com:443/"}]}}
 	]}`,
 }
 
@@ -118,8 +121,12 @@ func TestDatabaseProviderFetchers(t *testing.T) {
 				"contoso-cosmos.documents.azure.com",
 				"contoso-cosmos-eastus.documents.azure.com",
 				"contoso-cosmos-westus.documents.azure.com",
+				"contoso-mongo.documents.azure.com",
+				"contoso-mongo.mongo.cosmos.azure.com",
+				"contoso-mongo-eastus.documents.azure.com",
+				"contoso-mongo-eastus.mongo.cosmos.azure.com",
 			},
-			metadata: map[string]string{"public_network_access": "Enabled", "kind": "GlobalDocumentDB"},
+			metadata: map[string]string{"public_network_access": "Enabled"},
 		},
 	}
 

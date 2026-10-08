@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
@@ -230,13 +231,24 @@ func (dp *databaseProvider) cosmosdb(ctx context.Context) (*schema.Resources, er
 					metadata["local_auth_disabled"] = fmt.Sprintf("%v", *props.DisableLocalAuth)
 				}
 			}
-			if props.DocumentEndpoint != nil {
-				dp.add(list, "cosmosdb", extractDNSFromURL(*props.DocumentEndpoint), metadata)
+			isMongo := account.Kind != nil && *account.Kind == armcosmos.DatabaseAccountKindMongoDB
+			addEndpoint := func(endpoint *string) {
+				if endpoint == nil {
+					return
+				}
+				host := extractDNSFromURL(*endpoint)
+				dp.add(list, "cosmosdb", host, metadata)
+				// MongoDB accounts serve the wire protocol on a sibling host that the
+				// API does not return; deriving it keeps the sovereign cloud suffix.
+				if isMongo {
+					dp.add(list, "cosmosdb", strings.Replace(host, ".documents.", ".mongo.cosmos.", 1), metadata)
+				}
 			}
+			addEndpoint(props.DocumentEndpoint)
 			// Multi-region accounts also serve each region on its own hostname.
 			for _, location := range slices.Concat(props.WriteLocations, props.ReadLocations) {
-				if location != nil && location.DocumentEndpoint != nil {
-					dp.add(list, "cosmosdb", extractDNSFromURL(*location.DocumentEndpoint), metadata)
+				if location != nil {
+					addEndpoint(location.DocumentEndpoint)
 				}
 			}
 		}
