@@ -7,7 +7,7 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
-var Services = []string{"instance"}
+var Services = []string{"instance", "loadbalancer", "floatingip", "primaryip"}
 
 const (
 	authToken    = "auth_token"
@@ -53,9 +53,21 @@ func (p *Provider) Services() []string {
 // Resources returns the provider for an resource
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalResources := schema.NewResources()
-	if p.services.Has("instance") {
-		provider := &instanceProvider{client: p.client, id: p.id}
-		if resources, err := provider.GetResource(ctx); err == nil {
+	providers := map[string]interface {
+		GetResource(ctx context.Context) (*schema.Resources, error)
+	}{
+		"instance":     &instanceProvider{client: p.client, id: p.id},
+		"loadbalancer": &loadBalancerProvider{client: p.client, id: p.id},
+		"floatingip":   &floatingIPProvider{client: p.client, id: p.id},
+		"primaryip":    &primaryIPProvider{client: p.client, id: p.id},
+	}
+	// Address services are merged before instances. The first writer owns a
+	// shared address, so an assigned primary IP stays a primaryip resource.
+	for _, service := range []string{"loadbalancer", "floatingip", "primaryip", "instance"} {
+		if !p.services.Has(service) {
+			continue
+		}
+		if resources, err := providers[service].GetResource(ctx); err == nil {
 			finalResources.Merge(resources)
 		}
 	}
