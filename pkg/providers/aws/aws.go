@@ -15,11 +15,13 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/eks"
+	"github.com/aws/aws-sdk-go/service/elasticache"
 	"github.com/aws/aws-sdk-go/service/elb"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/lambda"
 	"github.com/aws/aws-sdk-go/service/lightsail"
 	"github.com/aws/aws-sdk-go/service/organizations"
+	"github.com/aws/aws-sdk-go/service/rds"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/sts"
@@ -29,7 +31,7 @@ import (
 	sliceutil "github.com/projectdiscovery/utils/slice"
 )
 
-var Services = []string{"ec2", "instance", "route53", "s3", "ecs", "eks", "lambda", "apigateway", "apigatewayv2", "alb", "elb", "lightsail", "cloudfront"}
+var Services = []string{"ec2", "instance", "route53", "s3", "ecs", "eks", "lambda", "apigateway", "apigatewayv2", "alb", "elb", "lightsail", "cloudfront", "rds", "elasticache"}
 
 type ProviderOptions struct {
 	Id                    string
@@ -100,21 +102,23 @@ func (p *ProviderOptions) ParseOptionBlock(block schema.OptionBlock) error {
 
 // Provider is a data provider for aws API
 type Provider struct {
-	options          *ProviderOptions
-	ec2Client        *ec2.EC2
-	route53Client    *route53.Route53
-	s3Client         *s3.S3
-	ecsClient        *ecs.ECS
-	eksClient        *eks.EKS
-	lambdaClient     *lambda.Lambda
-	apiGateway       *apigateway.APIGateway
-	apiGatewayV2     *apigatewayv2.ApiGatewayV2
-	albClient        *elbv2.ELBV2
-	elbClient        *elb.ELB
-	lightsailClient  *lightsail.Lightsail
-	cloudFrontClient *cloudfront.CloudFront
-	regions          *ec2.DescribeRegionsOutput
-	session          *session.Session
+	options           *ProviderOptions
+	ec2Client         *ec2.EC2
+	route53Client     *route53.Route53
+	s3Client          *s3.S3
+	ecsClient         *ecs.ECS
+	eksClient         *eks.EKS
+	lambdaClient      *lambda.Lambda
+	apiGateway        *apigateway.APIGateway
+	apiGatewayV2      *apigatewayv2.ApiGatewayV2
+	albClient         *elbv2.ELBV2
+	elbClient         *elb.ELB
+	lightsailClient   *lightsail.Lightsail
+	cloudFrontClient  *cloudfront.CloudFront
+	rdsClient         *rds.RDS
+	elastiCacheClient *elasticache.ElastiCache
+	regions           *ec2.DescribeRegionsOutput
+	session           *session.Session
 }
 
 // New creates a new provider client for aws API
@@ -391,6 +395,12 @@ func (p *Provider) initServices(sess *session.Session) {
 	if services.Has("cloudfront") {
 		p.cloudFrontClient = cloudfront.New(sess)
 	}
+	if services.Has("rds") {
+		p.rdsClient = rds.New(sess)
+	}
+	if services.Has("elasticache") {
+		p.elastiCacheClient = elasticache.New(sess)
+	}
 }
 
 const providerName = "aws"
@@ -493,6 +503,14 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	if p.cloudFrontClient != nil {
 		cloudfrontProvider := &cloudfrontProvider{cloudFrontClient: p.cloudFrontClient, options: *p.options, session: p.session}
 		assignWorker(cloudfrontProvider.GetResource)
+	}
+	if p.rdsClient != nil {
+		rdsProvider := &rdsProvider{rdsClient: p.rdsClient, options: *p.options, session: p.session, regions: p.regions}
+		assignWorker(rdsProvider.GetResource)
+	}
+	if p.elastiCacheClient != nil {
+		elastiCacheProvider := &elastiCacheProvider{elastiCacheClient: p.elastiCacheClient, options: *p.options, session: p.session, regions: p.regions}
+		assignWorker(elastiCacheProvider.GetResource)
 	}
 
 	go func() {
@@ -643,6 +661,13 @@ func (p *Provider) verify() error {
 
 	if !success && p.cloudFrontClient != nil {
 		_, err := p.cloudFrontClient.ListDistributions(&cloudfront.ListDistributionsInput{})
+		if err == nil {
+			success = true
+		}
+	}
+
+	if !success && p.rdsClient != nil {
+		_, err := p.rdsClient.DescribeDBInstances(&rds.DescribeDBInstancesInput{MaxRecords: aws.Int64(20)})
 		if err == nil {
 			success = true
 		}
