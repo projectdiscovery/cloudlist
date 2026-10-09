@@ -442,7 +442,7 @@ Linode can be integrated by using the following configuration block.
  linode_personal_access_token: $LINODE_PERSONAL_ACCESS_TOKEN
 ```
 
-`linode_personal_access_token` can be created from https://cloud.linode.com/id/tokens. Minimum scope needed is `Read Only` for `Linodes` resource.
+`linode_personal_access_token` can be created from https://cloud.linode.com/id/tokens. Minimum scope needed is `Read Only` for the `Linodes`, `NodeBalancers`, `IPs` and `Kubernetes` resources.
 
 References - 
 1. https://www.linode.com/docs/guides/getting-started-with-the-linode-api/#get-an-access-token
