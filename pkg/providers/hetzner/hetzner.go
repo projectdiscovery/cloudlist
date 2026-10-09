@@ -61,7 +61,9 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 		"floatingip":   &floatingIPProvider{client: p.client, id: p.id},
 		"primaryip":    &primaryIPProvider{client: p.client, id: p.id},
 	}
-	for _, service := range Services {
+	// Address services are merged before instances. The first writer owns a
+	// shared address, so an assigned primary IP stays a primaryip resource.
+	for _, service := range []string{"loadbalancer", "floatingip", "primaryip", "instance"} {
 		if !p.services.Has(service) {
 			continue
 		}

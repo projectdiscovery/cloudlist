@@ -13,7 +13,12 @@ import (
 )
 
 var fakeResponses = map[string]string{
-	"/servers": `{"servers": []}`,
+	"/servers": `{"servers": [
+		{"id": 42, "name": "web", "public_net": {
+			"ipv4": {"ip": "95.217.30.1"},
+			"ipv6": {"ip": "2a01:4f9:c010:9::/64", "dns_ptr": []}
+		}}
+	]}`,
 	"/load_balancers": `{"load_balancers": [
 		{"id": 1, "name": "public-lb", "public_net": {"enabled": true,
 			"ipv4": {"ip": "95.217.10.1"}, "ipv6": {"ip": "2a01:4f9:c010:1::1"}}},
@@ -71,6 +76,7 @@ func TestResources(t *testing.T) {
 	assert.ElementsMatch(t, []string{"95.217.10.1", "2a01:4f9:c010:1::1"}, byService["loadbalancer"], "load balancers with public net disabled must be skipped")
 	assert.ElementsMatch(t, []string{"95.217.20.1", "2a01:4f9:c010:2::"}, byService["floatingip"])
 	assert.ElementsMatch(t, []string{"95.217.30.1", "95.217.30.2"}, byService["primaryip"], "unassigned primary IPs must be included")
+	assert.ElementsMatch(t, []string{"2a01:4f9:c010:9::"}, byService["instance"], "an assigned primary IPv4 keeps the primaryip service")
 }
 
 func TestResourcesServiceFilter(t *testing.T) {
