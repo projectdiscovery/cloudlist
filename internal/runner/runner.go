@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	jsoniter "github.com/json-iterator/go"
-	"github.com/projectdiscovery/cloudlist/pkg/inventory"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"github.com/projectdiscovery/cloudlist/pkg/schema/validate"
 	"github.com/projectdiscovery/gologger"
@@ -24,14 +23,20 @@ type Runner struct {
 // New creates a new runner instance based on configuration options
 func New(options *Options) (*Runner, error) {
 
-	if options.ProviderConfig == "" {
-		options.ProviderConfig = defaultProviderConfigLocation
-		gologger.Print().Msgf("Using default provider config: %s\n", options.ProviderConfig)
-	}
+	var config schema.Options
+	if options.AutoDiscovery {
+		config = autoDiscoveryConfig()
+	} else {
+		if options.ProviderConfig == "" {
+			options.ProviderConfig = defaultProviderConfigLocation
+			gologger.Print().Msgf("Using default provider config: %s\n", options.ProviderConfig)
+		}
 
-	config, err := readProviderConfig(options.ProviderConfig)
-	if err != nil {
-		return nil, err
+		var err error
+		config, err = readProviderConfig(options.ProviderConfig)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// CLI overrides config
@@ -96,7 +101,7 @@ func (r *Runner) Enumerate() {
 		}
 	}
 
-	inventory, err := inventory.New(finalConfig)
+	inventory, err := r.newInventory(finalConfig)
 	if err != nil {
 		gologger.Fatal().Msgf("Could not create inventory: %s\n", err)
 	}
