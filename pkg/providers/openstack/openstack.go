@@ -74,16 +74,24 @@ func New(options schema.OptionBlock) (*Provider, error) {
 		return nil, err
 	}
 
-	endpointOpts := gophercloud.EndpointOpts{Region: "RegionOne"}
-	client, err := openstack.NewComputeV2(provider, endpointOpts)
-
-	if err != nil {
-		gologger.Error().Msgf("Couldn't use Openstack region: %s\n", err)
-		return nil, err
-	}
-
 	services := options.ResolveServices(Services)
-	p := &Provider{id: id, client: client, services: services}
+	endpointOpts := gophercloud.EndpointOpts{Region: "RegionOne"}
+	p := &Provider{id: id, services: services}
+
+	// Compute is optional when Neutron or Octavia can still answer the
+	// selected services. A missing Nova endpoint must not fail those.
+	if services.Has("instance") {
+		client, clientErr := openstack.NewComputeV2(provider, endpointOpts)
+		if clientErr != nil && !services.Has("floatingip") && !services.Has("loadbalancer") {
+			gologger.Error().Msgf("Couldn't use Openstack region: %s\n", clientErr)
+			return nil, clientErr
+		}
+		if clientErr != nil {
+			gologger.Warning().Msgf("Couldn't use Openstack compute: %s\n", clientErr)
+		} else {
+			p.client = client
+		}
+	}
 
 	// Neutron and Octavia are optional on many clouds, so a missing catalog
 	// entry only disables that service instead of failing the provider.
@@ -124,26 +132,47 @@ func (p *Provider) Services() []string {
 // Resources returns the provider for an resource
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalResources := schema.NewResources()
-	if p.services.Has("instance") {
-		provider := &instanceProvider{id: p.id, client: p.client}
-		resources, _ := provider.GetResource(ctx)
-		if resources != nil {
-			finalResources.Merge(resources)
-		}
-	}
+	var failed error
+
+	// Neutron owns the floatingip service identity. Nova also reports an
+	// attached floating address, and the first writer wins deduplication.
 	if p.network != nil {
 		provider := &floatingIPProvider{id: p.id, client: p.network}
-		resources, _ := provider.GetResource(ctx)
-		if resources != nil {
-			finalResources.Merge(resources)
-		}
+		resources, err := provider.GetResource(ctx)
+		failed = absorb(finalResources, resources, err)
 	}
 	if p.loadBalancer != nil {
 		provider := &loadBalancerProvider{id: p.id, client: p.loadBalancer}
-		resources, _ := provider.GetResource(ctx)
-		if resources != nil {
-			finalResources.Merge(resources)
+		resources, err := provider.GetResource(ctx)
+		if err := absorb(finalResources, resources, err); err != nil {
+			failed = err
 		}
 	}
+	if p.services.Has("instance") && p.client != nil {
+		provider := &instanceProvider{id: p.id, client: p.client}
+		resources, err := provider.GetResource(ctx)
+		if err := absorb(finalResources, resources, err); err != nil {
+			failed = err
+		}
+	}
+	if failed != nil && len(finalResources.Items) == 0 {
+		return nil, failed
+	}
+	if failed != nil {
+		gologger.Warning().Msgf("Couldn't list Openstack resources: %s\n", failed)
+	}
 	return finalResources, nil
+}
+
+// absorb keeps a partial listing. An empty failed listing is returned so the
+// caller can surface it when nothing else was collected.
+func absorb(final *schema.Resources, resources *schema.Resources, err error) error {
+	if resources != nil && len(resources.Items) > 0 {
+		final.Merge(resources)
+		if err != nil {
+			gologger.Warning().Msgf("Couldn't list all Openstack resources: %s\n", err)
+		}
+		return nil
+	}
+	return err
 }

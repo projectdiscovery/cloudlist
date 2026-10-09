@@ -91,3 +91,82 @@ func TestFloatingIPProviderKeepsEarlierPage(t *testing.T) {
 	require.Len(t, resources.Items, 1)
 	assert.Equal(t, "185.12.64.10", resources.Items[0].PublicIPv4)
 }
+
+func TestFloatingIPFailureWithoutResults(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":{"message":"unavailable"}}`))
+	}))
+	t.Cleanup(server.Close)
+
+	client := &gophercloud.ServiceClient{
+		ProviderClient: &gophercloud.ProviderClient{TokenID: "test"},
+		Endpoint:       server.URL + "/",
+		ResourceBase:   server.URL + "/v2.0/",
+	}
+	provider := &Provider{id: "test", network: client, services: schema.ServiceMap{"floatingip": {}}}
+	resources, err := provider.Resources(context.Background())
+	require.Error(t, err)
+	assert.Nil(t, resources)
+}
+
+func TestFloatingIPServiceWinsDedup(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/servers/detail":
+			_, _ = w.Write([]byte(`{"servers":[{"id":"s1","addresses":{"public":[{"addr":"185.12.64.10","OS-EXT-IPS:type":"floating"}]}}]}`))
+		default:
+			_, _ = w.Write([]byte(`{"floatingips":[{"id":"attached","floating_ip_address":"185.12.64.10"}]}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	base := &gophercloud.ProviderClient{TokenID: "test"}
+	provider := &Provider{
+		id: "test",
+		client: &gophercloud.ServiceClient{
+			ProviderClient: base,
+			Endpoint:       server.URL + "/",
+			ResourceBase:   server.URL + "/",
+		},
+		network: &gophercloud.ServiceClient{
+			ProviderClient: base,
+			Endpoint:       server.URL + "/",
+			ResourceBase:   server.URL + "/v2.0/",
+		},
+		services: schema.ServiceMap{"instance": {}, "floatingip": {}},
+	}
+	resources, err := provider.Resources(context.Background())
+	require.NoError(t, err)
+	require.Len(t, resources.Items, 1)
+	assert.Equal(t, "floatingip", resources.Items[0].Service)
+	assert.Equal(t, "185.12.64.10", resources.Items[0].PublicIPv4)
+}
+
+func TestNewSkipsMissingComputeWhenFloatingIPSelected(t *testing.T) {
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v3/auth/tokens" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("X-Subject-Token", "test-token")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"token":{"expires_at":"2099-01-01T00:00:00.000000Z","catalog":[{"type":"network","name":"neutron","endpoints":[{"interface":"public","region":"RegionOne","url":"` + server.URL + `/v2.0"}]}]}}`))
+	}))
+	t.Cleanup(server.Close)
+
+	provider, err := New(schema.OptionBlock{
+		"identity_endpoint": server.URL + "/v3",
+		"domain_name":       "default",
+		"tenant_name":       "demo",
+		"username":          "user",
+		"password":          "pass",
+		"services":          "floatingip",
+	})
+	require.NoError(t, err)
+	assert.Nil(t, provider.client)
+	assert.NotNil(t, provider.network)
+}
