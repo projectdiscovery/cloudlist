@@ -3,23 +3,35 @@ package alibaba
 import (
 	"context"
 
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/alb"
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/cs"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 )
 
-var Services = []string{"instance"}
+var Services = []string{"instance", "slb", "alb", "eip", "ack"}
 
 const (
 	regionID        = "alibaba_region_id"
 	accessKeyID     = "alibaba_access_key"
 	accessKeySecret = "alibaba_access_key_secret"
 	providerName    = "alibaba"
+	pageSize        = 100
 )
 
 // Provider is a data provider for alibaba API
 type Provider struct {
 	id        string
 	ecsClient *ecs.Client
+	slbClient *slb.Client
+	albClient *alb.Client
+	vpcClient *vpc.Client
+	csClient  *cs.Client
 	services  schema.ServiceMap
 }
 
@@ -44,16 +56,34 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	services := options.ResolveServices(Services)
 	provider.services = services
 
+	// The SDK defaults to plain HTTP.
+	config := sdk.NewConfig().WithScheme("HTTPS")
+	credential := credentials.NewAccessKeyCredential(accessKeyID, accessKeySecret)
+	var err error
 	if services.Has("instance") {
-		client, err := ecs.NewClientWithAccessKey(
-			regionID,        // region ID
-			accessKeyID,     // AccessKey ID
-			accessKeySecret, // AccessKey secret
-		)
-		if err != nil {
+		if provider.ecsClient, err = ecs.NewClientWithOptions(regionID, config, credential); err != nil {
 			return nil, err
 		}
-		provider.ecsClient = client
+	}
+	if services.Has("slb") {
+		if provider.slbClient, err = slb.NewClientWithOptions(regionID, config, credential); err != nil {
+			return nil, err
+		}
+	}
+	if services.Has("alb") {
+		if provider.albClient, err = alb.NewClientWithOptions(regionID, config, credential); err != nil {
+			return nil, err
+		}
+	}
+	if services.Has("eip") {
+		if provider.vpcClient, err = vpc.NewClientWithOptions(regionID, config, credential); err != nil {
+			return nil, err
+		}
+	}
+	if services.Has("ack") {
+		if provider.csClient, err = cs.NewClientWithOptions(regionID, config, credential); err != nil {
+			return nil, err
+		}
 	}
 
 	return provider, nil
@@ -77,10 +107,33 @@ func (p *Provider) Services() []string {
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalResources := schema.NewResources()
+
+	var providers []interface {
+		GetResource(ctx context.Context) (*schema.Resources, error)
+	}
 	if p.ecsClient != nil {
-		ecsprovider := &instanceProvider{client: p.ecsClient, id: p.id}
-		if resources, err := ecsprovider.GetResource(ctx); err == nil {
+		providers = append(providers, &instanceProvider{client: p.ecsClient, id: p.id})
+	}
+	if p.slbClient != nil {
+		providers = append(providers, &slbProvider{client: p.slbClient, id: p.id})
+	}
+	if p.albClient != nil {
+		providers = append(providers, &albProvider{client: p.albClient, id: p.id})
+	}
+	if p.vpcClient != nil {
+		providers = append(providers, &eipProvider{client: p.vpcClient, id: p.id})
+	}
+	if p.csClient != nil {
+		providers = append(providers, &ackProvider{client: p.csClient, id: p.id})
+	}
+
+	for _, provider := range providers {
+		resources, err := provider.GetResource(ctx)
+		if resources != nil {
 			finalResources.Merge(resources)
+		}
+		if err != nil {
+			gologger.Warning().Msgf("alibaba: listing failed: %v", err)
 		}
 	}
 	return finalResources, nil
