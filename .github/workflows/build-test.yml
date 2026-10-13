@@ -29,8 +29,7 @@ jobs:
         working-directory: cmd/cloudlist/
 
       - name: Test
-        run: go test .
-        working-directory: cmd/cloudlist/
+        run: go test ./...
 
       - name: Race Condition Tests
         run: go build -race .
