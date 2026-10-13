@@ -56,8 +56,12 @@ func fakeAlibabaAPI(t *testing.T) *httptest.Server {
 
 func TestResources(t *testing.T) {
 	server := fakeAlibabaAPI(t)
-	domain := strings.TrimPrefix(server.URL, "http://")
+	// ROA requests build "domain:port/path" with an empty port, which Go 1.26
+	// rejects when the domain already has one, so keep the domain portless and
+	// route requests to the server.
+	domain := "alibaba.test"
 	config := sdk.NewConfig().WithScheme("HTTP")
+	config.Transport = hostRewriter(server.Listener.Addr().String())
 	credential := credentials.NewAccessKeyCredential("test", "test")
 
 	slbClient, err := slb.NewClientWithOptions("cn-hangzhou", config, credential)
@@ -133,4 +137,14 @@ func TestResourcesKeepsEarlierSLBPage(t *testing.T) {
 		}
 	}
 	assert.Equal(t, []string{"47.88.1.10"}, public)
+}
+
+// hostRewriter sends every request to host. The SDK overrides DialContext on an
+// *http.Transport, so a RoundTripper is used instead.
+type hostRewriter string
+
+func (h hostRewriter) RoundTrip(r *http.Request) (*http.Response, error) {
+	r = r.Clone(r.Context())
+	r.URL.Host = string(h)
+	return http.DefaultTransport.RoundTrip(r)
 }
