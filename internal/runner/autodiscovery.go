@@ -45,7 +45,8 @@ func (r *Runner) newInventory(config schema.Options) (*inventory.Inventory, erro
 		return nil, fmt.Errorf("no provider could be initialized: %w", errors.Join(errs...))
 	}
 	for _, err := range errs {
-		gologger.Warning().Msgf("Skipping provider: %s", err)
+		// Info stays visible at the default log level. Warning is dropped unless -v is set.
+		gologger.Info().Msgf("Skipping provider: %s", err)
 	}
 	return discovered, nil
 }
