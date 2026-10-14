@@ -62,6 +62,7 @@ Flags:
 CONFIGURATION:
    -config string                cloudlist flag config file (default "$HOME/.config/cloudlist/config.yaml")
    -pc, -provider-config string  provider config file (default "$HOME/.config/cloudlist/provider-config.yaml")
+   -ad, -auto-discovery          discover providers from environment credentials (aws, gcp, azure, kubernetes) instead of the provider config
 
 FILTERS:
    -p, -provider value          display results for given providers (comma-separated) (default linode,fastly,heroku,terraform,digitalocean,consul,cloudflare,hetzner,nomad,do,scw,openstack,alibaba,aws,gcp,namecheap,kubernetes,azure, custom)

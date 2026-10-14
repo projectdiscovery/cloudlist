@@ -32,12 +32,8 @@ const (
 func New(options schema.OptionBlock) (*Provider, error) {
 	id, _ := options.GetMetadata("id")
 
-	configFile, ok := options.GetMetadata(kubeconfig_file)
+	configFile, _ := options.GetMetadata(kubeconfig_file)
 	configEncoded, strOk := options.GetMetadata(encodedKubeConfig)
-
-	if !ok && !strOk {
-		return nil, errkit.New("no kubeconfig_file or kubeconfig_encoded  provided")
-	}
 	context, _ := options.GetMetadata("context")
 
 	var kubeConfig *rest.Config
@@ -111,19 +107,20 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	return finalList, nil
 }
 
+// buildConfigWithContext resolves the kubeconfig like kubectl when no path is
+// given: $KUBECONFIG, then ~/.kube/config, then the in-cluster service account.
 func buildConfigWithContext(context string, kubeconfigPath string) (*rest.Config, error) {
-	if context == "" {
-		kubeConfig, err := clientcmd.BuildConfigFromFlags("", kubeconfigPath)
-		if err != nil {
-			return kubeConfig, errkit.Wrap(err, "could not read kubeconfig file")
-		}
-		return kubeConfig, nil
-	}
-	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		&clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath},
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	loadingRules.ExplicitPath = kubeconfigPath
+	kubeConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		loadingRules,
 		&clientcmd.ConfigOverrides{
 			CurrentContext: context,
 		}).ClientConfig()
+	if err != nil {
+		return nil, errkit.Wrap(err, "could not read kubeconfig file")
+	}
+	return kubeConfig, nil
 }
 
 func buildConfigFromStr(contextName string, config []byte) (*rest.Config, error) {
