@@ -46,3 +46,32 @@ func TestNewInventoryFailsFastWithoutAutoDiscovery(t *testing.T) {
 	})
 	require.Error(t, err)
 }
+
+func TestAutoDiscoveryKubernetesUsesDefaultKubeconfig(t *testing.T) {
+	kubeconfig := filepath.Join(t.TempDir(), "config")
+	require.NoError(t, os.WriteFile(kubeconfig, []byte(`apiVersion: v1
+kind: Config
+clusters:
+- name: test
+  cluster:
+    server: https://k8s.example.test:6443
+contexts:
+- name: test
+  context:
+    cluster: test
+current-context: test
+`), 0o600))
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+	t.Setenv("KUBECONFIG", kubeconfig)
+
+	var kubernetes schema.Options
+	for _, block := range autoDiscoveryConfig() {
+		if block["provider"] == "kubernetes" {
+			kubernetes = append(kubernetes, block)
+		}
+	}
+	r := &Runner{options: &Options{AutoDiscovery: true}}
+	inv, err := r.newInventory(kubernetes)
+	require.NoError(t, err)
+	require.Len(t, inv.Providers, 1)
+}

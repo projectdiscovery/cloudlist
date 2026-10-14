@@ -588,7 +588,7 @@ References -
 
 ### Kubernetes
 
-To integrate Kubernetes, utilize the configuration block outlined below. This block allows you to specify Kubernetes connection details either through a file path or directly by providing the encoded kubeconfig content. If both kubeconfig_file and kubeconfig_encoded are specified, the kubeconfig_encoded will take precedence. If neither is specified, the kubeconfig is resolved like kubectl: `$KUBECONFIG`, then `~/.kube/config`, then the in-cluster service account.
+To integrate Kubernetes, utilize the configuration block outlined below. This block allows you to specify Kubernetes connection details either through a file path or directly by providing the encoded kubeconfig content. If both kubeconfig_file and kubeconfig_encoded are specified, the kubeconfig_encoded will take precedence. If neither is specified, the block fails unless `use_default_kubeconfig: true` is set, which resolves the kubeconfig like kubectl: `$KUBECONFIG` if set, otherwise `~/.kube/config`, otherwise the in-cluster service account.
 
 
 ```yaml
@@ -600,6 +600,8 @@ To integrate Kubernetes, utilize the configuration block outlined below. This bl
   kubeconfig_file: path/to/kubeconfig
   # Base64 encoded kubeconfig, $ cat $KUBECONFIG | base64
   kubeconfig_encoded: <encoded-kubeconfig>
+  # Use the default kubeconfig lookup when neither kubeconfig_file nor kubeconfig_encoded is set (optional).
+  use_default_kubeconfig: true
   # The context to use from the kubeconfig (optional). If omitted, the default is the current-context as defined in the kubeconfig.
   context: <context-name>  
 ```

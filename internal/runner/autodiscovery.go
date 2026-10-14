@@ -16,7 +16,11 @@ var autoDiscoveryProviders = []string{"aws", "gcp", "azure", "kubernetes"}
 func autoDiscoveryConfig() schema.Options {
 	config := make(schema.Options, 0, len(autoDiscoveryProviders))
 	for _, provider := range autoDiscoveryProviders {
-		config = append(config, schema.OptionBlock{"provider": provider})
+		block := schema.OptionBlock{"provider": provider}
+		if provider == "kubernetes" {
+			block["use_default_kubeconfig"] = "true"
+		}
+		config = append(config, block)
 	}
 	return config
 }
