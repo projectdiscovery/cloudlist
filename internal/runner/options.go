@@ -123,7 +123,9 @@ func ParseOptions() *Options {
 		}
 	}
 
-	checkAndCreateProviderConfigFile(options)
+	if !options.AutoDiscovery {
+		checkAndCreateProviderConfigFile(options)
+	}
 	return options
 }
 

@@ -9,7 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewInventorySkipsProvidersWithoutCredentials(t *testing.T) {
+func writeKubeconfig(t *testing.T) string {
+	t.Helper()
 	kubeconfig := filepath.Join(t.TempDir(), "config")
 	require.NoError(t, os.WriteFile(kubeconfig, []byte(`apiVersion: v1
 kind: Config
@@ -23,6 +24,11 @@ contexts:
     cluster: test
 current-context: test
 `), 0o600))
+	return kubeconfig
+}
+
+func TestNewInventorySkipsProvidersWithoutCredentials(t *testing.T) {
+	kubeconfig := writeKubeconfig(t)
 	r := &Runner{options: &Options{AutoDiscovery: true}}
 
 	inv, err := r.newInventory(schema.Options{
@@ -35,7 +41,15 @@ current-context: test
 	_, err = r.newInventory(schema.Options{
 		{"provider": "kubernetes", "kubeconfig_file": filepath.Join(t.TempDir(), "missing")},
 	})
-	require.EqualError(t, err, "no provider credentials found in the environment")
+	require.ErrorContains(t, err, "no provider could be initialized")
+	require.ErrorContains(t, err, "could not create provider kubernetes")
+}
+
+func TestNewInventoryWithoutMatchingProviders(t *testing.T) {
+	r := &Runner{options: &Options{AutoDiscovery: true}}
+
+	_, err := r.newInventory(schema.Options{})
+	require.ErrorContains(t, err, "no auto-discovery provider matches the -p/-id filters")
 }
 
 func TestNewInventoryFailsFastWithoutAutoDiscovery(t *testing.T) {
@@ -43,6 +57,7 @@ func TestNewInventoryFailsFastWithoutAutoDiscovery(t *testing.T) {
 
 	_, err := r.newInventory(schema.Options{
 		{"provider": "kubernetes", "kubeconfig_file": filepath.Join(t.TempDir(), "missing")},
+		{"provider": "kubernetes", "kubeconfig_file": writeKubeconfig(t)},
 	})
-	require.Error(t, err)
+	require.ErrorContains(t, err, "could not create provider kubernetes")
 }
