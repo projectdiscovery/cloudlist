@@ -164,7 +164,7 @@ See `docs/GCP_ASSET_API.md` for detailed implementation guide.
 
 - **lint-test.yml**: Runs `golangci-lint` on Go code changes
 - **build-test.yml**: Tests builds on Ubuntu, Windows, macOS with Go 1.22.x
-- **release-binary.yml**: Creates releases with GoReleaser
+- **release.yml**: Creates releases (binaries and Docker images) with GoReleaser
 
 ## Common Gotchas
 

@@ -31,12 +31,20 @@ func (cp *cloudfrontProvider) GetResource(ctx context.Context) (*schema.Resource
 	list := schema.NewResources()
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	var errs []error
 
 	for _, client := range cp.getCloudfrontClients() {
 		wg.Add(1)
 
 		go func(cloudfrontClient *cloudfront.CloudFront) {
 			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					mu.Lock()
+					errs = append(errs, fmt.Errorf("panic in cloudfront provider: %v", r))
+					mu.Unlock()
+				}
+			}()
 
 			if resources, err := cp.listCloudFrontResources(cloudfrontClient); err == nil {
 				mu.Lock()
@@ -46,6 +54,9 @@ func (cp *cloudfrontProvider) GetResource(ctx context.Context) (*schema.Resource
 		}(client)
 	}
 	wg.Wait()
+	if len(errs) > 0 && len(list.Items) == 0 {
+		return nil, fmt.Errorf("cloudfront: all workers failed: %v", errs)
+	}
 	return list, nil
 }
 

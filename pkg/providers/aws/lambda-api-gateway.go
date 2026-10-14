@@ -33,6 +33,7 @@ func (ap *lambdaAndapiGatewayProvider) GetResource(ctx context.Context) (*schema
 	list := schema.NewResources()
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	var errs []error
 
 	for _, region := range ap.regions.Regions {
 		apigatewayClients, apigatewayV2Clients, lambdaClients := ap.getApiGatewayAndLamdaClients(region.RegionName)
@@ -41,6 +42,13 @@ func (ap *lambdaAndapiGatewayProvider) GetResource(ctx context.Context) (*schema
 
 			go func(regionName string, gatewayClient *apigateway.APIGateway, gatewayV2Client *apigatewayv2.ApiGatewayV2, lambdaClient *lambda.Lambda) {
 				defer wg.Done()
+				defer func() {
+					if r := recover(); r != nil {
+						mu.Lock()
+						errs = append(errs, fmt.Errorf("panic in lambda-apigateway provider: %v", r))
+						mu.Unlock()
+					}
+				}()
 
 				resources := schema.NewResources()
 
@@ -66,6 +74,9 @@ func (ap *lambdaAndapiGatewayProvider) GetResource(ctx context.Context) (*schema
 		}
 	}
 	wg.Wait()
+	if len(errs) > 0 && len(list.Items) == 0 {
+		return nil, fmt.Errorf("lambda-apigateway: all workers failed: %v", errs)
+	}
 	return list, nil
 }
 

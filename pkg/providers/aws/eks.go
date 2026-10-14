@@ -39,12 +39,20 @@ func (ep *eksProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 	list := schema.NewResources()
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	var errs []error
 	for _, region := range ep.regions.Regions {
 		for _, eksClient := range ep.getEksClients(region.RegionName) {
 			wg.Add(1)
 
 			go func(client *eks.EKS) {
 				defer wg.Done()
+				defer func() {
+					if r := recover(); r != nil {
+						mu.Lock()
+						errs = append(errs, fmt.Errorf("panic in eks provider: %v", r))
+						mu.Unlock()
+					}
+				}()
 				if resources, err := ep.listEKSResources(client); err == nil {
 					mu.Lock()
 					list.Merge(resources)
@@ -54,6 +62,9 @@ func (ep *eksProvider) GetResource(ctx context.Context) (*schema.Resources, erro
 		}
 	}
 	wg.Wait()
+	if len(errs) > 0 && len(list.Items) == 0 {
+		return nil, fmt.Errorf("eks: all workers failed: %v", errs)
+	}
 	return list, nil
 }
 

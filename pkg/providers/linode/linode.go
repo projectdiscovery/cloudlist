@@ -3,14 +3,13 @@ package linode
 import (
 	"context"
 	"net/http"
-	"strings"
 
 	"github.com/linode/linodego"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 	"golang.org/x/oauth2"
 )
 
-var Services = []string{"instance"}
+var Services = []string{"instance", "nodebalancer", "ip", "lke"}
 
 const (
 	apiKey       = "linode_personal_access_token"
@@ -42,23 +41,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 
 	client := linodego.NewClient(oc)
 
-	supportedServicesMap := make(map[string]struct{})
-	for _, s := range Services {
-		supportedServicesMap[s] = struct{}{}
-	}
-	services := make(schema.ServiceMap)
-	if ss, ok := options.GetMetadata("services"); ok {
-		for _, s := range strings.Split(ss, ",") {
-			if _, ok := supportedServicesMap[s]; ok {
-				services[s] = struct{}{}
-			}
-		}
-	}
-	if len(services) == 0 {
-		for _, s := range Services {
-			services[s] = struct{}{}
-		}
-	}
+	services := options.ResolveServices(Services)
 	return &Provider{id: id, client: &client, services: services}, nil
 }
 
@@ -80,9 +63,20 @@ func (p *Provider) Services() []string {
 // Resources returns the provider for an resource deployment source.
 func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	finalResources := schema.NewResources()
-	if p.services.Has("instance") {
-		provider := &instanceProvider{client: p.client, id: p.id}
-		if resources, err := provider.GetResource(ctx); err == nil {
+	providers := map[string]interface {
+		GetResource(ctx context.Context) (*schema.Resources, error)
+	}{
+		"instance":     &instanceProvider{client: p.client, id: p.id},
+		"nodebalancer": &nodeBalancerProvider{client: p.client, id: p.id},
+		"ip":           &ipProvider{client: p.client, id: p.id},
+		"lke":          &lkeProvider{client: p.client, id: p.id},
+	}
+	// Iterate Services, not the map, so output order stays deterministic.
+	for _, service := range Services {
+		if !p.services.Has(service) {
+			continue
+		}
+		if resources, err := providers[service].GetResource(ctx); err == nil {
 			finalResources.Merge(resources)
 		}
 	}

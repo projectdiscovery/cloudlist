@@ -2,7 +2,7 @@ package cloudflare
 
 import (
 	"context"
-	"strings"
+	"fmt"
 
 	"github.com/cloudflare/cloudflare-go"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
@@ -23,24 +23,7 @@ type Provider struct {
 func New(options schema.OptionBlock) (*Provider, error) {
 	id, _ := options.GetMetadata("id")
 
-	supportedServicesMap := make(map[string]struct{})
-	for _, s := range Services {
-		supportedServicesMap[s] = struct{}{}
-	}
-
-	services := make(schema.ServiceMap)
-	if ss, ok := options.GetMetadata("services"); ok {
-		for _, s := range strings.Split(ss, ",") {
-			if _, ok := supportedServicesMap[s]; ok {
-				services[s] = struct{}{}
-			}
-		}
-	}
-	if len(services) == 0 {
-		for _, s := range Services {
-			services[s] = struct{}{}
-		}
-	}
+	services := options.ResolveServices(Services)
 
 	// Parse extended metadata option
 	extendedMetadata := false
@@ -95,6 +78,34 @@ func (p *Provider) ID() string {
 // Services returns the provider services
 func (p *Provider) Services() []string {
 	return p.services.Keys()
+}
+
+// Verify checks if the provider credentials are valid using minimal API calls.
+func (p *Provider) Verify(ctx context.Context) error {
+	if !p.services.Has("dns") {
+		return nil
+	}
+
+	zones, err := p.client.ListZones(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to verify Cloudflare zone access: %w", err)
+	}
+
+	if len(zones) == 0 {
+		return fmt.Errorf("no accessible Cloudflare zones found with provided credentials")
+	}
+
+	_, _, err = p.client.ListDNSRecords(ctx, cloudflare.ZoneIdentifier(zones[0].ID), cloudflare.ListDNSRecordsParams{
+		ResultInfo: cloudflare.ResultInfo{
+			Page:    1,
+			PerPage: 1,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to verify Cloudflare DNS access for zone %s: %w", zones[0].Name, err)
+	}
+
+	return nil
 }
 
 // Resources returns the provider for an resource deployment source.

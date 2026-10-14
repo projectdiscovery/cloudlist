@@ -1,5 +1,20 @@
 # Providers
 
+## Service filtering
+
+Every provider enumerates all of its supported services by default. Two optional, additive keys narrow that set (also available on the CLI as `-s`/`--service` and `-es`/`--exclude-service`):
+
+- `services` (list): allowlist. Only the listed services are enumerated. Unknown values are ignored.
+- `exclude_services` (list): blocklist applied after `services` (or after the default-all set when `services` is omitted). Unknown values are ignored.
+
+```yaml
+- provider: gcp
+  exclude_services:
+    - cloud-function
+  project_ids:
+    - my-project
+```
+
 ### Amazon Web Services (AWS)
 
 Amazon Web Services can be integrated by using the following configuration block.
@@ -9,9 +24,9 @@ Amazon Web Services can be integrated by using the following configuration block
   provider: aws
   # id is the name defined by user for filtering (optional)
   id: staging
-  # aws_access_key is the access key for AWS account
+  # aws_access_key is the access key for AWS account (optional - see "Keyless Authentication" below)
   aws_access_key: $AWS_ACCESS_KEY
-  # aws_secret_key is the secret key for AWS account
+  # aws_secret_key is the secret key for AWS account (optional - see "Keyless Authentication" below)
   aws_secret_key: $AWS_SECRET_KEY
   # aws_session_token session token for temporary security credentials retrieved via STS (optional)
   aws_session_token: $AWS_SESSION_TOKEN
@@ -30,6 +45,24 @@ Amazon Web Services can be integrated by using the following configuration block
 ```
 
 `aws_access_key` and `aws_secret_key` can be generated in the IAM console. We recommend creating a new IAM user with `Read Only` permissions and providing the access token for the user.
+
+#### Keyless Authentication (IRSA / Instance Profile / Environment)
+
+`aws_access_key` and `aws_secret_key` are **optional**. When both are omitted from the config, the provider falls back to the AWS SDK default credential chain, so no secrets need to be injected into the config file. To use keyless mode, leave the keys out entirely (an `aws_access_key: $UNSET_ENV_VAR` whose environment variable is unset is treated as a literal value, not as keyless). This enables:
+
+- **IRSA (IAM Roles for Service Accounts)** on EKS — credentials are picked up automatically from the `AWS_WEB_IDENTITY_TOKEN_FILE` and `AWS_ROLE_ARN` environment variables injected by the pod identity webhook.
+- **EC2 / ECS instance profiles** — credentials are resolved from the instance/task metadata endpoint.
+- **Environment variables** — `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`.
+- **Shared config / profile** — `~/.aws/credentials` and `~/.aws/config`.
+
+```yaml
+# Zero-key config relying on IRSA / instance profile / environment
+- provider: aws
+  id: keyless-discovery
+  # no aws_access_key / aws_secret_key — credentials resolved by the SDK default chain
+```
+
+> Note: if you provide one of `aws_access_key` / `aws_secret_key`, you must provide both. `assume_role_arn`, `assume_role_name` and `org_discovery_role_arn` all work on top of keyless base credentials too.
 
 Scopes Required - 
 1. EC2
@@ -152,6 +185,8 @@ Google Cloud Platform supports **two discovery approaches** and **two authentica
 - `service_account_email` (string, required if short-lived): Target service account to impersonate
 - `source_credentials` (string, optional): Path to source credentials file (uses ADC if not provided)
 - `token_lifetime` (string, optional): Token lifetime in seconds (e.g., "3600s") or Go duration format (e.g., "1h"). Range: 1s to 3600s (1 hour). Default: "3600s"
+- `project_ids` (list, optional): Comma-separated/list of project IDs to enumerate. When provided, Cloudlist skips discovery in every other accessible project, both for individual APIs and the organization-level Asset API.
+- `exclude_project_ids` (list, optional): Comma-separated/list of project IDs to exclude from organization-wide discovery. Requires `organization_id`. Mutually exclusive with `project_ids`. When provided, Cloudlist discovers all projects in the organization and skips the excluded ones, using per-project Asset API calls for the remaining projects.
 
 ---
 
@@ -191,7 +226,26 @@ Google Cloud Platform supports **two discovery approaches** and **two authentica
   use_short_lived_credentials: true
   service_account_email: "asset-viewer-sa@project.iam.gserviceaccount.com"
   token_lifetime: "7200s"  # 2 hours
+  project_ids:
+    - security-core
+    - shared-infra
 ```
+
+Add `project_ids` to either configuration style to limit enumeration strictly to the listed projects (Cloud Asset API requests are filtered too), which is helpful for large organizations or delegated-access service accounts.
+
+**Excluding Projects:**
+
+```yaml
+- provider: gcp
+  organization_id: "123456789012"
+  gcp_service_account_key: '$GCP_SA_KEY'
+  exclude_project_ids:
+    - sandbox-project
+    - legacy-app
+    - test-environment
+```
+
+Use `exclude_project_ids` to scan all projects in an organization except the listed ones. This is useful when only a few projects need to be excluded from a large organization.
 
 **Required Organization-Level Roles:**
 1. `roles/cloudasset.viewer` - Core Asset API access
@@ -262,7 +316,9 @@ Digitalocean can be integrated by using the following configuration block.
   digitalocean_token: $DIGITALOCEAN_TOKEN
 ```
 
-`digitalocean_token` can be generated from the Digitalocean Control Panel. We recommend only giving Read Access to the token.
+`digitalocean_token` can be generated from the Digitalocean Control Panel. We recommend only giving Read Access to the token. With custom scopes, the token needs `droplet:read`, `app:read`, `reserved_ip:read`, `load_balancer:read` and `kubernetes:read`. Services the token cannot read are skipped with a warning.
+
+Supported services: `droplet` (alias `instance`), `app`, `reservedip` (reserved IPv4 and IPv6, including unassigned ones), `loadbalancer`, `kubernetes` (DOKS control plane endpoints).
 
 References - 
 1. https://www.digitalocean.com/docs/apis-clis/api/create-personal-access-token/
@@ -386,7 +442,7 @@ Linode can be integrated by using the following configuration block.
  linode_personal_access_token: $LINODE_PERSONAL_ACCESS_TOKEN
 ```
 
-`linode_personal_access_token` can be created from https://cloud.linode.com/id/tokens. Minimum scope needed is `Read Only` for `Linodes` resource.
+`linode_personal_access_token` can be created from https://cloud.linode.com/id/tokens. Minimum scope needed is `Read Only` for the `Linodes`, `NodeBalancers`, `IPs` and `Kubernetes` resources.
 
 References - 
 1. https://www.linode.com/docs/guides/getting-started-with-the-linode-api/#get-an-access-token
@@ -436,6 +492,8 @@ Alibaba Cloud can be integrated by using the following configuration block.
 ```
 
 Alibaba Cloud Access Key ID and Secret can be created by visiting https://ram.console.aliyun.com/manage/ak
+
+Supported services: `instance` (ECS), `slb` (Classic Load Balancer), `alb` (Application Load Balancer), `eip` (Elastic IP), `ack` (Container Service for Kubernetes API server endpoints). The RAM user needs read-only access to each of them, e.g. the `AliyunECSReadOnlyAccess`, `AliyunSLBReadOnlyAccess`, `AliyunALBReadOnlyAccess`, `AliyunVPCReadOnlyAccess` and `AliyunCSReadOnlyAccess` system policies.
 
 
 References - 
@@ -530,7 +588,7 @@ References -
 
 ### Kubernetes
 
-To integrate Kubernetes, utilize the configuration block outlined below. This block allows you to specify Kubernetes connection details either through a file path or directly by providing the encoded kubeconfig content. If both kubeconfig_file and kubeconfig_encoded are specified, the kubeconfig_encoded will take precedence.
+To integrate Kubernetes, utilize the configuration block outlined below. This block allows you to specify Kubernetes connection details either through a file path or directly by providing the encoded kubeconfig content. If both kubeconfig_file and kubeconfig_encoded are specified, the kubeconfig_encoded will take precedence. If neither is specified, the kubeconfig is resolved like kubectl: `$KUBECONFIG`, then `~/.kube/config`, then the in-cluster service account.
 
 
 ```yaml
@@ -538,7 +596,7 @@ To integrate Kubernetes, utilize the configuration block outlined below. This bl
   provider: kubernetes
   # User-defined identifier for filtering (optional).
   id: staging
-  # Path to the kubeconfig file.
+  # Path to the kubeconfig file (optional).
   kubeconfig_file: path/to/kubeconfig
   # Base64 encoded kubeconfig, $ cat $KUBECONFIG | base64
   kubeconfig_encoded: <encoded-kubeconfig>
@@ -570,3 +628,32 @@ The `dnssimple_api_token` can be generated from the DNSSimple account settings u
 References - 
 1. https://developer.dnsimple.com/v2/
 2. https://support.dnsimple.com/articles/api-access-token/
+
+### OVH
+
+Cloudlist supports fetching DNS records from OVH.
+
+- **Provider key**: `ovh`
+- **Services**: `dns`
+- **id**: An arbitrary label you choose to tag resources. It helps distinguish multiple OVH accounts/configs.
+- **Required auth**:
+  - `application_key`
+  - `application_secret`
+  - `consumer_key`
+- **Endpoint**: OVH API endpoint. Defaults to `ovh-eu` if omitted. Common values: `ovh-eu`, `ovh-ca`, `ovh-us`.
+
+Configuration example (from `ovh.yaml`):
+
+```yaml
+- provider: ovh
+  id: ovh-prod
+  endpoint: ovh-ca
+  application_key: $OVH_APP_KEY
+  application_secret: $OVH_APP_SECRET
+  consumer_key: $OVH_CONSUMER_KEY
+```
+
+References - 
+1. https://eu.api.ovh.com/console/?section=%2Fdomain&branch=v1
+2. https://api.ovh.com/createToken/
+3. https://help.ovhcloud.com/csm/en-gb-api-getting-started-ovhcloud-api

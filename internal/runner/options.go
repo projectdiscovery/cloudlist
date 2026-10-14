@@ -25,22 +25,24 @@ type Options struct {
 	Version            bool                // Version returns the version of the tool.
 	Verbose            bool                // Verbose prints verbose output.
 	Hosts              bool                // Hosts specifies to fetch only DNS Names
-	IPAddress          bool                // IPAddress specifes to fetch only IP Addresses
+	IPAddress          bool                // IPAddress specifies to fetch only IP Addresses
 	Config             string              // Config is the location of the config file.
 	Output             string              // Output is the file to write found results too.
 	ExcludePrivate     bool                // ExcludePrivate excludes private IPs from results
 	Providers          goflags.StringSlice // Providers specifies what providers to fetch assets for.
 	Id                 goflags.StringSlice // Id specifies what id's to fetch assets for.
 	Services           goflags.StringSlice // Services specifies what services to fetch assets for a provider.
+	ExcludeServices    goflags.StringSlice // ExcludeServices specifies what services to skip for a provider.
 	ExtendedMetadata   bool                // ExtendedMetadata enables extended metadata for providers.
 	ProviderConfig     string              // ProviderConfig is the location of the provider config file.
 	DisableUpdateCheck bool                // DisableUpdateCheck disable automatic update check
+	AutoDiscovery      bool                // AutoDiscovery discovers providers from environment credentials instead of the provider config.
 }
 
 var (
 	defaultConfigLocation             = filepath.Join(userHomeDir(), ".config/cloudlist/config.yaml")
 	defaultProviderConfigLocation     = filepath.Join(userHomeDir(), ".config/cloudlist/provider-config.yaml")
-	defaultProviders, defaultServies  = []string{}, []string{}
+	defaultProviders, defaultServices = []string{}, []string{}
 	allowedProviders, allowedServices = []string{}, []string{}
 )
 
@@ -51,7 +53,7 @@ func init() {
 	}
 
 	for _, service := range inventory.GetServices() {
-		defaultServies = append(defaultServies, service)
+		defaultServices = append(defaultServices, service)
 		allowedServices = append(allowedServices, service)
 	}
 }
@@ -77,6 +79,7 @@ func ParseOptions() *Options {
 	flagSet.CreateGroup("config", "Configuration",
 		flagSet.StringVar(&options.Config, "config", defaultConfigLocation, "cloudlist flag config file"),
 		flagSet.StringVarP(&options.ProviderConfig, "provider-config", "pc", defaultProviderConfigLocation, "provider config file"),
+		flagSet.BoolVarP(&options.AutoDiscovery, "auto-discovery", "ad", false, "discover providers from environment credentials (aws, gcp, azure, kubernetes) instead of the provider config"),
 	)
 	flagSet.CreateGroup("filter", "Filters",
 		flagSet.StringSliceVarP(&options.Providers, "provider", "p", nil, "display results for given providers (comma-separated) (default "+strings.Join(defaultProviders, ",")+")", goflags.CommaSeparatedStringSliceOptions),
@@ -84,7 +87,8 @@ func ParseOptions() *Options {
 		flagSet.BoolVar(&options.Hosts, "host", false, "display only hostnames in results"),
 		flagSet.BoolVar(&options.IPAddress, "ip", false, "display only ips in results"),
 		flagSet.BoolVar(&options.ExtendedMetadata, "extended-metadata", false, "enable extended metadata for providers"),
-		flagSet.StringSliceVarP(&options.Services, "service", "s", nil, "query and display results from given service (comma-separated)) (default "+strings.Join(defaultServies, ",")+")", goflags.CommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.Services, "service", "s", nil, "query and display results from given service (comma-separated) (default "+strings.Join(defaultServices, ",")+")", goflags.CommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&options.ExcludeServices, "exclude-service", "es", nil, "services to skip for a provider (comma-separated)", goflags.CommaSeparatedStringSliceOptions),
 		flagSet.BoolVarP(&options.ExcludePrivate, "exclude-private", "ep", false, "exclude private ips in cli output"),
 	)
 	flagSet.CreateGroup("update", "Update",

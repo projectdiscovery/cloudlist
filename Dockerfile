@@ -1,15 +1,15 @@
-# Base
-FROM golang:1.24-alpine AS builder
-RUN apk add --no-cache build-base
-WORKDIR /app
-COPY . /app
-RUN go mod download
-RUN go build ./cmd/cloudlist
+FROM alpine:latest
 
-# Release
-FROM alpine:3.23
+LABEL org.opencontainers.image.authors="ProjectDiscovery"
+LABEL org.opencontainers.image.description="Cloudlist is a multi-cloud tool for getting Assets from Cloud Providers."
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.title="cloudlist"
+LABEL org.opencontainers.image.url="https://github.com/projectdiscovery/cloudlist"
+
 RUN apk -U upgrade --no-cache \
     && apk add --no-cache bind-tools ca-certificates
-COPY --from=builder /app/cloudlist /usr/local/bin/
+
+ARG TARGETPLATFORM
+COPY $TARGETPLATFORM/cloudlist /usr/local/bin/
 
 ENTRYPOINT ["cloudlist"]

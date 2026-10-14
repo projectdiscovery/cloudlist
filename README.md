@@ -38,6 +38,7 @@ Cloudlist is a multi-cloud tool for getting Assets from Cloud Providers. This is
 
  - List Cloud assets with multiple configurations
  - Multiple Cloud providers support
+ - Keyless authentication support (AWS IRSA / instance profiles, GCP workload identity)
  - Multiple output format support
  - Multiple filters support
  - Highly extensible making adding new providers a breeze
@@ -61,14 +62,16 @@ Flags:
 CONFIGURATION:
    -config string                cloudlist flag config file (default "$HOME/.config/cloudlist/config.yaml")
    -pc, -provider-config string  provider config file (default "$HOME/.config/cloudlist/provider-config.yaml")
+   -ad, -auto-discovery          discover providers from environment credentials (aws, gcp, azure, kubernetes) instead of the provider config
 
 FILTERS:
-   -p, -provider value    display results for given providers (comma-separated) (default linode,fastly,heroku,terraform,digitalocean,consul,cloudflare,hetzner,nomad,do,scw,openstack,alibaba,aws,gcp,namecheap,kubernetes,azure, custom)
-   -id string[]           display results for given ids (comma-separated)
-   -host                  display only hostnames in results
-   -ip                    display only ips in results
-   -s, -service value     query and display results from given service (comma-separated)) (default cloudfront,gke,domain,compute,ec2,instance,cloud-function,app,eks,custom,consul,droplet,vm,ecs,fastly,alb,s3,lambda,elb,cloud-run,route53,publicip,dns,service,nomad,lightsail,ingress,apigateway)
-   -ep, -exclude-private  exclude private ips in cli output
+   -p, -provider value          display results for given providers (comma-separated) (default linode,fastly,heroku,terraform,digitalocean,consul,cloudflare,hetzner,nomad,do,scw,openstack,alibaba,aws,gcp,namecheap,kubernetes,azure, custom)
+   -id string[]                 display results for given ids (comma-separated)
+   -host                        display only hostnames in results
+   -ip                          display only ips in results
+   -s, -service value           query and display results from given service (comma-separated) (default cloudfront,gke,domain,compute,ec2,instance,cloud-function,app,eks,custom,consul,droplet,vm,ecs,fastly,alb,s3,lambda,elb,cloud-run,route53,publicip,dns,service,nomad,lightsail,ingress,apigateway)
+   -es, -exclude-service value  services to skip for a provider (comma-separated)
+   -ep, -exclude-private        exclude private ips in cli output
 
 UPDATE:
    -up, -update                 update cloudlist to latest version

@@ -2,13 +2,13 @@ package digitalocean
 
 import (
 	"context"
-	"strings"
 
 	"github.com/digitalocean/godo"
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/projectdiscovery/gologger"
 )
 
-var Services = []string{"droplet", "app", "instance"}
+var Services = []string{"droplet", "app", "instance", "reservedip", "loadbalancer", "kubernetes"}
 
 // Provider is a data provider for digitalocean API
 type Provider struct {
@@ -26,23 +26,7 @@ func New(options schema.OptionBlock) (*Provider, error) {
 	}
 	id, _ := options.GetMetadata("id")
 
-	supportedServicesMap := make(map[string]struct{})
-	for _, s := range Services {
-		supportedServicesMap[s] = struct{}{}
-	}
-	services := make(schema.ServiceMap)
-	if ss, ok := options.GetMetadata("services"); ok {
-		for _, s := range strings.Split(ss, ",") {
-			if _, ok := supportedServicesMap[s]; ok {
-				services[s] = struct{}{}
-			}
-		}
-	}
-	if len(services) == 0 {
-		for _, s := range Services {
-			services[s] = struct{}{}
-		}
-	}
+	services := options.ResolveServices(Services)
 
 	// Check for extended metadata option
 	extendedMetadata := false
@@ -105,6 +89,53 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 			return nil, err
 		}
 		finalResources.Merge(apps)
+	}
+
+	// Newer services only warn on failure so a token scoped to the original
+	// services (droplet, app) keeps working after upgrade.
+	if p.services.Has("reservedip") {
+		reservedipprovider := &reservedIPProvider{
+			client:           p.client,
+			id:               p.id,
+			extendedMetadata: p.extendedMetadata,
+		}
+		reservedIPs, err := reservedipprovider.GetResource(ctx)
+		if reservedIPs != nil {
+			finalResources.Merge(reservedIPs)
+		}
+		if err != nil {
+			gologger.Warning().Msgf("digitalocean: could not list reserved ips: %s", err)
+		}
+	}
+
+	if p.services.Has("loadbalancer") {
+		loadbalancerprovider := &loadBalancerProvider{
+			client:           p.client,
+			id:               p.id,
+			extendedMetadata: p.extendedMetadata,
+		}
+		loadBalancers, err := loadbalancerprovider.GetResource(ctx)
+		if loadBalancers != nil {
+			finalResources.Merge(loadBalancers)
+		}
+		if err != nil {
+			gologger.Warning().Msgf("digitalocean: could not list load balancers: %s", err)
+		}
+	}
+
+	if p.services.Has("kubernetes") {
+		kubernetesprovider := &kubernetesProvider{
+			client:           p.client,
+			id:               p.id,
+			extendedMetadata: p.extendedMetadata,
+		}
+		clusters, err := kubernetesprovider.GetResource(ctx)
+		if clusters != nil {
+			finalResources.Merge(clusters)
+		}
+		if err != nil {
+			gologger.Warning().Msgf("digitalocean: could not list kubernetes clusters: %s", err)
+		}
 	}
 
 	return finalResources, nil

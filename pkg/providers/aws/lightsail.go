@@ -31,6 +31,7 @@ func (l *lightsailProvider) GetResource(ctx context.Context) (*schema.Resources,
 	list := schema.NewResources()
 	var wg sync.WaitGroup
 	var mu sync.Mutex
+	var errs []error
 
 	for _, region := range l.regions {
 		for _, lsClient := range l.getLightsailClients(region.Name) {
@@ -38,6 +39,13 @@ func (l *lightsailProvider) GetResource(ctx context.Context) (*schema.Resources,
 
 			go func(client *lightsail.Lightsail) {
 				defer wg.Done()
+				defer func() {
+					if r := recover(); r != nil {
+						mu.Lock()
+						errs = append(errs, fmt.Errorf("panic in lightsail provider: %v", r))
+						mu.Unlock()
+					}
+				}()
 
 				if resources, err := l.listListsailResources(client); err == nil {
 					mu.Lock()
@@ -48,6 +56,9 @@ func (l *lightsailProvider) GetResource(ctx context.Context) (*schema.Resources,
 		}
 	}
 	wg.Wait()
+	if len(errs) > 0 && len(list.Items) == 0 {
+		return nil, fmt.Errorf("lightsail: all workers failed: %v", errs)
+	}
 	return list, nil
 }
 
