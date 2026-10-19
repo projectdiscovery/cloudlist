@@ -179,8 +179,8 @@ require (
 	github.com/alitto/pond/v2 v2.3.2
 	github.com/dnsimple/dnsimple-go v1.7.0
 	github.com/ovh/go-ovh v1.9.0
-	github.com/projectdiscovery/networkpolicy v0.1.52
-	github.com/projectdiscovery/retryablehttp-go v1.3.29
+	github.com/projectdiscovery/networkpolicy v0.1.55
+	github.com/projectdiscovery/retryablehttp-go v1.3.31
 )
 
 require (
@@ -204,7 +204,7 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/ebitengine/purego v0.10.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/gaissmai/bart v0.29.1 // indirect
+	github.com/gaissmai/bart v0.30.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
@@ -213,7 +213,7 @@ require (
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/logrusorgru/aurora/v4 v4.0.0 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
-	github.com/projectdiscovery/fastdialer v0.5.23 // indirect
+	github.com/projectdiscovery/fastdialer v0.5.24 // indirect
 	github.com/projectdiscovery/hmap v0.0.102 // indirect
 	github.com/projectdiscovery/retryabledns v1.0.116 // indirect
 	github.com/refraction-networking/utls v1.8.2 // indirect
