@@ -1,6 +1,6 @@
 module github.com/projectdiscovery/cloudlist
 
-go 1.26.0
+go 1.26.10
 
 require (
 	git.arvancloud.ir/arvancloud/cdn-go-sdk v0.12.1
