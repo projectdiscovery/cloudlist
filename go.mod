@@ -120,7 +120,7 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.16 // indirect
 	github.com/tklauser/numcpus v0.11.0 // indirect
-	github.com/weppos/publicsuffix-go v0.50.4-0.20260821095816-b0fdb5c2d345 // indirect
+	github.com/weppos/publicsuffix-go v0.50.4-0.20260918082853-3c3d7dc4a0cb // indirect
 	github.com/yuin/goldmark v1.7.4 // indirect
 	github.com/yuin/goldmark-emoji v1.0.3 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
@@ -226,7 +226,7 @@ require (
 	github.com/tidwall/grect v0.1.4 // indirect
 	github.com/tidwall/rtred v0.1.2 // indirect
 	github.com/tidwall/tinyqueue v0.1.1 // indirect
-	github.com/zmap/zcrypto v0.0.0-20260906180147-3ed30b1e9340 // indirect
+	github.com/zmap/zcrypto v0.0.0-20261015050653-aa1de3126e87 // indirect
 	go.etcd.io/bbolt v1.3.7 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.61.0 // indirect
