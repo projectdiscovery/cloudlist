@@ -24,16 +24,22 @@ type Provider struct {
 }
 
 const (
-	kubeconfig_file   = "kubeconfig_file"
-	encodedKubeConfig = "kubeconfig_encoded"
-	providerName      = "kubernetes"
+	kubeconfig_file      = "kubeconfig_file"
+	encodedKubeConfig    = "kubeconfig_encoded"
+	useDefaultKubeconfig = "use_default_kubeconfig"
+	providerName         = "kubernetes"
 )
 
 func New(options schema.OptionBlock) (*Provider, error) {
 	id, _ := options.GetMetadata("id")
 
-	configFile, _ := options.GetMetadata(kubeconfig_file)
+	configFile, fileOk := options.GetMetadata(kubeconfig_file)
 	configEncoded, strOk := options.GetMetadata(encodedKubeConfig)
+	// Falling back to the ambient kubeconfig must be explicit, otherwise an
+	// incomplete block silently enumerates whatever cluster the host can reach.
+	if useDefault, _ := options.GetMetadata(useDefaultKubeconfig); !fileOk && !strOk && useDefault != "true" {
+		return nil, errkit.New("no kubeconfig_file or kubeconfig_encoded provided, set use_default_kubeconfig to use the default kubeconfig")
+	}
 	context, _ := options.GetMetadata("context")
 
 	var kubeConfig *rest.Config
@@ -107,16 +113,24 @@ func (p *Provider) Resources(ctx context.Context) (*schema.Resources, error) {
 	return finalList, nil
 }
 
-// buildConfigWithContext resolves the kubeconfig like kubectl when no path is
-// given: $KUBECONFIG, then ~/.kube/config, then the in-cluster service account.
+// buildConfigWithContext loads only kubeconfigPath when set. Without a path it
+// resolves like kubectl: $KUBECONFIG if set, otherwise ~/.kube/config,
+// otherwise the in-cluster service account.
 func buildConfigWithContext(context string, kubeconfigPath string) (*rest.Config, error) {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	loadingRules.ExplicitPath = kubeconfigPath
+	loadingRules := &clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfigPath}
+	if kubeconfigPath == "" {
+		loadingRules = clientcmd.NewDefaultClientConfigLoadingRules()
+		// The legacy ~/.kube/.kubeconfig migration writes to the home directory.
+		loadingRules.MigrationRules = nil
+	}
 	kubeConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		loadingRules,
 		&clientcmd.ConfigOverrides{
 			CurrentContext: context,
 		}).ClientConfig()
+	if kubeconfigPath == "" && clientcmd.IsEmptyConfig(err) {
+		return nil, errkit.New("no kubeconfig found in $KUBECONFIG, ~/.kube/config or the in-cluster service account")
+	}
 	if err != nil {
 		return nil, errkit.Wrap(err, "could not read kubeconfig file")
 	}

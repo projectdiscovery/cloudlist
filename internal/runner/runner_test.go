@@ -1,9 +1,11 @@
 package runner
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSanitizePrivateIPs(t *testing.T) {
@@ -55,4 +57,15 @@ func TestSanitizePrivateIPsOnMisclassifiedFields(t *testing.T) {
 	if resource.PublicIPv4 == "" || resource.PublicIPv6 == "" {
 		t.Fatalf("expected public addresses to remain when exclusion enabled")
 	}
+}
+
+func TestNewWithAutoDiscoveryIgnoresProviderConfig(t *testing.T) {
+	r, err := New(&Options{AutoDiscovery: true, ProviderConfig: filepath.Join(t.TempDir(), "missing.yaml")})
+	require.NoError(t, err)
+
+	var providers []string
+	for _, block := range r.config {
+		providers = append(providers, block["provider"])
+	}
+	require.Equal(t, autoDiscoveryProviders, providers)
 }
