@@ -8,6 +8,9 @@ import (
 	"github.com/projectdiscovery/cloudlist/pkg/schema"
 )
 
+// perPage is the maximum page size allowed by the DNSimple API.
+const perPage = 100
+
 // dnsProvider handles DNS records for DNSSimple
 type dnsProvider struct {
 	id      string
@@ -23,23 +26,20 @@ func (d *dnsProvider) name() string {
 func (d *dnsProvider) GetResource(ctx context.Context) (*schema.Resources, error) {
 	list := schema.NewResources()
 
-	// List all domains - using DomainListOptions instead of ListOptions
-	domainOptions := &dnsimple.DomainListOptions{}
-	domains, err := d.client.Domains.ListDomains(ctx, d.account, domainOptions)
+	domains, err := d.listDomains(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	// For each domain, get its zone records
-	recordOptions := &dnsimple.ZoneRecordListOptions{}
-	for _, domain := range domains.Data {
-		zoneRecords, err := d.client.Zones.ListRecords(ctx, d.account, domain.Name, recordOptions)
+	for _, domain := range domains {
+		zoneRecords, err := d.listRecords(ctx, domain.Name)
 		if err != nil {
 			log.Printf("Could not get records for domain %s: %s\n", domain.Name, err)
 			continue
 		}
 
-		for _, record := range zoneRecords.Data {
+		for _, record := range zoneRecords {
 			// Skip irrelevant record types
 			if record.Type != "A" && record.Type != "CNAME" && record.Type != "AAAA" {
 				continue
@@ -74,4 +74,40 @@ func (d *dnsProvider) GetResource(ctx context.Context) (*schema.Resources, error
 	}
 
 	return list, nil
+}
+
+// listDomains returns the domains of the account across all pages.
+func (d *dnsProvider) listDomains(ctx context.Context) ([]dnsimple.Domain, error) {
+	var domains []dnsimple.Domain
+	options := &dnsimple.DomainListOptions{}
+	options.PerPage = dnsimple.Int(perPage)
+	for page := 1; ; page++ {
+		options.Page = dnsimple.Int(page)
+		response, err := d.client.Domains.ListDomains(ctx, d.account, options)
+		if err != nil {
+			return nil, err
+		}
+		domains = append(domains, response.Data...)
+		if response.Pagination == nil || page >= response.Pagination.TotalPages {
+			return domains, nil
+		}
+	}
+}
+
+// listRecords returns the records of a zone across all pages.
+func (d *dnsProvider) listRecords(ctx context.Context, zone string) ([]dnsimple.ZoneRecord, error) {
+	var records []dnsimple.ZoneRecord
+	options := &dnsimple.ZoneRecordListOptions{}
+	options.PerPage = dnsimple.Int(perPage)
+	for page := 1; ; page++ {
+		options.Page = dnsimple.Int(page)
+		response, err := d.client.Zones.ListRecords(ctx, d.account, zone, options)
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, response.Data...)
+		if response.Pagination == nil || page >= response.Pagination.TotalPages {
+			return records, nil
+		}
+	}
 }
