@@ -22,7 +22,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/goflags v0.2.1
 	github.com/projectdiscovery/gologger v1.1.73
-	github.com/projectdiscovery/utils v0.11.10
+	github.com/projectdiscovery/utils v0.11.13
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.14
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/oauth2 v0.30.0
@@ -85,7 +85,7 @@ require (
 	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
-	github.com/klauspost/compress v1.18.2 // indirect
+	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
@@ -179,7 +179,7 @@ require (
 	github.com/alitto/pond/v2 v2.3.2
 	github.com/dnsimple/dnsimple-go v1.7.0
 	github.com/ovh/go-ovh v1.9.0
-	github.com/projectdiscovery/networkpolicy v0.1.55
+	github.com/projectdiscovery/networkpolicy v0.1.58
 	github.com/projectdiscovery/retryablehttp-go v1.3.31
 )
 
