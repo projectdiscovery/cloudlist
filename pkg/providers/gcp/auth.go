@@ -180,6 +180,7 @@ func registerWithOptions(
 		if err != nil {
 			return nil, errkit.Wrap(err, "failed to read source credentials file")
 		}
+		//nolint:staticcheck // SA1019: the file comes from the user's own config; any credential type is accepted.
 		sourceCreds, err = google.CredentialsFromJSON(ctx, sourceKeyData, scope)
 		if err != nil {
 			return nil, errkit.Wrap(err, "failed to parse source credentials")
@@ -187,6 +188,7 @@ func registerWithOptions(
 	} else if len(serviceAccountKey) > 0 {
 		// Use service account key from config
 		gologger.Debug().Msgf("Using service account key from configuration")
+		//nolint:staticcheck // SA1019: the key comes from the user's own config; any credential type is accepted.
 		sourceCreds, err = google.CredentialsFromJSON(ctx, serviceAccountKey, scope)
 		if err != nil {
 			return nil, errkit.Wrap(err, "failed to parse specified GCP service account key")
