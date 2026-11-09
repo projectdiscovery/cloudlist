@@ -22,7 +22,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/projectdiscovery/goflags v0.2.1
 	github.com/projectdiscovery/gologger v1.1.75
-	github.com/projectdiscovery/utils v0.11.12
+	github.com/projectdiscovery/utils v0.11.13
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.14
 	github.com/stretchr/testify v1.12.1
 	golang.org/x/oauth2 v0.36.0
@@ -179,8 +179,8 @@ require (
 	github.com/alitto/pond/v2 v2.3.2
 	github.com/dnsimple/dnsimple-go v1.7.0
 	github.com/ovh/go-ovh v1.9.0
-	github.com/projectdiscovery/networkpolicy v0.1.57
-	github.com/projectdiscovery/retryablehttp-go v1.3.33
+	github.com/projectdiscovery/networkpolicy v0.1.58
+	github.com/projectdiscovery/retryablehttp-go v1.3.34
 )
 
 require (
@@ -212,7 +212,7 @@ require (
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/logrusorgru/aurora/v4 v4.0.0 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
-	github.com/projectdiscovery/fastdialer v0.6.1 // indirect
+	github.com/projectdiscovery/fastdialer v0.6.2 // indirect
 	github.com/projectdiscovery/hmap v0.0.104 // indirect
 	github.com/projectdiscovery/retryabledns v1.0.118 // indirect
 	github.com/refraction-networking/utls v1.8.2 // indirect
